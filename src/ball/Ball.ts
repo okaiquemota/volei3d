@@ -72,6 +72,8 @@ export class Ball {
 
   get posicao(): THREE.Vector3 { return this.mesh.position; }
   get presa(): boolean { return this.ancora !== null; }
+  /** Ja' assentou na areia e parou de quicar. */
+  get parada(): boolean { return this.dormindo; }
 
   /** Reposiciona e zera o movimento. */
   teleportar(posicao: THREE.Vector3): void {

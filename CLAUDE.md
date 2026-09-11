@@ -143,6 +143,28 @@ um tapete voador, não como uma praia.
 desenhada vai a 400 m e a névoa come o fim dela. Os limites de corrida e de bola
 dentro/fora continuam saindo do `Court`, com a zona livre de 4 m intacta.
 
+## Marcadores: medir isso é mais escorregadio do que parece
+
+O anel branco sai de `preverPouso`, a mesma previsão da IA. Ele mira
+`floorY + BALL.radius`, não `floorY`: a bola toca a areia com o CENTRO a um raio
+de altura, e prever até o chão erra uns dez centímetros sempre para o mesmo
+lado. Se mexer nisso, mexa nos dois — marcador e IA — ou eles passam a discordar
+sobre onde a bola cai.
+
+Três maneiras de medir errado que já me pegaram, todas acusando metros de erro
+num marcador que estava certo:
+
+- **a CPU intercepta.** Mandando o lance para o campo adversário, ela devolve no
+  meio do voo e o ponto de queda muda. O marcador acertou a trajetória que
+  existia. Meça com o lance ficando no próprio campo.
+- **a partida teleporta a bola.** Entre lances, o `Match` cobra o ponto e,
+  passado o intervalo, `iniciarSaque` PRENDE a bola na mão do sacador — no meio
+  do voo seguinte. Congele com `g.match.update = () => {}`.
+- **ler o marcador depois do `update` no quadro do toque.** A bola já quicou, e
+  o marcador passou a mostrar a queda SEGUINTE. Leia antes.
+
+Com as três corrigidas: 0,9 cm de erro médio, 1,8 cm no pior caso.
+
 ## Como testar de verdade
 
 **Não dá para medir fps neste ambiente.** Sob renderização por software o jogo

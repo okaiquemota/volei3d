@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { AI, AI_SKILL, type AiSkill } from '../config';
+import { AI, AI_SKILL, BALL, type AiSkill } from '../config';
 import { randomInCircle } from '../core/math';
 import { oposto } from '../world/Court';
 import { Athlete } from './Athlete';
@@ -97,7 +97,8 @@ export class AIPlayer extends Athlete {
     const meu = this.ball.ultimoTocador?.side === this.side;
     if (!meu && this.ball.tempoDesdeOToque < this.habilidade.reactionDelay) return;
 
-    this.ball.preverPouso(this.court.floorY, _pouso);
+    // Mesmo alvo do marcador: o centro da bola no contato, nao o chao.
+    this.ball.preverPouso(this.court.floorY + BALL.radius, _pouso);
 
     const vemPraMim = this.court.ladoDe(_pouso) === this.side || this.bolaNoMeuLado();
     if (!vemPraMim) {

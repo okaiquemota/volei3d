@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { AI_SKILL, CAMERA, COLORS } from '../config';
+import { AI_SKILL, BALL, CAMERA, COLORS } from '../config';
 import { Input } from './Input';
 import { CameraRig } from './CameraRig';
 import { PerfMeter } from '../ui/PerfMeter';
@@ -12,12 +12,14 @@ import { AIPlayer } from '../players/AI';
 import { descartarGeometriasDeAtleta } from '../players/buildAthlete';
 import { Court } from '../world/Court';
 import { construirQuadra, type Colisores } from '../world/buildCourt';
+import { Markers } from '../world/Markers';
 import { setMaxAnisotropy } from '../world/textures';
 
 export type GameState = 'menu' | 'playing' | 'paused' | 'over';
 
 /** Buffer de tela reaproveitado: o PerfMeter pede o tamanho todo quadro. */
 const _bufSize = new THREE.Vector2();
+const _queda = new THREE.Vector3();
 
 /**
  * Laco principal e dono de todos os sistemas.
@@ -42,6 +44,9 @@ export class Game {
   readonly opponent: AIPlayer;
   readonly match: Match;
   readonly rig: CameraRig;
+
+  /** Publico so' pra depuracao pelo __VOLEI, como o resto. */
+  readonly markers = new Markers();
 
   private hud = new HUD();
   /** Publico so' pra depuracao pelo __VOLEI, como o rpk.fps faz. */
@@ -95,6 +100,9 @@ export class Game {
     this.ball = new Ball(this.court, this.colisores);
     this.scene.add(this.ball.mesh);
     this.descartaveis.push(this.ball);
+
+    this.scene.add(this.markers.group);
+    this.descartaveis.push(this.markers);
 
     const rally = new LigacaoDoRally();
 
@@ -202,9 +210,13 @@ export class Game {
    */
   private aquecerShaders(): void {
     // Todo mundo ja' esta' na cena: quadra, rede, postes, bola e os dois
-    // atletas. Basta um quadro com a camera enxergando o conjunto.
+    // atletas. Os marcadores nascem escondidos, entao precisam aparecer aqui —
+    // material que nao passa pelo aquecimento compila no meio do rally.
+    this.markers.prepararAquecimento();
     this.rig.encaixar();
     this.renderer.render(this.scene, this.camera);
+    this.markers.esconderQueda();
+    this.markers.esconderMira();
   }
 
   // ==================================================================
@@ -303,7 +315,41 @@ export class Game {
     this.player.update(dt);
     this.opponent.update(dt);
     this.ball.update(dt);
+    this.atualizarMarcadores();
     this.rig.update(dt);
+  }
+
+  /**
+   * Os dois marcadores no chao.
+   *
+   * A queda vem da MESMA previsao que a IA usa — nao ha' duas contas de onde a
+   * bola vai cair, entao o que voce ve' e' literalmente o que o adversario
+   * esta' lendo.
+   */
+  private atualizarMarcadores(): void {
+    // Bola na mao do sacador ou ja' parada na areia: nao ha' queda a prever.
+    if (this.ball.presa || this.ball.parada) {
+      this.markers.esconderQueda();
+    } else {
+      /**
+       * O alvo e' o centro da bola no instante do CONTATO, nao o chao.
+       *
+       * A bola toca a areia com o centro a um raio de altura. Prevendo ate'
+       * y = 0 o marcador cai uns dez centimetros alem do ponto real — pouco,
+       * mas e' erro sistematico e sempre pro mesmo lado.
+       */
+      const tempo = this.ball.preverPouso(this.court.floorY + BALL.radius, _queda);
+      _queda.y = this.court.floorY;
+      // Perto demais do chao o anel vira ruido em cima da propria bola.
+      if (tempo > 0.08) this.markers.mostrarQueda(_queda, tempo);
+      else this.markers.esconderQueda();
+    }
+
+    // A mira so' aparece quando ha' o que mirar: no seu saque, ou com a bola
+    // do seu lado. Sempre visivel, ela vira enfeite e polui a leitura.
+    const vale = this.player.sacando || this.court.ladoDe(this.ball.posicao) === 'home';
+    if (vale && this.state === 'playing') this.markers.mostrarMira(this.player.pontoDeMira);
+    else this.markers.esconderMira();
   }
 
   private render(): void {

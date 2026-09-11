@@ -70,6 +70,12 @@ pouco, a rede praticamente mata a bola, o poste devolve.
 fora, ou um lado dá mais de três toques. Quem faz o ponto passa a sacar. 15
 pontos com dois de vantagem e teto em 25.
 
+**Marcadores no chão.** O anel branco mostra onde a bola **vai cair** — e
+aperta conforme ela chega, então diz também *quando*. O anel azul mostra para
+onde o **seu ataque** vai. A previsão do branco é a mesma que a IA usa: não há
+duas contas de onde a bola cai, então o que você vê é o que o adversário está
+lendo.
+
 **Adversário.** Reage e devolve, e nada mais. Prevê onde a bola vai cair, corre
 até lá com um erro, e devolve mirando um ponto aleatório. Usa exatamente a mesma
 física de toque que você: erra por ter erro, não por ter regra própria.
@@ -143,6 +149,9 @@ que existem testes: essa parte roda no Node.
   ficava escondido atrás da rede, num jogo em que se mira nele.
 - **O solver sobe o arco até passar da rede**, até oito tentativas. É o que
   impede o jogador de enterrar a bola na própria rede toda jogada.
+- **O marcador de queda prevê até o centro da bola no contato, não até o chão.**
+  A bola toca a areia com o centro a um raio de altura; mirar em `y = 0` erra
+  uns dez centímetros sempre para o mesmo lado. Medido: 0,9 cm de erro médio.
 - **Um buffer de 0,18 s guarda o clique adiantado.** Sem ele o jogo parece
   travado justamente quando o jogador acertou o tempo.
 - **Nenhum arquivo binário no repositório.** Textura é canvas 2D, geometria é
