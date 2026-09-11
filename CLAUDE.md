@@ -43,6 +43,9 @@ está ligado, junto com `noUnusedLocals` e `noUnusedParameters`.
   biblioteca de vetores e roda no Node. Confundir os dois leva a reimplementar
   matemática de vetor à mão por nada.
 - HUD: markup em `index.html`, setters em `ui/HUD.ts`, estilo em `ui/style.css`.
+- Uma partida numa quadra num lugar do mundo: `world/Arena.ts`. Onde ficam as
+  quadras da praia: `world/praia.ts` — é só dado, mexer ali não mexe em código.
+- Quem olha pra qual quadra: `core/Game.ts` (`assistir`, `arenaEmFoco`).
 
 ## A regra que sustenta o projeto inteiro
 
@@ -272,6 +275,54 @@ rotação de saque e o fim de jogo.
 - `page.keyboard.press('Space')` não vira pulo num laço de `update` manual: o
   `wasPressed` é consumido pelo `endFrame` do laço de render antes do seu laço
   rodar. Chame `motor.pular()` direto.
+
+## Erro que se repete não é erro: é ruído
+
+A IA sorteava o erro de posição (`positionError`) dentro de
+`atualizarAlvoDeCorrida`, que roda a cada `AI.decisionCooldown` — 0,08 s, doze
+vezes por segundo. O comentário dizia "uma vez por decisão, senão vira tremor",
+e a intenção estava certa; o efeito era o contrário do escrito. Doze desvios
+aleatórios em torno do ponto certo **se cancelam**: a IA convergia pra queda
+exata por mais alto que fosse o número, e `positionError` não defendia nada.
+
+Foi o que deixou dois bots no `dificil` rebatendo por 87 segundos de média sem
+ninguém errar. Sorteado uma vez **por bola lida** (`erroDeLeitura`), o mesmo
+número vira leitura errada de verdade, que se paga.
+
+Vale como regra: todo erro aleatório que a IA comete tem que durar o tempo da
+decisão que ele estraga. Sorteado por quadro, ele não existe.
+
+## Dois bots não jogam vôlei sozinhos por acidente
+
+A IA devolvia toda bola de primeira, num balão alto mirado no fundo do campo
+adversário. Contra um humano isso passa despercebido — quem termina o ponto é o
+humano, que ataca. Entre dois bots, não: o balão sempre chega, sempre é
+alcançado e sempre volta. Medido, dava **0 a 0 depois de dois minutos**, e uma
+praia inteira de quadras congeladas.
+
+O conserto não foi deixar a IA errar mais, foi fazer ela **armar**: primeiro
+toque fica em casa, perto da rede (`chanceDeArmar`), segundo é ataque de
+verdade. Com isso o `normal` faz um set de 15 em ~5,5 minutos e o `facil` em
+~5,6. O `dificil` ainda estica (dois bots quase perfeitos), mas pontua — e a
+quadra reinicia sozinha quando alguém chega a 15 (`Arena.recomecarSeAcabou`),
+que é o que impede uma quadra de virar cenário depois do primeiro set.
+
+Se for mexer nisso de novo: o sintoma "placar parado" tem três causas
+diferentes e elas se parecem no relatório. Instrumente `match.estadoAtual` ao
+longo do tempo antes de supor. `rallies: 0` com toques acontecendo é rally
+eterno; `rallies: 0` sem toque nenhum é partida que nunca saiu de `parada`.
+
+## A câmera de quem assiste não é a de quem joga
+
+Apontar a câmera pra bola de verdade inclina ela pro céu toda vez que a bola
+sobe, e a quadra escorrega pro pé da tela. Quem assiste segue a bola **de lado**
+(um quarto do deslocamento) e mira sempre na rede, na altura de um jogador.
+
+A altura e a distância também mudam, e por conta, não por gosto: da posição de
+jogo (10,5 m / 13 m) a linha de fundo mais perto cai a 79° abaixo do horizonte e
+a mais longe a 30° — 49° de campo pra uma lente de 45°. Quem joga está no fundo,
+então não sente falta; quem assiste quer as duas metades. A 13 m / 11 m a conta
+dá 50° e 26°: cabe.
 
 ## O que NÃO foi verificado
 

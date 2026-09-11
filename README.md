@@ -1,7 +1,9 @@
 # VÔLEI 3D
 
-Vôlei de praia em 3D, uma quadra, 15 pontos. Feito em **TypeScript + Three.js**,
-sem framework de jogo e sem engine de física — tudo escrito à mão.
+Vôlei de praia em 3D numa praia com três quadras: você joga numa, as outras
+jogam sozinhas, e dá pra ir assistir a qualquer uma sem sair da sua partida.
+Feito em **TypeScript + Three.js**, sem framework de jogo e sem engine de
+física — tudo escrito à mão.
 
 Abre e joga: não tem instalador, não tem plugin, não tem barra de carregamento.
 
@@ -39,6 +41,8 @@ npm run build:single # dist/volei3d.html — joga com duplo clique, offline
 | Atacar por cima da rede | **Segurar** o clique esquerdo e soltar |
 | Levantar no próprio campo | **Clique direito** |
 | Sacar | Segure e solte o clique esquerdo — a carga vale aqui também |
+| Trocar de quadra | `[` e `]` |
+| Voltar pra sua quadra | `Tab` |
 | Reiniciar | `R`, na tela de fim de jogo |
 | Pausar / desempenho | `Esc` / `F3` |
 | Esconder o manual de teclas | `H` |
@@ -64,6 +68,11 @@ da cabeça vira levantamento, alta com você no ar vira cortada.
 Os dois primeiros toques do seu lado armam a jogada no seu próprio campo; o
 terceiro cruza a rede automaticamente — ou antes, se você segurar o botão de
 ataque.
+
+**As outras quadras não esperam por você.** As três partidas correm ao mesmo
+tempo, cada uma com sua bola e seu placar; assistir não pausa a sua, e a sua
+não pausa as delas. Quando uma quadra de bots chega a 15, ela descansa seis
+segundos e começa outra — nenhuma quadra vira cenário.
 
 ---
 
@@ -98,9 +107,15 @@ onde o **seu ataque** vai. A previsão do branco é a mesma que a IA usa: não h
 duas contas de onde a bola cai, então o que você vê é o que o adversário está
 lendo.
 
-**Adversário.** Reage e devolve, e nada mais. Prevê onde a bola vai cair, corre
-até lá com um erro, e devolve mirando um ponto aleatório. Usa exatamente a mesma
-física de toque que você: erra por ter erro, não por ter regra própria.
+**Adversário.** Prevê onde a bola vai cair, corre até lá com um erro de leitura,
+e joga como se joga vôlei: o primeiro toque **arma** perto da rede, o segundo é
+ataque. Usa exatamente a mesma física de toque que você — erra por ter erro, não
+por ter regra própria, e a dificuldade é um punhado de números em `config.ts`.
+
+Ele devolvia tudo de primeira, num balão alto, até se medir o que acontece
+quando dois deles jogam um contra o outro: **0 a 0 depois de dois minutos**. O
+balão sempre chega, sempre é alcançado e sempre volta. Contra um humano isso
+nunca aparece, porque quem termina o ponto é o humano.
 
 ---
 
@@ -111,13 +126,15 @@ src/
   config.ts             todos os números de tuning num lugar só, com o porquê
   main.ts               bootstrap: renderer e Game, nessa ordem
   core/
-    Game.ts             laço principal; conecta todos os sistemas
+    Game.ts             laço principal; roda todas as arenas, aponta a câmera
     Input.ts            teclado e mouse (sem pointer lock — a mira é no chão)
     CameraRig.ts        câmera em 3ª pessoa, presa à quadra e não ao corpo
     ballistics.ts       solvers de arco e previsão de queda — lógica pura
     gpu.ts              detecta renderização por software e adapta
     math.ts             clamp, lerp, damp, AABB, aleatórios
   world/
+    Arena.ts            uma partida, numa quadra, num lugar do mundo
+    praia.ts            onde ficam as quadras — só dado, sem código
     Court.ts            a única fonte de verdade sobre geometria de jogo
     buildCourt.ts       areia, linhas, rede, postes — e os colisores junto
     Physics.ts          o integrador da bola e as colisões
@@ -129,7 +146,7 @@ src/
     Motor.ts            corrida e pulo (cinemático: não empurra a bola)
     Hitter.ts           manchete, levantamento, cortada e saque
     Human.ts            lê o input, mira no chão
-    AI.ts               prevê, persegue, devolve
+    AI.ts               prevê, persegue, arma e ataca
     buildAthlete.ts     o corpo low-poly
   match/Match.ts        placar, saque, toques, fim de jogo — lógica pura
   ui/
@@ -158,8 +175,9 @@ outra. É por isso que essa parte tem teste e o resto não.
   a bola precisa ser prevista.
 - **Tudo em espaço local da quadra.** Limites, lados, rede e spawns são
   calculados em local e convertidos para mundo. Mover ou girar a quadra não toca
-  em nenhuma linha de bola, jogador ou IA — é o que vai permitir várias quadras
-  espalhadas por um mundo aberto.
+  em nenhuma linha de bola, jogador ou IA — foi essa decisão que fez as três
+  quadras da praia custarem uma classe (`Arena`) e uma lista de posições, e não
+  uma reescrita.
 - **A geometria visual e os colisores saem dos mesmos números.** Não há duas
   listas, então o que se vê não tem como divergir do que colide.
 - **O corpo do atleta não colide com a bola.** Todo contato é intencional e passa
@@ -238,5 +256,8 @@ O menu tem um controle de resolução (50% a 100%). O custo do quadro cresce com
 
 - Som: toque, quique na areia, apito. O `Audio.ts` do rpk.fps é a fundação.
 - Duplas, em vez de um contra um.
-- Várias quadras numa praia — a arquitetura já está pronta para isso.
+- Andar pela praia a pé e escolher a quadra chegando perto, em vez de `[` e `]`.
+- Multiplayer de verdade: hoje as outras quadras são bots. As partes puras
+  (`Match`, `Court`, `ballistics`, `Physics`) já rodariam num servidor Node sem
+  mudança; o que falta é `Athlete` e `Ball` pararem de importar render.
 - Placas de patrocínio nas âncoras que a quadra já cria.
