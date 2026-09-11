@@ -1,22 +1,29 @@
 import * as THREE from 'three';
-import { AI_SKILL, CAMERA, COLORS } from '../config';
+import { AI_SKILL, CAMERA, COLORS, PASSEIO } from '../config';
 import { Input } from './Input';
 import { CameraRig } from './CameraRig';
 import { PerfMeter } from '../ui/PerfMeter';
 import { HUD } from '../ui/HUD';
 import { Screens } from '../ui/Screens';
-import { LigacaoDoRally } from '../match/Match';
 import { Human } from '../players/Human';
+import { Banhista } from '../players/Banhista';
 import { AIPlayer } from '../players/AI';
 import { descartarGeometriasDeAtleta } from '../players/buildAthlete';
 import { Arena } from '../world/Arena';
+import { construirPraia } from '../world/buildBeach';
 import { PRAIA } from '../world/praia';
+import type { Side } from '../world/Court';
 import { setMaxAnisotropy } from '../world/textures';
 
 export type GameState = 'menu' | 'playing' | 'paused' | 'over';
 
 /** Buffer de tela reaproveitado: o PerfMeter pede o tamanho todo quadro. */
 const _bufSize = new THREE.Vector2();
+const _ponto = new THREE.Vector3();
+const _olhar = new THREE.Vector3();
+
+/** Seu nome no placar. Vale na quadra que voce ocupar. */
+const MEU_NOME = 'VOCE';
 
 /**
  * Laco principal e dono de todos os sistemas.
@@ -45,8 +52,20 @@ export class Game {
   /** Em qual arena a camera esta'. Jogando ou assistindo. */
   private arenaFoco = 0;
 
-  /** O jogador humano. Vive na arena em que entrou. */
-  readonly player: Human;
+  /**
+   * Voce, quando esta' numa quadra. Fora dela, `null`.
+   *
+   * Era um campo `readonly` criado uma vez, porque o jogador era sempre um
+   * atleta de uma quadra — nao havia outro lugar pra estar. Com a praia
+   * andavel, "nao estar em quadra nenhuma" passou a ser um estado legitimo, e
+   * fingir o contrario com um atleta escondido em algum canto espalharia o
+   * fingimento por todo lado: limite de area, saque, mira, escolha de acao.
+   */
+  player: Human | null = null;
+
+  /** Voce, na areia. O corpo que anda entre as quadras. */
+  readonly banhista: Banhista;
+
   readonly rig: CameraRig;
 
   private hud = new HUD();
@@ -100,12 +119,25 @@ export class Game {
      * vazias nao e' mundo aberto, e' um cenario — o que faz o lugar parecer
      * vivo e' ter jogo acontecendo onde voce nao esta'.
      */
+    // O chao vem primeiro, e e' UM so' pra praia inteira. Cada quadra desenha
+    // o que e' dela: linhas, rede e postes.
+    const praia = construirPraia();
+    this.scene.add(praia.root);
+    this.descartaveis.push(...praia.descartaveis);
+
     for (const lugar of PRAIA) {
       const arena = new Arena(lugar.id, lugar.posicao, lugar.rotacao);
       this.arenas.push(arena);
       this.scene.add(arena.raiz);
       this.descartaveis.push(arena);
     }
+
+    this.banhista = new Banhista(COLORS.home, this.arenas.map((a) => a.court));
+    this.banhista.camera = this.camera;
+    this.banhista.input = this.input;
+    this.banhista.objeto.visible = false;
+    this.scene.add(this.banhista.objeto);
+    this.descartaveis.push(this.banhista);
 
     /**
      * O humano entra na primeira quadra, no lado Home.
@@ -115,22 +147,11 @@ export class Game {
      * remoto vai usar quando houver rede.
      */
     const minha = this.arenas[0]!;
-    const rally = new LigacaoDoRally();
-    rally.match = minha.match;
-
-    this.player = new Human('VOCE', 'home', COLORS.home, minha.court, minha.ball, rally);
-    this.player.camera = this.camera;
-    this.player.input = this.input;
-    minha.ocupar('home', this.player);
-
-    this.ligarEventosDaArena(minha);
 
     this.criarLuzes();
 
     this.rig = new CameraRig(this.camera, minha.court, 'home');
-    this.rig.alvo = this.player.objeto;
-    this.rig.bola = minha.ball.mesh;
-    this.rig.encaixar();
+    this.entrarNaQuadra(minha, 'home');
 
     this.ligarTelas();
     this.aplicarAjustes();
@@ -210,9 +231,16 @@ export class Game {
     // atletas. Os marcadores nascem escondidos, entao precisam aparecer aqui —
     // material que nao passa pelo aquecimento compila no meio do rally.
     for (const arena of this.arenas) arena.prepararAquecimento();
+
+    // O banhista tambem: ele nasce escondido, e material escondido nao compila.
+    // O primeiro Q do jogador nao pode ser o quadro em que o shader nasce.
+    this.banhista.objeto.visible = true;
+
     this.rig.encaixar();
     this.renderer.render(this.scene, this.camera);
+
     for (const arena of this.arenas) arena.esconderMarcadores();
+    this.banhista.objeto.visible = false;
   }
 
   // ==================================================================
@@ -226,7 +254,7 @@ export class Game {
     this.screens.aoMudarAjustes = () => this.aplicarAjustes();
 
     this.screens.mostrarMenu(true);
-    this.hud.definirNomes(this.player.nome, 'CPU');
+    this.hud.definirNomes(MEU_NOME, 'CPU');
   }
 
   private aplicarAjustes(): void {
@@ -257,10 +285,10 @@ export class Game {
      * jogador voltaria pra uma praia inteira em 0 a 0, como se o mundo
      * existisse so' quando ele joga.
      */
+    const minha = this.minhaArena;
     for (const arena of this.arenas) {
-      if (arena === this.minhaArena || arena.match.estadoAtual === 'parada') arena.match.comecar();
+      if (arena === minha || arena.match.estadoAtual === 'parada') arena.match.comecar();
     }
-    this.rig.encaixar();
     this.state = 'playing';
   }
 
@@ -288,8 +316,10 @@ export class Game {
   }
 
   private terminarPartida(venceu: boolean): void {
+    const placar = this.minhaArena?.match.placar;
+    if (!placar) return;
+
     this.state = 'over';
-    const placar = this.minhaArena.match.placar;
     this.screens.mostrarFim(venceu, placar.home, placar.away);
   }
 
@@ -316,6 +346,14 @@ export class Game {
     if (this.input.wasPressed('Tab')) this.voltarPraMinhaQuadra();
 
     if (this.state === 'playing') {
+      // Entrar e sair de quadra. Uma tecla so' vale de cada vez: quem esta'
+      // jogando sai, quem esta' na areia entra.
+      if (this.player) {
+        if (this.input.wasPressed('KeyQ')) this.sairDaQuadra();
+      } else if (this.input.wasPressed('KeyE')) {
+        this.entrarNaQuadraMaisPerto();
+      }
+
       if (this.input.wasPressed('Escape')) this.pausar();
       else this.update(dt);
     } else if (this.state === 'over' && this.input.wasPressed('KeyR')) {
@@ -334,15 +372,137 @@ export class Game {
     // que faz a praia ter jogo acontecendo em vez de quadras congeladas.
     for (const arena of this.arenas) arena.update(dt);
 
-    this.hud.carga(this.player.carregandoAtaque ? this.player.forcaDoAtaque : -1);
-    this.hud.relogioDoSaque(this.minhaArena.match.segundosParaSacar);
+    // O banhista so' anda quando existe: dentro da quadra quem se mexe e' o
+    // atleta, e o corpo na areia esta' guardado.
+    if (!this.player) {
+      this.banhista.update(dt);
+      this.atualizarPasseio();
+    }
+
+    this.hud.carga(this.player?.carregandoAtaque ? this.player.forcaDoAtaque : -1);
+    this.hud.relogioDoSaque(this.minhaArena?.match.segundosParaSacar ?? null);
 
     this.rig.update(dt);
   }
 
-  /** A arena em que o jogador humano esta'. */
-  get minhaArena(): Arena {
-    return this.arenas.find((a) => a.humano !== null) ?? this.arenas[0]!;
+  /** A arena em que voce esta' jogando. `null` enquanto voce anda pela areia. */
+  get minhaArena(): Arena | null {
+    return this.arenas.find((a) => a.humano !== null) ?? null;
+  }
+
+  /**
+   * Entra numa quadra, no lugar do bot daquele lado.
+   *
+   * A partida NAO recomeca: placar, saque e contagem de toques continuam de
+   * pe'. E' o mesmo caminho que um jogador remoto vai usar quando houver rede —
+   * entrar e sair sao operacoes da Arena, e nao do mundo em volta dela.
+   *
+   * Voce veste a cor do LADO, nao a sua. Ler a quadra e' metade do jogo: azul
+   * de um lado, vermelho do outro, sempre. Um jogador que leva a propria cor
+   * pra qualquer lado quebra essa leitura toda vez que troca de quadra.
+   */
+  entrarNaQuadra(arena: Arena, lado: Side): void {
+    if (this.player) return;
+
+    const humano = new Human(
+      MEU_NOME,
+      lado,
+      lado === 'home' ? COLORS.home : COLORS.away,
+      arena.court,
+      arena.ball,
+      arena.rally,
+    );
+    humano.camera = this.camera;
+    humano.input = this.input;
+    arena.ocupar(lado, humano);
+    this.player = humano;
+
+    this.banhista.objeto.visible = false;
+    this.hud.dicaDaPraia(null);
+    this.hud.esconderAvisoDeQuadra();
+
+    this.focar(arena);
+    this.rig.jogar(arena.court, lado, humano.objeto, arena.ball.mesh);
+  }
+
+  /**
+   * Sai da quadra e vai a pe' pra areia.
+   *
+   * Um bot assume no seu lugar na hora. Sair no meio de um rally significa que
+   * a bola que vinha pra voce vai pro bot — que e' o que aconteceria numa
+   * quadra de verdade se voce saisse andando.
+   */
+  sairDaQuadra(): void {
+    const arena = this.minhaArena;
+    const humano = this.player;
+    if (!arena || !humano) return;
+
+    const lado = humano.side;
+    arena.saidaDe(lado, _ponto);
+    arena.court.direcaoParaRede(lado, _olhar);
+
+    // `liberar` DESCARTA o humano: nada pode ler `this.player` depois disto.
+    arena.liberar(lado);
+    this.player = null;
+
+    this.banhista.colocarEm(_ponto, _olhar);
+    this.banhista.objeto.visible = true;
+    this.rig.passear(this.banhista.objeto);
+    this.hud.esconderAvisoDeQuadra();
+
+    // O placar volta a ser de CPU contra CPU: quem estava escrito ali era voce,
+    // e voce acabou de sair.
+    this.focar(arena);
+  }
+
+  /** A quadra mais perto de quem anda, e por qual lado ele esta' chegando. */
+  private quadraMaisPerto(): { arena: Arena; lado: Side; distancia: number } | null {
+    let melhor: { arena: Arena; lado: Side; distancia: number } | null = null;
+
+    for (const arena of this.arenas) {
+      const { lado, distancia } = arena.ladoMaisPerto(this.banhista.posicao);
+      if (!melhor || distancia < melhor.distancia) melhor = { arena, lado, distancia };
+    }
+    return melhor;
+  }
+
+  /**
+   * O que ha' em volta de quem esta' andando.
+   *
+   * O placar do HUD acompanha a quadra mais perto — atravessar a praia devia
+   * dar a sensacao de passar por jogos, nao a de carregar um placar de uma
+   * partida que voce nem esta' vendo.
+   *
+   * So' vale com a camera atras de VOCE. Se ela estiver assistindo outra
+   * quadra, trocar o placar por proximidade mostraria um placar que nao e' o da
+   * quadra na tela.
+   */
+  private atualizarPasseio(): void {
+    if (this.rig.modoAtual !== 'passeio') {
+      this.hud.dicaDaPraia(null);
+      return;
+    }
+
+    const perto = this.quadraMaisPerto();
+    if (!perto) return;
+
+    if (perto.arena !== this.arenaEmFoco) this.focar(perto.arena);
+
+    if (perto.distancia > PASSEIO.alcanceDeEntrada) {
+      this.hud.dicaDaPraia(null);
+      return;
+    }
+
+    const nome = PRAIA[this.arenas.indexOf(perto.arena)]?.nome ?? perto.arena.id;
+    const cor = perto.lado === 'home' ? 'AZUL' : 'VERMELHO';
+    this.hud.dicaDaPraia(`E  entrar na ${nome}  ·  lado ${cor}`);
+  }
+
+  /** Entra na quadra mais perto, se houver uma ao alcance. */
+  private entrarNaQuadraMaisPerto(): void {
+    const perto = this.quadraMaisPerto();
+    if (!perto || perto.distancia > PASSEIO.alcanceDeEntrada) return;
+    this.entrarNaQuadra(perto.arena, perto.lado);
   }
 
   /** A arena que a camera esta' mostrando. Pode nao ser a do jogador. */
@@ -359,28 +519,63 @@ export class Game {
    */
   assistir(indice: number): void {
     const destino = this.arenas[((indice % this.arenas.length) + this.arenas.length) % this.arenas.length];
-    if (!destino || destino === this.arenaEmFoco) return;
+    if (!destino) return;
+    // Ja' estou olhando pra ela com o enquadramento certo: nao ha' o que fazer,
+    // e refazer daria um tranco de camera por tecla apertada a' toa.
+    if (destino === this.arenaEmFoco && this.rig.modoAtual !== 'passeio') return;
 
-    this.desligarEventosDaArena(this.arenaEmFoco);
-    this.arenaFoco = this.arenas.indexOf(destino);
-    this.ligarEventosDaArena(destino);
+    this.focar(destino);
 
-    // A camera segue o humano na sua quadra; nas outras, segue a BOLA — e' o
-    // enquadramento de quem assiste, nao o de quem joga.
+    // A camera segue o humano na sua quadra; nas outras, enquadra a quadra
+    // inteira de fora — e' o ponto de vista de quem assiste, nao o de quem joga.
     const humano = destino.humano;
-    this.rig.recolocar(destino.court, humano ? humano.side : 'home');
-    this.rig.alvo = humano ? humano.objeto : destino.ball.mesh;
-    this.rig.bola = destino.ball.mesh;
-    this.rig.encaixar();
+    if (humano) this.rig.jogar(destino.court, humano.side, humano.objeto, destino.ball.mesh);
+    else this.rig.assistir(destino.court, destino.ball.mesh);
 
-    this.hud.definirNomes(destino.home.nome, destino.away.nome);
     this.hud.avisoDeQuadra(PRAIA[this.arenaFoco]?.nome ?? destino.id, humano !== null);
-    this.hud.placar(destino.match.placar.home, destino.match.placar.away);
   }
 
-  /** Volta a camera pra quadra do jogador. */
+  /**
+   * Faz uma arena ser a que alimenta o HUD. Nao mexe na camera.
+   *
+   * Foco e ENQUADRAMENTO sao duas coisas: quem anda pela areia troca o placar
+   * da tela ao passar por uma quadra sem que a camera saia de cima dele.
+   */
+  private focar(arena: Arena): void {
+    this.desligarEventosDaArena(this.arenaEmFoco);
+    this.arenaFoco = this.arenas.indexOf(arena);
+    this.ligarEventosDaArena(arena);
+
+    this.hud.definirNomes(arena.home.nome, arena.away.nome);
+    this.hud.placar(arena.match.placar.home, arena.match.placar.away);
+
+    /**
+     * A linha de saque tambem, e nao so' o placar.
+     *
+     * Ela so' muda por EVENTO, e evento a gente perde ao trocar de arena: quem
+     * sai da quadra no meio do rally fica com "SAQUE: VOCE" na tela pelo resto
+     * da partida dos bots, e o relogio do saque junto.
+     */
+    const quemSaca = arena.match.quemSaca;
+    const sacador = quemSaca === 'home' ? arena.home : arena.away;
+    this.hud.saque(quemSaca, sacador.nome, arena.humano?.side === quemSaca);
+  }
+
+  /**
+   * Tab: volta a camera pra voce.
+   *
+   * Pra sua quadra se voce esta' jogando; pro seu corpo se voce esta' na areia.
+   * Nos dois casos e' a mesma promessa — a tecla devolve o controle.
+   */
   voltarPraMinhaQuadra(): void {
-    this.assistir(this.arenas.indexOf(this.minhaArena));
+    const minha = this.minhaArena;
+    if (minha) {
+      this.assistir(this.arenas.indexOf(minha));
+      return;
+    }
+
+    this.rig.passear(this.banhista.objeto);
+    this.hud.esconderAvisoDeQuadra();
   }
 
   /**

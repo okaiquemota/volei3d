@@ -32,6 +32,7 @@ export class HUD {
   private dicaDeAcao = elemento('action-hint');
   private manual = elemento('manual');
   private quadra = elemento('quadra-atual');
+  private dicaDaAreia = elemento('dica-praia');
   private barraDeCarga = elemento('carga');
   private preenchimentoDaCarga = elemento('carga-fill');
 
@@ -137,6 +138,23 @@ export class HUD {
   avisoDeQuadra(nome: string, ehMinhaQuadra: boolean): void {
     this.quadra.classList.toggle('hidden', ehMinhaQuadra);
     if (!ehMinhaQuadra) this.quadra.textContent = `ASSISTINDO ${nome}  ·  TAB volta`;
+  }
+
+  /** Esconde o aviso de quadra sem dizer que quadra e' a sua. */
+  esconderAvisoDeQuadra(): void {
+    this.quadra.classList.add('hidden');
+  }
+
+  /**
+   * O aviso de quem esta' andando pela areia. Null esconde.
+   *
+   * Fica separado da dica de saque de proposito: uma diz o que fazer com a
+   * bola, a outra diz o que ha' em volta. Misturar as duas num elemento so'
+   * faria o estado de uma apagar a outra em algum caminho que ninguem testou.
+   */
+  dicaDaPraia(texto: string | null): void {
+    this.dicaDaAreia.classList.toggle('hidden', texto === null);
+    if (texto !== null) this.dicaDaAreia.textContent = texto;
   }
 
   ponto(lado: Side, motivo: MotivoDoPonto, nome: string): void {

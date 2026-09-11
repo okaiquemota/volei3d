@@ -2,10 +2,14 @@ import * as THREE from 'three';
 import { COLORS, COURT } from '../config';
 import { AABB } from '../core/math';
 import { Court } from './Court';
-import { criarAreia, criarRede, escalarUVsDaCaixa } from './textures';
+import { criarRede } from './textures';
 
 /**
- * Geometria da quadra: areia, linhas, rede, postes.
+ * Geometria da quadra: linhas, rede e postes.
+ *
+ * A AREIA nao esta' aqui — ela e' o chao do mundo, e vive em `buildBeach`.
+ * Uma laje de 400 m por quadra seria tres lajes coplanares numa praia de tres
+ * quadras.
  *
  * A geometria VISUAL e os colisores saem dos mesmos numeros do config — mesma
  * disciplina do Level.buildProps() do rpk.fps. Nao ha' como o que se ve'
@@ -42,48 +46,6 @@ export function construirQuadra(court: Court): QuadraConstruida {
     descartaveis.push(x);
     return x;
   };
-
-  // ---------------------------------------------------------------- areia
-  const areia = criarAreia();
-  descartaveis.push(areia.map, areia.normalMap);
-
-  /**
-   * A areia visivel e' MUITO maior que a area de jogo, e isso e' deliberado.
-   *
-   * A laje do prototipo em Unity era a quadra + zona livre + 2 m de sobra: 18
-   * por 26 metros. Do ponto de vista da camera, em terceira pessoa a 6 m de
-   * altura, a areia acabava a treze metros e virava ceu — a quadra lia como um
-   * tapete voador, nao como uma praia. Nao e' erro de medida: e' que a medida
-   * certa pro JOGO nao e' a medida certa pra IMAGEM.
-   *
-   * Entao a areia desenhada vai a 160 m e a nevoa (no Game) come o fim dela.
-   * Nada disso toca em regra: os limites de corrida e de bola dentro/fora saem
-   * do Court, que segue com a zona livre de 4 m.
-   */
-  const PRAIA = 400; // alem do alcance da nevoa: a borda nunca aparece
-  const LAJE_ESPESSURA = 0.5;
-  const lajeX = PRAIA;
-  const lajeZ = PRAIA;
-
-  const geoAreia = guardar(new THREE.BoxGeometry(lajeX, LAJE_ESPESSURA, lajeZ));
-  // Textura medida em metros: um grao de areia tem o mesmo tamanho em qualquer peca.
-  escalarUVsDaCaixa(geoAreia, lajeX, LAJE_ESPESSURA, lajeZ, 2);
-  areia.map.repeat.set(1, 1);
-  areia.normalMap.repeat.set(1, 1);
-
-  const matAreia = guardar(new THREE.MeshStandardMaterial({
-    map: areia.map,
-    normalMap: areia.normalMap,
-    normalScale: new THREE.Vector2(areia.relevo, areia.relevo),
-    color: COLORS.sand,
-    roughness: 0.97,
-    metalness: 0,
-  }));
-
-  const meshAreia = new THREE.Mesh(geoAreia, matAreia);
-  meshAreia.position.y = -LAJE_ESPESSURA / 2;
-  meshAreia.receiveShadow = true;
-  root.add(meshAreia);
 
   // ---------------------------------------------------------------- linhas
   const matLinha = guardar(new THREE.MeshStandardMaterial({
@@ -156,7 +118,7 @@ export function construirQuadra(court: Court): QuadraConstruida {
     roughness: 0.55,
     metalness: 0.3,
   }));
-  const RAIO_POSTE = 0.06;
+  const RAIO_POSTE = COURT.postRadius;
   const geoPoste = guardar(new THREE.CylinderGeometry(RAIO_POSTE, RAIO_POSTE, COURT.postHeight, 12));
 
   const posteX = court.halfWidth + COURT.postOffset;

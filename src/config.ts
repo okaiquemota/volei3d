@@ -40,6 +40,7 @@ export const COURT = {
   postHeight: 2.55,
   /** Distancia do poste pra fora da linha lateral. */
   postOffset: 0.7,
+  postRadius: 0.06,
 
   /** Distancia da rede em que o atleta nasce, como fracao do meio-campo. */
   spawnDepthRatio: 0.6,
@@ -240,6 +241,18 @@ export const PLAYER = {
   setSetupDepth: 0.16,
 } as const;
 
+export const PASSEIO = {
+  /**
+   * A que distancia da area de jogo da' pra entrar numa quadra.
+   *
+   * Medido a partir da borda da zona livre, nao do centro: quem chega pela
+   * lateral esta' tao perto de entrar quanto quem chega pelo fundo. Quatro
+   * metros e' perto o bastante pra ser claro de qual quadra se fala, e longe o
+   * bastante pra nao exigir pontaria.
+   */
+  alcanceDeEntrada: 4,
+} as const;
+
 /**
  * Dificuldade da IA. Tudo que separa facil de dificil sao estes cinco numeros.
  * "normal" e' exatamente o comportamento do prototipo em Unity.
@@ -369,6 +382,19 @@ export const CAMERA = {
   assistirDistancia: 11,
   /** Quanto a camera de quem assiste anda de lado atras da bola. */
   assistirLateral: 0.25,
+
+  /**
+   * Onde fica a camera de quem PASSEIA pela praia.
+   *
+   * Mais baixa e mais perto que as outras duas, e pelo mesmo tipo de conta: a
+   * 4,5 m de altura e 10 m atras, a mira desce 16 graus abaixo do horizonte, e
+   * com meia lente de 22,5 sobra ceu no alto do quadro. Na altura da camera de
+   * jogo a inclinacao passa de 40 graus e a praia inteira vira areia sem
+   * horizonte — o enquadramento que serve pra ler uma quadra nao serve pra
+   * atravessar um lugar.
+   */
+  passeioAltura: 4.5,
+  passeioDistancia: 10,
   /** Folga minima atras da linha de fundo: a camera nunca entra na quadra. */
   minDepthMargin: 2,
   positionSmoothing: 7,

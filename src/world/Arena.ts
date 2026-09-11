@@ -5,7 +5,7 @@ import { LigacaoDoRally, Match, type EventosDaPartida } from '../match/Match';
 import { AIPlayer } from '../players/AI';
 import type { Athlete } from '../players/Athlete';
 import { Human } from '../players/Human';
-import { Court, type Side } from './Court';
+import { Court, sinalDe, type Side } from './Court';
 import { construirQuadra, type Colisores } from './buildCourt';
 import { Markers } from './Markers';
 
@@ -43,6 +43,15 @@ export class Arena {
   /** Segundos ate' os bots comecarem a partida seguinte. */
   private descanso = MATCH.descansoEntrePartidas;
 
+  /**
+   * A ligacao que os atletas desta arena usam pra perguntar do rally.
+   *
+   * Publica porque quem cria o humano e' o Game (so' ele tem camera e input), e
+   * um atleta com ligacao propria responderia "rally parado" a partida inteira
+   * e nunca tocaria na bola.
+   */
+  readonly rally = new LigacaoDoRally();
+
   constructor(
     readonly id: string,
     posicao: THREE.Vector3,
@@ -70,24 +79,23 @@ export class Arena {
      * terem jogo acontecendo em vez de dez quadras vazias. Quando um humano
      * entra, ele substitui um dos dois (`ocupar`), e quando sai o bot volta.
      */
-    const rally = new LigacaoDoRally();
-    this.home = this.criarBot('home', rally);
-    this.away = this.criarBot('away', rally);
+    this.home = this.criarBot('home');
+    this.away = this.criarBot('away');
 
     this.match = new Match(this.court, this.ball, this.home, this.away, eventos);
-    rally.match = this.match;
+    this.rally.match = this.match;
 
     this.ball.aoTocar = (por) => this.match.registrarToque(por.side);
   }
 
-  private criarBot(lado: Side, rally: LigacaoDoRally): AIPlayer {
+  private criarBot(lado: Side): AIPlayer {
     const bot = new AIPlayer(
-      lado === 'home' ? 'CPU' : 'CPU',
+      'CPU',
       lado,
       lado === 'home' ? COLORS.home : COLORS.away,
       this.court,
       this.ball,
-      rally,
+      this.rally,
     );
     this.raiz.add(bot.objeto);
     return bot;
@@ -101,7 +109,23 @@ export class Arena {
    * compartilharem estado mutavel — e a primeira coisa a quebrar seria o buffer
    * de toque do humano herdando o cooldown do bot.
    */
-  ocupar(lado: Side, quem: Athlete): Athlete {
+  ocupar(lado: Side, quem: Athlete): void {
+    this.trocar(lado, quem);
+  }
+
+  /**
+   * Tira o humano e devolve o bot.
+   *
+   * A partida NAO recomeca: placar, saque e contagem de toques continuam de pe'
+   * e o bot assume no proximo toque. Sair no meio de um rally significa que a
+   * bola que estava vindo pra voce vai pro bot, que e' o mesmo que aconteceria
+   * numa quadra de verdade se voce saisse andando.
+   */
+  liberar(lado: Side): void {
+    this.trocar(lado, this.criarBot(lado));
+  }
+
+  private trocar(lado: Side, quem: Athlete): void {
     const antigo = lado === 'home' ? this.home : this.away;
     this.raiz.remove(antigo.objeto);
     antigo.dispose();
@@ -109,9 +133,48 @@ export class Arena {
     if (lado === 'home') this.home = quem;
     else this.away = quem;
 
-    this.raiz.add(quem.objeto);
+    if (quem.objeto.parent !== this.raiz) this.raiz.add(quem.objeto);
     this.match.trocarAtleta(lado, quem);
-    return antigo;
+
+    /**
+     * Se a bola estava na mao de quem saiu, ela vai pra mao de quem entrou.
+     *
+     * A bola presa segue uma ANCORA — um Object3D dentro do corpo do sacador.
+     * Trocar de atleta no meio da espera do saque deixa essa ancora fora da
+     * cena, e a bola congela no ar onde o corpo antigo estava, esperando um
+     * saque que nao vem mais.
+     */
+    if (this.match.estadoAtual === 'esperandoSaque' && this.match.quemSaca === lado) {
+      quem.prepararSaque();
+      this.ball.prender(quem.ancoraDeSaque);
+    }
+  }
+
+  /**
+   * Qual lado desta quadra esta' mais perto deste ponto, e a que distancia.
+   *
+   * A distancia e' ate' a AREA DE JOGO daquele lado (meia quadra + zona livre),
+   * nao ate' o centro: quem chega pela lateral esta' tao perto de entrar quanto
+   * quem chega pelo fundo, e medir do centro diria que nao.
+   */
+  ladoMaisPerto(mundo: THREE.Vector3): { lado: Side; distancia: number } {
+    this.court.paraLocal(mundo, _local);
+    const lado: Side = _local.z < 0 ? 'home' : 'away';
+
+    const foraX = Math.max(0, Math.abs(_local.x) - this.court.halfWidthFree);
+    // Em Z a area do lado vai da rede (0) ate' a linha de fundo mais a zona livre.
+    const z = Math.abs(_local.z);
+    const foraZ = Math.max(0, z - this.court.halfLengthFree);
+
+    return { lado, distancia: Math.hypot(foraX, foraZ) };
+  }
+
+  /** Onde quem sai desta quadra reaparece: do lado de fora, atras do fundo. */
+  saidaDe(lado: Side, out: THREE.Vector3): THREE.Vector3 {
+    return this.court.paraMundo(
+      _local.set(0, 0, sinalDe(lado) * (this.court.halfLengthFree + SAIDA)),
+      out,
+    );
   }
 
   /** O humano desta arena, se houver. O espectador nao tem. */
@@ -193,3 +256,7 @@ export class Arena {
 }
 
 const _queda = new THREE.Vector3();
+const _local = new THREE.Vector3();
+
+/** Quantos metros pra fora da area de jogo quem sai da quadra reaparece. */
+const SAIDA = 2;

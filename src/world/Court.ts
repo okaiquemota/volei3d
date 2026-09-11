@@ -183,4 +183,66 @@ export class Court {
 
     return this.paraMundo(_local, out);
   }
+
+  /**
+   * Empurra um corpo pra fora da rede e dos postes desta quadra.
+   *
+   * Quem joga nunca precisou disto: o limite de area ja' o prende na propria
+   * metade, com folga pra rede. Quem ANDA pela praia atravessa as quadras, e
+   * uma rede que se atravessa a pe' desmonta o lugar inteiro — nada mais ali
+   * parece solido depois disso.
+   *
+   * E' empurrao, nao clamp: quem entra pela frente sai pela frente. Um clamp
+   * escolheria sempre o mesmo lado e teleportaria quem chega pelo outro.
+   *
+   * Nao vale pros corpos dos atletas nem pra bola. Os atletas sao pequenos e se
+   * mexem, e atravessar um de raspao le' como dois jogadores disputando a bola;
+   * atravessar a rede nao le' como nada.
+   */
+  desviarDaRede(mundo: THREE.Vector3, raio: number, out = new THREE.Vector3()): THREE.Vector3 {
+    this.paraLocal(mundo, _local);
+    let empurrou = false;
+
+    const meiaEspessura = COURT.netThickness / 2 + raio;
+    if (Math.abs(_local.x) <= this.halfWidth + raio && Math.abs(_local.z) < meiaEspessura) {
+      // z === 0 exato nao tem lado: manda pro campo away, que e' uma escolha
+      // qualquer mas precisa ser uma.
+      _local.z = (_local.z < 0 ? -1 : 1) * meiaEspessura;
+      empurrou = true;
+    }
+
+    const posteX = this.halfWidth + COURT.postOffset;
+    const alcance = COURT.postRadius + raio;
+    for (const sinal of [-1, 1]) {
+      const dx = _local.x - sinal * posteX;
+      const dz = _local.z;
+      const distancia = Math.hypot(dx, dz);
+      if (distancia >= alcance) continue;
+
+      // Em cima do poste, empurra pra fora pela lateral: nao ha' direcao.
+      if (distancia < 1e-4) {
+        _local.x = sinal * (posteX + alcance);
+      } else {
+        const k = alcance / distancia;
+        _local.x = sinal * posteX + dx * k;
+        _local.z = dz * k;
+      }
+      empurrou = true;
+    }
+
+    /**
+     * Sem contato, devolve a posicao COMO ELA ESTAVA — sem passar pela volta
+     * mundo -> local -> mundo.
+     *
+     * Nao e' economia, e' correcao. A volta e' um par de multiplicacoes 4x4, e
+     * numa quadra transladada ela devolve um valor diferente do original nos
+     * ultimos bits: x + 26 - 26 nao e' x quando x e' 0,0032. O Motor compara a
+     * posicao limitada com a original por igualdade EXATA pra saber se bateu
+     * numa parede, e mata a velocidade naquele eixo quando difere. Com o erro
+     * de volta, ele achava que batia na parede todo quadro: quem andava pelo
+     * eixo X nunca passava de dois metros por segundo.
+     */
+    if (!empurrou) return out.copy(mundo);
+    return this.paraMundo(_local, out);
+  }
 }

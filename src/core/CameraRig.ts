@@ -11,12 +11,28 @@ const _matriz = new THREE.Matrix4();
 const _lateral = new THREE.Vector3();
 
 /**
+ * O que a camera esta' fazendo. Sao tres enquadramentos diferentes, nao um com
+ * variacoes:
+ *
+ *   jogo        atras do SEU atleta, presa a' quadra, com o foco puxando pra
+ *               bola.
+ *   assistindo  fora da quadra, mirando na rede. Nao ha' atleta pra seguir.
+ *   passeio     atras de quem anda pela praia, sem quadra nenhuma.
+ */
+export type ModoDaCamera = 'jogo' | 'assistindo' | 'passeio';
+
+/**
  * Camera em terceira pessoa.
  *
- * Ela fica atras do jogador EM RELACAO A' QUADRA, nao a' rotacao do atleta.
- * Parece detalhe e nao e': com a camera presa ao corpo, virar pra pegar uma
- * bola lateral gira o mundo inteiro, e a leitura do campo — onde esta' a rede,
- * onde esta' a linha de fundo — se perde a cada toque.
+ * Jogando, ela fica atras do jogador EM RELACAO A' QUADRA, nao a' rotacao do
+ * atleta. Parece detalhe e nao e': com a camera presa ao corpo, virar pra pegar
+ * uma bola lateral gira o mundo inteiro, e a leitura do campo — onde esta' a
+ * rede, onde esta' a linha de fundo — se perde a cada toque.
+ *
+ * Andando pela praia vale a mesma regra, por um motivo ainda mais duro: ela
+ * mantem o rumo do MUNDO e so' acompanha a posicao. Camera presa ao corpo, com
+ * movimento relativo a' camera, e' realimentacao — segurar uma tecla faz o
+ * personagem andar em espiral.
  *
  * Sem balanco de passo, tambem de proposito. No rpk.fps o `bobAmount` caiu pra
  * 0.01 porque o olho oscilando atrapalha mirar; aqui a mira e' um ponto no chao
@@ -24,6 +40,14 @@ const _lateral = new THREE.Vector3();
  */
 export class CameraRig {
   private foco = new THREE.Vector3();
+  private modo: ModoDaCamera = 'jogo';
+
+  /** O que a camera segue, e o que ela olha junto (a bola). */
+  private alvo: THREE.Object3D | null = null;
+  private bola: THREE.Object3D | null = null;
+
+  /** O que ela esta' enquadrando agora. Quem coordena precisa saber. */
+  get modoAtual(): ModoDaCamera { return this.modo; }
 
   constructor(
     readonly camera: THREE.PerspectiveCamera,
@@ -31,31 +55,37 @@ export class CameraRig {
     private side: Side,
   ) {}
 
-  /** Alvo que a camera segue (o atleta) e o que ela olha junto (a bola). */
-  alvo: THREE.Object3D | null = null;
-  bola: THREE.Object3D | null = null;
-
-  /**
-   * Quem assiste nao tem atleta, entao a camera segue a propria bola.
-   *
-   * Isso muda o ENQUADRAMENTO, nao so' o alvo: seguir um atleta e' olhar pra
-   * uma coisa que anda no chao, e seguir a bola e' olhar pra uma coisa que
-   * passa seis metros no alto. Apontando pra bola de verdade, a camera se
-   * inclina pra cima e a quadra escorrega pro pe' da tela — sobra areia e ceu,
-   * que e' exatamente o que nao se quer ver.
-   */
-  private get assistindo(): boolean { return this.alvo !== null && this.alvo === this.bola; }
-
-  /**
-   * Aponta a camera pra outra quadra.
-   *
-   * A quadra e o lado sao o que define "atras do jogador": trocar de arena sem
-   * trocar os dois deixaria a camera enquadrando a quadra nova a partir do eixo
-   * da antiga.
-   */
-  recolocar(court: Court, side: Side): void {
+  /** Jogando: atras do seu atleta, na sua quadra. */
+  jogar(court: Court, side: Side, atleta: THREE.Object3D, bola: THREE.Object3D): void {
+    this.modo = 'jogo';
     this.court = court;
     this.side = side;
+    this.alvo = atleta;
+    this.bola = bola;
+    this.encaixar();
+  }
+
+  /**
+   * Assistindo: enquadra a quadra inteira, de fora.
+   *
+   * A quadra e o lado sao o que define "atras": trocar de arena sem trocar os
+   * dois deixaria a camera enquadrando a quadra nova a partir do eixo da antiga.
+   */
+  assistir(court: Court, bola: THREE.Object3D): void {
+    this.modo = 'assistindo';
+    this.court = court;
+    this.side = 'home';
+    this.alvo = bola;
+    this.bola = bola;
+    this.encaixar();
+  }
+
+  /** Passeando: atras de quem anda, com o rumo do mundo. */
+  passear(quem: THREE.Object3D): void {
+    this.modo = 'passeio';
+    this.alvo = quem;
+    this.bola = null;
+    this.encaixar();
   }
 
   /** Coloca a camera direto na posicao final, sem interpolar. */
@@ -87,7 +117,24 @@ export class CameraRig {
   }
 
   private calcularPosicao(out: THREE.Vector3): THREE.Vector3 {
-    if (this.assistindo) {
+    /**
+     * Passeio: deslocamento fixo em espaco de MUNDO.
+     *
+     * Mais baixa e mais perto que a de jogo, e por conta: a 4,5 m de altura e
+     * 10 m atras, a mira desce 16 graus abaixo do horizonte, e com meia lente
+     * de 22,5 sobra horizonte no alto do quadro. Na altura da camera de jogo
+     * (10,5 m) a inclinacao passa de 40 graus e a praia inteira vira areia sem
+     * ceu — o que serve pra ler uma quadra nao serve pra atravessar um lugar.
+     */
+    if (this.modo === 'passeio') {
+      return out.set(
+        this.alvo!.position.x,
+        CAMERA.passeioAltura,
+        this.alvo!.position.z - CAMERA.passeioDistancia,
+      );
+    }
+
+    if (this.modo === 'assistindo') {
       return this.court.paraMundo(
         _alvoLocal.set(
           this.acompanhamentoLateral(),
@@ -130,16 +177,21 @@ export class CameraRig {
   }
 
   private calcularFoco(out: THREE.Vector3): THREE.Vector3 {
-    out.copy(this.alvo!.position);
-
     // Assistindo: mira na REDE, na altura de um jogador. Mirar na bola de
     // verdade inclina a camera pro ceu toda vez que ela sobe, e a quadra
     // escorrega pro pe' da tela.
-    if (this.assistindo) {
+    if (this.modo === 'assistindo') {
       return this.court.paraMundo(
         _alvoLocal.set(this.acompanhamentoLateral(), CAMERA.alturaDoOlhar, 0),
         out,
       );
+    }
+
+    out.copy(this.alvo!.position);
+
+    if (this.modo === 'passeio') {
+      out.y += CAMERA.alturaDoOlhar;
+      return out;
     }
 
     out.y += 1.2;
