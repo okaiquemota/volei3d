@@ -31,6 +31,7 @@ export class HUD {
   private aviso = elemento('announcement');
   private dicaDeAcao = elemento('action-hint');
   private manual = elemento('manual');
+  private quadra = elemento('quadra-atual');
   private barraDeCarga = elemento('carga');
   private preenchimentoDaCarga = elemento('carga-fill');
 
@@ -125,6 +126,17 @@ export class HUD {
 
     this.preenchimentoDaCarga.style.width = `${Math.round(fracao * 100)}%`;
     this.barraDeCarga.classList.toggle('cheia', fracao >= 0.999);
+  }
+
+  /**
+   * Avisa qual quadra a camera esta' mostrando.
+   *
+   * So' aparece quando se esta' ASSISTINDO. Na propria quadra, o aviso seria
+   * ruido permanente dizendo o obvio.
+   */
+  avisoDeQuadra(nome: string, ehMinhaQuadra: boolean): void {
+    this.quadra.classList.toggle('hidden', ehMinhaQuadra);
+    if (!ehMinhaQuadra) this.quadra.textContent = `ASSISTINDO ${nome}  ·  TAB volta`;
   }
 
   ponto(lado: Side, motivo: MotivoDoPonto, nome: string): void {

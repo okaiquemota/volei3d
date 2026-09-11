@@ -315,6 +315,8 @@ export const MATCH = {
   tempoLimiteDeSaque: 5,
   /** Tempo que o aviso de ponto fica na tela. */
   announcement: 2.0,
+  /** Pausa de uma quadra de bots entre uma partida e a proxima. */
+  descansoEntrePartidas: 6,
 } as const;
 
 export const CAMERA = {
@@ -349,6 +351,24 @@ export const CAMERA = {
   lateralFollow: 0.55,
   /** Quanto o foco puxa pra bola (0 = so' o jogador). */
   ballFocus: 0.35,
+  /** Altura do ponto de mira de quem assiste: a cabeca de um jogador. */
+  alturaDoOlhar: 1.6,
+
+  /**
+   * Onde fica a camera de quem assiste: mais alta e mais longe que a de quem joga.
+   *
+   * Nao e' gosto, e' o angulo. Da posicao de jogo (10,5 m de altura, 13 m atras)
+   * a linha de fundo mais PERTO cai a 79 graus abaixo do horizonte e a mais
+   * longe a 30 — 49 graus de campo pra uma lente de 45. O fundo da quadra fica
+   * de fora, o que nao atrapalha quem joga, porque quem joga esta' justamente
+   * ali no fundo. Quem assiste quer as duas metades. A 13 m de altura e 11 m da
+   * linha, o mesmo calculo da' 50 e 26 graus: 24 graus de campo, e a quadra
+   * inteira cabe com folga sem ficar pequena na tela.
+   */
+  assistirAltura: 13,
+  assistirDistancia: 11,
+  /** Quanto a camera de quem assiste anda de lado atras da bola. */
+  assistirLateral: 0.25,
   /** Folga minima atras da linha de fundo: a camera nunca entra na quadra. */
   minDepthMargin: 2,
   positionSmoothing: 7,

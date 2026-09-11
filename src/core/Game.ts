@@ -1,25 +1,22 @@
 import * as THREE from 'three';
-import { AI_SKILL, BALL, CAMERA, COLORS } from '../config';
+import { AI_SKILL, CAMERA, COLORS } from '../config';
 import { Input } from './Input';
 import { CameraRig } from './CameraRig';
 import { PerfMeter } from '../ui/PerfMeter';
 import { HUD } from '../ui/HUD';
 import { Screens } from '../ui/Screens';
-import { LigacaoDoRally, Match } from '../match/Match';
-import { Ball } from '../ball/Ball';
+import { LigacaoDoRally } from '../match/Match';
 import { Human } from '../players/Human';
 import { AIPlayer } from '../players/AI';
 import { descartarGeometriasDeAtleta } from '../players/buildAthlete';
-import { Court } from '../world/Court';
-import { construirQuadra, type Colisores } from '../world/buildCourt';
-import { Markers } from '../world/Markers';
+import { Arena } from '../world/Arena';
+import { PRAIA } from '../world/praia';
 import { setMaxAnisotropy } from '../world/textures';
 
 export type GameState = 'menu' | 'playing' | 'paused' | 'over';
 
 /** Buffer de tela reaproveitado: o PerfMeter pede o tamanho todo quadro. */
 const _bufSize = new THREE.Vector2();
-const _queda = new THREE.Vector3();
 
 /**
  * Laco principal e dono de todos os sistemas.
@@ -37,16 +34,20 @@ export class Game {
   private input: Input;
   private perf = new PerfMeter(document.getElementById('perf')!);
 
-  readonly court = new Court();
-  readonly colisores: Colisores;
-  readonly ball: Ball;
-  readonly player: Human;
-  readonly opponent: AIPlayer;
-  readonly match: Match;
-  readonly rig: CameraRig;
+  /**
+   * As quadras da praia. Todas rodam ao mesmo tempo.
+   *
+   * O Game deixou de ser dono de UMA quadra. Ele agora coordena varias, e cada
+   * uma se vira sozinha — quem sabe jogar volei e' a Arena, nao ele.
+   */
+  readonly arenas: Arena[] = [];
 
-  /** Publico so' pra depuracao pelo __VOLEI, como o resto. */
-  readonly markers = new Markers();
+  /** Em qual arena a camera esta'. Jogando ou assistindo. */
+  private arenaFoco = 0;
+
+  /** O jogador humano. Vive na arena em que entrou. */
+  readonly player: Human;
+  readonly rig: CameraRig;
 
   private hud = new HUD();
   /** Publico so' pra depuracao pelo __VOLEI, como o rpk.fps faz. */
@@ -90,57 +91,45 @@ export class Game {
       CAMERA.far,
     );
 
-    const quadra = construirQuadra(this.court);
-    this.scene.add(quadra.root);
-    this.colisores = quadra.colisores;
-    this.descartaveis.push(...quadra.descartaveis);
-
     this.input = new Input(canvas);
 
-    this.ball = new Ball(this.court, this.colisores);
-    this.scene.add(this.ball.mesh);
-    this.descartaveis.push(this.ball);
+    /**
+     * Monta a praia inteira.
+     *
+     * Todas as arenas nascem com dois bots e ja' jogando. Uma praia de quadras
+     * vazias nao e' mundo aberto, e' um cenario — o que faz o lugar parecer
+     * vivo e' ter jogo acontecendo onde voce nao esta'.
+     */
+    for (const lugar of PRAIA) {
+      const arena = new Arena(lugar.id, lugar.posicao, lugar.rotacao);
+      this.arenas.push(arena);
+      this.scene.add(arena.raiz);
+      this.descartaveis.push(arena);
+    }
 
-    this.scene.add(this.markers.group);
-    this.descartaveis.push(this.markers);
-
+    /**
+     * O humano entra na primeira quadra, no lado Home.
+     *
+     * Ele SUBSTITUI o bot que estava ali — a partida daquela arena nao recomeca
+     * por causa disso, so' troca de dono. E' o mesmo caminho que um jogador
+     * remoto vai usar quando houver rede.
+     */
+    const minha = this.arenas[0]!;
     const rally = new LigacaoDoRally();
+    rally.match = minha.match;
 
-    this.player = new Human('VOCE', 'home', COLORS.home, this.court, this.ball, rally);
+    this.player = new Human('VOCE', 'home', COLORS.home, minha.court, minha.ball, rally);
     this.player.camera = this.camera;
     this.player.input = this.input;
-    this.scene.add(this.player.objeto);
-    this.descartaveis.push(this.player);
+    minha.ocupar('home', this.player);
 
-    this.opponent = new AIPlayer('CPU', 'away', COLORS.away, this.court, this.ball, rally);
-    this.scene.add(this.opponent.objeto);
-    this.descartaveis.push(this.opponent);
-
-    this.match = new Match(this.court, this.ball, this.player, this.opponent, {
-      placarMudou: (home, away) => this.hud.placar(home, away),
-      saqueMudou: (lado) => {
-        const quem = lado === 'home' ? this.player : this.opponent;
-        this.hud.saque(lado, quem.nome, lado === 'home');
-      },
-      pontoFeito: (lado, motivo) => {
-        this.hud.ponto(lado, motivo, lado === 'home' ? this.player.nome : this.opponent.nome);
-      },
-      partidaAcabou: (vencedor) => this.terminarPartida(vencedor === 'home'),
-      estadoMudou: (estado) => {
-        // A dica de "clique pra sacar" some assim que a bola sai da mao.
-        if (estado !== 'esperandoSaque') this.hud.esconderDicaDeSaque();
-      },
-    });
-    rally.match = this.match;
-
-    this.ball.aoTocar = (por) => this.match.registrarToque(por.side);
+    this.ligarEventosDaArena(minha);
 
     this.criarLuzes();
 
-    this.rig = new CameraRig(this.camera, this.court, 'home');
-
+    this.rig = new CameraRig(this.camera, minha.court, 'home');
     this.rig.alvo = this.player.objeto;
-    this.rig.bola = this.ball.mesh;
+    this.rig.bola = minha.ball.mesh;
     this.rig.encaixar();
 
     this.ligarTelas();
@@ -181,7 +170,15 @@ export class Game {
      * E' o ajuste que decide se a sombra tem resolucao: esticar o frustum pra
      * cobrir area vazia gasta o mapa inteiro em areia sem nada em cima.
      */
-    const alcance = this.court.halfLengthFree + 2;
+    /**
+     * O frustum da sombra cobre a PRAIA inteira, nao uma quadra.
+     *
+     * Com varias arenas lado a lado, apertar o frustum na quadra do jogador
+     * deixaria as outras sem sombra nenhuma — e quadra sem sombra ao lado de
+     * quadra com sombra le' como bug, nao como distancia.
+     */
+    const extremo = this.arenas.reduce((max, a) => Math.max(max, Math.abs(a.court.matrix.elements[12]!)), 0);
+    const alcance = extremo + this.arenas[0]!.court.halfLengthFree + 4;
     sol.shadow.camera.left = -alcance;
     sol.shadow.camera.right = alcance;
     sol.shadow.camera.top = alcance;
@@ -212,11 +209,10 @@ export class Game {
     // Todo mundo ja' esta' na cena: quadra, rede, postes, bola e os dois
     // atletas. Os marcadores nascem escondidos, entao precisam aparecer aqui —
     // material que nao passa pelo aquecimento compila no meio do rally.
-    this.markers.prepararAquecimento();
+    for (const arena of this.arenas) arena.prepararAquecimento();
     this.rig.encaixar();
     this.renderer.render(this.scene, this.camera);
-    this.markers.esconderQueda();
-    this.markers.esconderMira();
+    for (const arena of this.arenas) arena.esconderMarcadores();
   }
 
   // ==================================================================
@@ -230,11 +226,17 @@ export class Game {
     this.screens.aoMudarAjustes = () => this.aplicarAjustes();
 
     this.screens.mostrarMenu(true);
-    this.hud.definirNomes(this.player.nome, this.opponent.nome);
+    this.hud.definirNomes(this.player.nome, 'CPU');
   }
 
   private aplicarAjustes(): void {
-    this.opponent.definirHabilidade(AI_SKILL[this.screens.ajustes.dificuldade]);
+    // A dificuldade vale pra todos os bots da praia, inclusive os das quadras
+    // que o jogador so' assiste.
+    for (const arena of this.arenas) {
+      for (const atleta of [arena.home, arena.away]) {
+        if (atleta instanceof AIPlayer) atleta.definirHabilidade(AI_SKILL[this.screens.ajustes.dificuldade]);
+      }
+    }
     this.resolution = this.screens.ajustes.resolucao;
     this.onResize();
   }
@@ -245,7 +247,19 @@ export class Game {
     this.hud.mostrar(true);
 
     this.aplicarAjustes();
-    this.match.comecar();
+
+    /**
+     * A minha quadra comeca do zero. As outras so' se ainda nao comecaram.
+     *
+     * Da' pra chegar aqui duas vezes — "jogar de novo" depois do fim do set
+     * passa por este mesmo caminho. Zerar tudo ali jogaria no lixo as partidas
+     * das outras quadras, que estao no meio do set e nao tem nada com isso: o
+     * jogador voltaria pra uma praia inteira em 0 a 0, como se o mundo
+     * existisse so' quando ele joga.
+     */
+    for (const arena of this.arenas) {
+      if (arena === this.minhaArena || arena.match.estadoAtual === 'parada') arena.match.comecar();
+    }
     this.rig.encaixar();
     this.state = 'playing';
   }
@@ -275,7 +289,7 @@ export class Game {
 
   private terminarPartida(venceu: boolean): void {
     this.state = 'over';
-    const placar = this.match.placar;
+    const placar = this.minhaArena.match.placar;
     this.screens.mostrarFim(venceu, placar.home, placar.away);
   }
 
@@ -296,6 +310,10 @@ export class Game {
 
     if (this.input.wasPressed('F3')) this.perf.toggle();
     if (this.input.wasPressed('KeyH')) this.hud.alternarManual();
+    // Assistir as outras quadras da praia.
+    if (this.input.wasPressed('BracketLeft')) this.assistir(this.arenaFoco - 1);
+    if (this.input.wasPressed('BracketRight')) this.assistir(this.arenaFoco + 1);
+    if (this.input.wasPressed('Tab')) this.voltarPraMinhaQuadra();
 
     if (this.state === 'playing') {
       if (this.input.wasPressed('Escape')) this.pausar();
@@ -310,52 +328,93 @@ export class Game {
   };
 
   /** Um passo de jogo. Publico: e' a porta de entrada dos testes. */
+  /** Um passo de jogo. Publico: e' a porta de entrada dos testes. */
   update(dt: number): void {
-    this.match.update(dt);
-    this.player.update(dt);
-    this.opponent.update(dt);
-    this.ball.update(dt);
-    this.atualizarMarcadores();
+    // Todas as arenas avancam, inclusive as que ninguem esta' olhando. E' o
+    // que faz a praia ter jogo acontecendo em vez de quadras congeladas.
+    for (const arena of this.arenas) arena.update(dt);
+
+    this.hud.carga(this.player.carregandoAtaque ? this.player.forcaDoAtaque : -1);
+    this.hud.relogioDoSaque(this.minhaArena.match.segundosParaSacar);
+
     this.rig.update(dt);
   }
 
+  /** A arena em que o jogador humano esta'. */
+  get minhaArena(): Arena {
+    return this.arenas.find((a) => a.humano !== null) ?? this.arenas[0]!;
+  }
+
+  /** A arena que a camera esta' mostrando. Pode nao ser a do jogador. */
+  get arenaEmFoco(): Arena {
+    return this.arenas[this.arenaFoco] ?? this.arenas[0]!;
+  }
+
   /**
-   * Os dois marcadores no chao.
+   * Troca a quadra que a camera mostra.
    *
-   * A queda vem da MESMA previsao que a IA usa — nao ha' duas contas de onde a
-   * bola vai cair, entao o que voce ve' e' literalmente o que o adversario
-   * esta' lendo.
+   * Assistir e' a mesma coisa que jogar, menos o atleta: a camera prende na
+   * quadra escolhida e o HUD passa a contar aquele placar. Nao ha' modo
+   * espectador separado — ha' uma camera que pode olhar pra outro lugar.
    */
-  private atualizarMarcadores(): void {
-    // Bola na mao do sacador ou ja' parada na areia: nao ha' queda a prever.
-    if (this.ball.presa || this.ball.parada) {
-      this.markers.esconderQueda();
-    } else {
-      /**
-       * O alvo e' o centro da bola no instante do CONTATO, nao o chao.
-       *
-       * A bola toca a areia com o centro a um raio de altura. Prevendo ate'
-       * y = 0 o marcador cai uns dez centimetros alem do ponto real — pouco,
-       * mas e' erro sistematico e sempre pro mesmo lado.
-       */
-      const tempo = this.ball.preverPouso(this.court.floorY + BALL.radius, _queda);
-      _queda.y = this.court.floorY;
-      // Perto demais do chao o anel vira ruido em cima da propria bola.
-      if (tempo > 0.08) this.markers.mostrarQueda(_queda, tempo);
-      else this.markers.esconderQueda();
-    }
+  assistir(indice: number): void {
+    const destino = this.arenas[((indice % this.arenas.length) + this.arenas.length) % this.arenas.length];
+    if (!destino || destino === this.arenaEmFoco) return;
 
-    // A mira so' aparece quando ha' o que mirar: no seu saque, ou com a bola
-    // do seu lado. Sempre visivel, ela vira enfeite e polui a leitura.
-    const vale = this.player.sacando || this.court.ladoDe(this.ball.posicao) === 'home';
-    if (vale && this.state === 'playing') {
-      this.markers.mostrarMira(this.player.pontoDeMira, this.player.forcaDoAtaque);
-    } else {
-      this.markers.esconderMira();
-    }
+    this.desligarEventosDaArena(this.arenaEmFoco);
+    this.arenaFoco = this.arenas.indexOf(destino);
+    this.ligarEventosDaArena(destino);
 
-    this.hud.carga(this.player.carregandoAtaque ? this.player.forcaDoAtaque : -1);
-    this.hud.relogioDoSaque(this.match.segundosParaSacar);
+    // A camera segue o humano na sua quadra; nas outras, segue a BOLA — e' o
+    // enquadramento de quem assiste, nao o de quem joga.
+    const humano = destino.humano;
+    this.rig.recolocar(destino.court, humano ? humano.side : 'home');
+    this.rig.alvo = humano ? humano.objeto : destino.ball.mesh;
+    this.rig.bola = destino.ball.mesh;
+    this.rig.encaixar();
+
+    this.hud.definirNomes(destino.home.nome, destino.away.nome);
+    this.hud.avisoDeQuadra(PRAIA[this.arenaFoco]?.nome ?? destino.id, humano !== null);
+    this.hud.placar(destino.match.placar.home, destino.match.placar.away);
+  }
+
+  /** Volta a camera pra quadra do jogador. */
+  voltarPraMinhaQuadra(): void {
+    this.assistir(this.arenas.indexOf(this.minhaArena));
+  }
+
+  /**
+   * Liga os eventos da partida ao HUD.
+   *
+   * So' UMA arena por vez alimenta o HUD: a que esta' em foco. As outras jogam
+   * caladas — dez partidas gritando placar na mesma tela nao seria informacao,
+   * seria barulho.
+   */
+  private ligarEventosDaArena(arena: Arena): void {
+    const nomeDe = (lado: 'home' | 'away'): string =>
+      (lado === 'home' ? arena.home : arena.away).nome;
+
+    arena.match.eventos.placarMudou = (home, away) => this.hud.placar(home, away);
+    arena.match.eventos.saqueMudou = (lado) => {
+      const euSaco = arena.humano !== null && arena.humano.side === lado;
+      this.hud.saque(lado, nomeDe(lado), euSaco);
+    };
+    arena.match.eventos.pontoFeito = (lado, motivo) => this.hud.ponto(lado, motivo, nomeDe(lado));
+    arena.match.eventos.partidaAcabou = (vencedor) => {
+      if (arena.humano) this.terminarPartida(vencedor === arena.humano.side);
+    };
+    arena.match.eventos.estadoMudou = (estado) => {
+      if (estado !== 'esperandoSaque') this.hud.esconderDicaDeSaque();
+    };
+  }
+
+  /** Desliga o HUD de uma arena, pra ela jogar em silencio. */
+  private desligarEventosDaArena(arena: Arena): void {
+    arena.match.eventos.placarMudou = undefined;
+    arena.match.eventos.saqueMudou = undefined;
+    arena.match.eventos.pontoFeito = undefined;
+    arena.match.eventos.partidaAcabou = undefined;
+    arena.match.eventos.estadoMudou = undefined;
   }
 
   private render(): void {

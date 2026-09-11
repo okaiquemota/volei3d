@@ -87,6 +87,18 @@ export class Match implements EstadoDoRally {
     return this.estado === 'esperandoSaque' ? Math.max(0, this.tempoDeSaque) : null;
   }
 
+  /**
+   * Troca quem joga de um lado.
+   *
+   * Existe pra um humano ocupar o lugar de um bot sem derrubar a partida: o
+   * placar, o saque e a contagem de toques continuam de pe'. O atleta novo
+   * assume no proximo saque, e ate' la' fica onde nasceu.
+   */
+  trocarAtleta(lado: Side, quem: AtletaDaPartida): void {
+    if (lado === 'home') this.home = quem;
+    else this.away = quem;
+  }
+
   /** Zera tudo e comeca a partida. */
   comecar(): void {
     this.homeScore = 0;

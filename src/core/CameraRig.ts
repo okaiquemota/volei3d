@@ -8,6 +8,7 @@ const _desejada = new THREE.Vector3();
 const _foco = new THREE.Vector3();
 const _olhar = new THREE.Vector3();
 const _matriz = new THREE.Matrix4();
+const _lateral = new THREE.Vector3();
 
 /**
  * Camera em terceira pessoa.
@@ -33,6 +34,29 @@ export class CameraRig {
   /** Alvo que a camera segue (o atleta) e o que ela olha junto (a bola). */
   alvo: THREE.Object3D | null = null;
   bola: THREE.Object3D | null = null;
+
+  /**
+   * Quem assiste nao tem atleta, entao a camera segue a propria bola.
+   *
+   * Isso muda o ENQUADRAMENTO, nao so' o alvo: seguir um atleta e' olhar pra
+   * uma coisa que anda no chao, e seguir a bola e' olhar pra uma coisa que
+   * passa seis metros no alto. Apontando pra bola de verdade, a camera se
+   * inclina pra cima e a quadra escorrega pro pe' da tela — sobra areia e ceu,
+   * que e' exatamente o que nao se quer ver.
+   */
+  private get assistindo(): boolean { return this.alvo !== null && this.alvo === this.bola; }
+
+  /**
+   * Aponta a camera pra outra quadra.
+   *
+   * A quadra e o lado sao o que define "atras do jogador": trocar de arena sem
+   * trocar os dois deixaria a camera enquadrando a quadra nova a partir do eixo
+   * da antiga.
+   */
+  recolocar(court: Court, side: Side): void {
+    this.court = court;
+    this.side = side;
+  }
 
   /** Coloca a camera direto na posicao final, sem interpolar. */
   encaixar(): void {
@@ -63,6 +87,17 @@ export class CameraRig {
   }
 
   private calcularPosicao(out: THREE.Vector3): THREE.Vector3 {
+    if (this.assistindo) {
+      return this.court.paraMundo(
+        _alvoLocal.set(
+          this.acompanhamentoLateral(),
+          CAMERA.assistirAltura,
+          (this.court.halfLength + CAMERA.assistirDistancia) * sinalDe(this.side),
+        ),
+        out,
+      );
+    }
+
     this.court.paraLocal(this.alvo!.position, _alvoLocal);
 
     const sinal = sinalDe(this.side);
@@ -81,8 +116,32 @@ export class CameraRig {
     return this.court.paraMundo(_alvoLocal.set(lateral, CAMERA.height, atras), out);
   }
 
+  /**
+   * O quanto a camera de quem assiste anda de lado com a bola.
+   *
+   * Anda um pouco de proposito: uma camera completamente fixa da' a impressao
+   * de foto, e uma que acompanha a bola inteira vira um pendulo. Um quarto do
+   * deslocamento e' o bastante pra parecer que alguem esta' segurando.
+   */
+  private acompanhamentoLateral(): number {
+    this.court.paraLocal(this.bola!.position, _lateral);
+    const limite = this.court.halfWidth;
+    return clamp(_lateral.x, -limite, limite) * CAMERA.assistirLateral;
+  }
+
   private calcularFoco(out: THREE.Vector3): THREE.Vector3 {
     out.copy(this.alvo!.position);
+
+    // Assistindo: mira na REDE, na altura de um jogador. Mirar na bola de
+    // verdade inclina a camera pro ceu toda vez que ela sobe, e a quadra
+    // escorrega pro pe' da tela.
+    if (this.assistindo) {
+      return this.court.paraMundo(
+        _alvoLocal.set(this.acompanhamentoLateral(), CAMERA.alturaDoOlhar, 0),
+        out,
+      );
+    }
+
     out.y += 1.2;
     if (this.bola && CAMERA.ballFocus > 0) {
       out.lerp(this.bola.position, clamp(CAMERA.ballFocus, 0, 1));

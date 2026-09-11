@@ -74,6 +74,8 @@ export class Ball {
   get presa(): boolean { return this.ancora !== null; }
   /** Ja' assentou na areia e parou de quicar. */
   get parada(): boolean { return this.dormindo; }
+  /** Raio em metros. Quem preve a queda precisa dele pro alvo do contato. */
+  get raio(): number { return BALL.radius; }
 
   /** Reposiciona e zera o movimento. */
   teleportar(posicao: THREE.Vector3): void {

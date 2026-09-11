@@ -24,6 +24,9 @@
       <div id="serve-line">SAQUE: VOCE</div>
     </div>
 
+    <!-- topo: qual quadra a camera mostra (so' ao assistir) -->
+    <div id="quadra-atual" class="hidden"></div>
+
     <!-- centro: aviso do ponto -->
     <div id="announcement"></div>
 
@@ -65,6 +68,14 @@
         Carregue correndo, <b>pule</b> e solte em cima da bola: e' onde uma
         cortada sai a 24 m/s em vez de 10.</p>
 
+      <h2>A PRAIA</h2>
+      <ul class="teclas">
+        <li><span class="k"><kbd>[</kbd><kbd>]</kbd></span><span class="o">trocar de quadra</span></li>
+        <li><span class="k"><kbd class="larga">TAB</kbd></span><span class="o">voltar pra sua</span></li>
+      </ul>
+      <p class="nota">As outras quadras jogam sozinhas o tempo todo. Assistir
+        nao pausa a sua partida.</p>
+
       <p class="rodape-manual"><kbd>ESC</kbd> pausa &middot; <kbd>F3</kbd> desempenho
         &middot; <kbd>H</kbd> esconde</p>
     </aside>
@@ -75,7 +86,7 @@
     <!-- menu inicial -->
     <div id="menu" class="tela">
       <h1 class="titulo">VOLEI <span class="tres">3D</span></h1>
-      <p class="sub">Volei de praia, uma quadra, 15 pontos.</p>
+      <p class="sub">Volei de praia, tres quadras, 15 pontos.</p>
       <div class="opcoes">
         <label class="campo">
           <span>DIFICULDADE</span>
