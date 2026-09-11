@@ -4,3 +4,7 @@ dist/
 *.local
 .DS_Store
 dist-single/
+
+# ferramenta local de captura, nao faz parte do projeto
+shot.mjs
+*.png

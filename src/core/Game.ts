@@ -1,7 +1,11 @@
 import * as THREE from 'three';
 import { CAMERA, COLORS } from '../config';
 import { Input } from './Input';
+import { CameraRig } from './CameraRig';
 import { PerfMeter } from '../ui/PerfMeter';
+import { Court } from '../world/Court';
+import { construirQuadra, type Colisores } from '../world/buildCourt';
+import { setMaxAnisotropy } from '../world/textures';
 
 export type GameState = 'menu' | 'playing' | 'paused' | 'over';
 
@@ -13,7 +17,8 @@ const _bufSize = new THREE.Vector2();
  *
  * A forma vem do Game do rpk.fps: `loop` chama `update(dt)` e `render()`, e
  * `update` e' publico de proposito — e' por ele que um teste avanca o tempo de
- * JOGO sem pagar rasterizacao.
+ * JOGO sem pagar rasterizacao, o que aqui importa ainda mais que la': um rally
+ * inteiro roda em milissegundos.
  */
 export class Game {
   private renderer: THREE.WebGLRenderer;
@@ -23,6 +28,13 @@ export class Game {
   private input: Input;
   private perf = new PerfMeter(document.getElementById('perf')!);
 
+  readonly court = new Court();
+  readonly colisores: Colisores;
+  readonly rig: CameraRig;
+
+  /** Tudo que precisa de dispose no fim. */
+  private descartaveis: Array<{ dispose(): void }> = [];
+
   private state: GameState = 'menu';
   private lastTime = 0;
   private lastFrameDt = 0;
@@ -30,12 +42,26 @@ export class Game {
 
   constructor(canvas: HTMLCanvasElement, renderer: THREE.WebGLRenderer) {
     this.renderer = renderer;
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = true;
+    // PCFSoftShadowMap e' deprecado no r185 e cai em PCFShadowMap sozinho,
+    // avisando no console a cada atualizacao de sombra. Usar o real.
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
 
+    // A anisotropia precisa estar definida ANTES de criar as texturas — elas
+    // nascem em construirQuadra, logo abaixo.
+    setMaxAnisotropy(this.renderer.capabilities.getMaxAnisotropy());
+
     this.scene.background = new THREE.Color(COLORS.sky);
+    /**
+     * A nevoa usa a MESMA cor do ceu — se destoar, a borda da areia recorta do
+     * ceu como adesivo (a licao e' do rpk.fps, onde a parede do fundo fazia
+     * isso). Comeca longe: a 60 m nao ha' bruma nenhuma pra ver numa praia ao
+     * sol, ela existe aqui so' pra fazer a areia terminar em vez de ser
+     * cortada.
+     */
+    this.scene.fog = new THREE.Fog(COLORS.sky, 60, 175);
 
     this.camera = new THREE.PerspectiveCamera(
       CAMERA.fov,
@@ -43,13 +69,68 @@ export class Game {
       CAMERA.near,
       CAMERA.far,
     );
-    this.camera.position.set(0, CAMERA.height, -CAMERA.distance);
-    this.camera.lookAt(0, 1, 0);
+
+    const quadra = construirQuadra(this.court);
+    this.scene.add(quadra.root);
+    this.colisores = quadra.colisores;
+    this.descartaveis.push(...quadra.descartaveis);
+
+    this.criarLuzes();
+
+    this.rig = new CameraRig(this.camera, this.court, 'home');
+
+    // Ate' o atleta existir (Fase 3), a camera segue um marcador na posicao de
+    // spawn — assim o enquadramento ja' e' o de jogo, nao um chute.
+    const marcador = new THREE.Object3D();
+    marcador.position.copy(this.court.posicaoDeSpawn('home'));
+    this.scene.add(marcador);
+    this.rig.alvo = marcador;
+    this.rig.encaixar();
 
     this.input = new Input(canvas);
 
     window.addEventListener('resize', this.onResize);
     requestAnimationFrame(this.loop);
+  }
+
+  /**
+   * Sol e luz do ceu.
+   *
+   * Sao DUAS, e continuam sendo duas pra sempre. No three, entrar ou sair uma
+   * luz da cena — inclusive com `visible = false` — invalida os programas de
+   * shader de todos os materiais, e a recompilacao trava o quadro. Se um dia
+   * precisar apagar alguma, use `intensity = 0`.
+   */
+  private criarLuzes(): void {
+    const ceu = new THREE.HemisphereLight(COLORS.skyLight, COLORS.groundLight, 1.1);
+    this.scene.add(ceu);
+
+    const sol = new THREE.DirectionalLight(COLORS.sunLight, 2.6);
+    // Mesma direcao do prototipo: Euler(52, -35, 0) apontando pra frente.
+    const direcao = new THREE.Vector3(0, 0, 1)
+      .applyEuler(new THREE.Euler(THREE.MathUtils.degToRad(52), THREE.MathUtils.degToRad(-35), 0))
+      .negate();
+    sol.position.copy(direcao).multiplyScalar(30);
+    sol.castShadow = true;
+
+    /**
+     * O frustum da sombra cobre a quadra e a zona livre, e mais nada.
+     *
+     * E' o ajuste que decide se a sombra tem resolucao: esticar o frustum pra
+     * cobrir area vazia gasta o mapa inteiro em areia sem nada em cima.
+     */
+    const alcance = this.court.halfLengthFree + 2;
+    sol.shadow.camera.left = -alcance;
+    sol.shadow.camera.right = alcance;
+    sol.shadow.camera.top = alcance;
+    sol.shadow.camera.bottom = -alcance;
+    sol.shadow.camera.near = 1;
+    sol.shadow.camera.far = 80;
+    sol.shadow.mapSize.set(2048, 2048);
+    sol.shadow.bias = -0.0008;
+
+    this.scene.add(sol);
+    this.scene.add(sol.target);
   }
 
   // ==================================================================
@@ -76,8 +157,8 @@ export class Game {
   };
 
   /** Um passo de jogo. Publico: e' a porta de entrada dos testes. */
-  update(_dt: number): void {
-    // Fase 0: ainda nao ha' nada pra atualizar.
+  update(dt: number): void {
+    this.rig.update(dt);
   }
 
   private render(): void {
@@ -98,6 +179,7 @@ export class Game {
   dispose(): void {
     window.removeEventListener('resize', this.onResize);
     this.input.dispose();
+    for (const d of this.descartaveis) d.dispose();
     this.renderer.dispose();
   }
 }
