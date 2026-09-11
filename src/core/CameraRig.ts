@@ -49,6 +49,50 @@ export class CameraRig {
   /** O que ela esta' enquadrando agora. Quem coordena precisa saber. */
   get modoAtual(): ModoDaCamera { return this.modo; }
 
+  /**
+   * A orbita de quem passeia: para onde, de que altura, e de que longe.
+   *
+   * Comeca exatamente no enquadramento que a camera de passeio sempre teve —
+   * `passeioAltura` e `passeioDistancia` sao a mesma coisa que este raio e esta
+   * elevacao, so' escritos em coordenadas diferentes. E sobrevive a entrar e
+   * sair de quadra: quem escolheu um angulo pra olhar a praia nao quer ele de
+   * volta no padrao a cada partida.
+   */
+  private giro = 0;
+  private elevacao = Math.atan2(CAMERA.passeioAltura - CAMERA.alturaDoOlhar, CAMERA.passeioDistancia);
+  private raio = Math.hypot(CAMERA.passeioDistancia, CAMERA.passeioAltura - CAMERA.alturaDoOlhar);
+
+  /**
+   * Gira a orbita do passeio, em PIXELS de arrasto.
+   *
+   * Arrastar pra direita olha pra direita: o mundo anda pra esquerda na tela,
+   * que e' o que acontece quando se vira a cabeca. Arrastar pra baixo olha pra
+   * baixo, e pra isso a camera SOBE — quem olha pra baixo esta' por cima.
+   *
+   * Nao faz nada fora do passeio. Dentro da quadra o angulo e' da quadra.
+   */
+  orbitar(pixelsX: number, pixelsY: number): void {
+    if (this.modo !== 'passeio') return;
+
+    this.giro -= pixelsX * CAMERA.passeioGiroPorPixel;
+    this.elevacao = clamp(
+      this.elevacao + pixelsY * CAMERA.passeioGiroPorPixel,
+      CAMERA.passeioElevacaoMin,
+      CAMERA.passeioElevacaoMax,
+    );
+  }
+
+  /** Aproxima ou afasta, em pixels de roda. Positivo afasta. */
+  aproximar(pixels: number): void {
+    if (this.modo !== 'passeio' || pixels === 0) return;
+
+    this.raio = clamp(
+      this.raio + pixels * CAMERA.passeioZoomPorPixel,
+      CAMERA.passeioRaioMin,
+      CAMERA.passeioRaioMax,
+    );
+  }
+
   constructor(
     readonly camera: THREE.PerspectiveCamera,
     private court: Court,
@@ -100,11 +144,22 @@ export class CameraRig {
   update(dt: number): void {
     if (!this.alvo || dt <= 0) return;
 
+    /**
+     * A camera de passeio amacia mais rapido.
+     *
+     * As outras duas amaciam o movimento de OUTRA coisa — o atleta, a bola — e
+     * a constante baixa e' o que impede o tranco. Esta amacia a mao do jogador,
+     * e a mesma constante vira ATRASO: a camera chega onde o mouse mandou um
+     * terco de segundo depois, e o arrasto parece solto.
+     */
+    const suavidade = this.modo === 'passeio' ? CAMERA.passeioSuavidade : CAMERA.rotationSmoothing;
+    const suavidadeDePosicao = this.modo === 'passeio' ? CAMERA.passeioSuavidade : CAMERA.positionSmoothing;
+
     this.calcularFoco(_foco);
-    this.foco.lerp(_foco, dampFactor(CAMERA.rotationSmoothing, dt));
+    this.foco.lerp(_foco, dampFactor(suavidade, dt));
 
     this.calcularPosicao(_desejada);
-    this.camera.position.lerp(_desejada, dampFactor(CAMERA.positionSmoothing, dt));
+    this.camera.position.lerp(_desejada, dampFactor(suavidadeDePosicao, dt));
 
     _olhar.subVectors(this.foco, this.camera.position);
     if (_olhar.lengthSq() > 1e-6) {
@@ -112,25 +167,27 @@ export class CameraRig {
       // suavizado ainda produz um tranco quando a bola muda de lado.
       _matriz.lookAt(this.camera.position, this.foco, this.camera.up);
       const destino = new THREE.Quaternion().setFromRotationMatrix(_matriz);
-      this.camera.quaternion.slerp(destino, dampFactor(CAMERA.rotationSmoothing, dt));
+      this.camera.quaternion.slerp(destino, dampFactor(suavidade, dt));
     }
   }
 
   private calcularPosicao(out: THREE.Vector3): THREE.Vector3 {
     /**
-     * Passeio: deslocamento fixo em espaco de MUNDO.
+     * Passeio: uma orbita em torno da cabeca de quem anda, em espaco de MUNDO.
      *
-     * Mais baixa e mais perto que a de jogo, e por conta: a 4,5 m de altura e
-     * 10 m atras, a mira desce 16 graus abaixo do horizonte, e com meia lente
-     * de 22,5 sobra horizonte no alto do quadro. Na altura da camera de jogo
-     * (10,5 m) a inclinacao passa de 40 graus e a praia inteira vira areia sem
-     * ceu — o que serve pra ler uma quadra nao serve pra atravessar um lugar.
+     * Comeca mais baixa e mais perto que a de jogo, e por conta: a 4,5 m de
+     * altura e 10 m atras, a mira desce 16 graus abaixo do horizonte, e com
+     * meia lente de 22,5 sobra horizonte no alto do quadro. Na altura da camera
+     * de jogo (10,5 m) a inclinacao passa de 40 graus e a praia inteira vira
+     * areia sem ceu — o que serve pra ler uma quadra nao serve pra atravessar
+     * um lugar. Dali em diante quem manda e' a mao do jogador.
      */
     if (this.modo === 'passeio') {
+      const plano = Math.cos(this.elevacao) * this.raio;
       return out.set(
-        this.alvo!.position.x,
-        CAMERA.passeioAltura,
-        this.alvo!.position.z - CAMERA.passeioDistancia,
+        this.alvo!.position.x - Math.sin(this.giro) * plano,
+        this.alvo!.position.y + CAMERA.alturaDoOlhar + Math.sin(this.elevacao) * this.raio,
+        this.alvo!.position.z - Math.cos(this.giro) * plano,
       );
     }
 

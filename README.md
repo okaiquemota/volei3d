@@ -44,6 +44,8 @@ npm run build:single # dist/volei3d.html — joga com duplo clique, offline
 | Sacar | Segure e solte o clique esquerdo — a carga vale aqui também |
 | Sair da quadra e andar pela areia | `Q` |
 | Entrar na quadra em que você está encostado | `E` |
+| Girar a câmera (só fora da quadra) | Arrastar com o mouse |
+| Aproximar ou afastar (só fora da quadra) | Roda do mouse |
 | Assistir outra quadra | `[` e `]` |
 | Voltar a câmera pra você | `Tab` |
 | Reiniciar | `R`, na tela de fim de jogo |
@@ -82,6 +84,13 @@ sem interrupção — se a bola estava vindo pra você, agora é dele. Fora da q
 você anda pela areia com o mesmo `W A S D`, o placar do HUD acompanha a quadra
 mais perto, e `E` te põe no lugar do bot do lado em que você chegou. A rede e os
 postes te barram: dá pra contornar uma quadra, não atravessar.
+
+**E a câmera gira.** Fora da quadra, arrastar com o mouse orbita em torno de
+você — de rente à areia até quase de cima — e a roda aproxima ou afasta. O
+`W A S D` continua sendo relativo à câmera, então girar a vista muda pra onde
+você anda, como em qualquer jogo em terceira pessoa. Dentro da quadra ela volta
+a ser fixa, e isso é de propósito: ler o campo é metade do jogo, e o campo não
+se lê com o mundo girando a cada bola lateral.
 
 ---
 

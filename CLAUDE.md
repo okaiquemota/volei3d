@@ -380,6 +380,34 @@ O sintoma é medível só em `renderer.info.memory.textures` (13 caiu pra 9) e e
 triângulos. Se for acrescentar cenário, pergunte antes de que ele é: do mundo ou
 da quadra.
 
+## A câmera gira fora da quadra, e só lá
+
+Dentro da quadra ela é presa à quadra de propósito: a leitura do campo — onde
+está a rede, onde está a linha de fundo — se perde se o mundo girar a cada bola
+lateral. Fora não há campo pra ler, há um lugar pra olhar, e travar o ângulo só
+esconde metade dele.
+
+Isso **não** reintroduz a realimentação que a câmera presa ao corpo tinha. O
+perigo lá era: corpo gira → câmera gira → movimento é relativo à câmera → o
+corpo gira mais. Aqui o ângulo é **input do jogador**, não consequência da
+rotação do corpo — e o corpo é que segue a câmera. Sem ciclo.
+
+Dois cuidados que não são óbvios:
+
+- O arrasto exige **botão segurado**. Sem pointer lock, o cursor tem uma posição
+  na tela que importa (é por ela que a mira do jogo se resolve), e uma câmera que
+  gira com o cursor solto giraria também quando a mão só atravessa a tela.
+- `wheel` chega em unidades diferentes por navegador (`deltaMode` 0 = pixels,
+  1 = linhas, 2 = páginas). Sem converter, o mesmo gesto zooma 16× menos no
+  Firefox. E contar `Math.sign` por evento trata igual o clique seco de um mouse
+  e o deslize contínuo de um trackpad — o trackpad dispara dezenas de eventos por
+  segundo e atravessaria a faixa inteira num gesto.
+
+A suavização também muda de constante: as outras câmeras amaciam o movimento de
+OUTRA coisa (o atleta, a bola), e 7 é o que impede o tranco. Esta amacia a mão do
+jogador, e o mesmo 7 vira atraso — a câmera chega um terço de segundo depois do
+mouse e o arrasto parece solto.
+
 ## A câmera de quem assiste não é a de quem joga
 
 Apontar a câmera pra bola de verdade inclina ela pro céu toda vez que a bola
@@ -391,6 +419,22 @@ jogo (10,5 m / 13 m) a linha de fundo mais perto cai a 79° abaixo do horizonte 
 a mais longe a 30° — 49° de campo pra uma lente de 45°. Quem joga está no fundo,
 então não sente falta; quem assiste quer as duas metades. A 13 m / 11 m a conta
 dá 50° e 26°: cabe.
+
+## No harness não há antialiasing — não conserte o que é do SwiftShader
+
+Os screenshots do Playwright rodam com `--use-gl=swiftshader`, e `gpu.ts`
+desliga o antialiasing quando detecta renderização por software. Medido:
+`gl.getParameter(gl.SAMPLES)` devolve **0** ali, e `antialias: true` numa GPU de
+verdade.
+
+Consequência prática: com a câmera de passeio num ângulo rasante, as linhas da
+quadra aparecem **tracejadas** nos screenshots. Parece z-fighting entre a fita
+da linha e a laje de areia, e leva direto a mexer em `polygonOffset`, na altura
+da linha ou em `camera.near`. Não é: é uma fita de 6 cm ocupando meio pixel a
+40 m, sem amostra nenhuma pra resolver.
+
+Antes de consertar artefato visual visto em screenshot, leia `SAMPLES` e o
+`UNMASKED_RENDERER_WEBGL`.
 
 ## O que NÃO foi verificado
 

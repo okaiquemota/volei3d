@@ -263,7 +263,7 @@ html, body {
 
 /* Sem quebra no rotulo da acao: "tocar na bola" em duas linhas desalinha a
    lista inteira e o painel deixa de ser varrido de relance. */
-.teclas .o, .contexto li { white-space: nowrap; }
+.teclas .o { white-space: nowrap; }
 
 #manual h2 {
   margin: 0 0 0.6em;
@@ -274,7 +274,6 @@ html, body {
   opacity: 0.9;
 }
 #manual h2 + * { margin-top: 0; }
-#manual .contexto { margin-top: 0; }
 #manual h2:not(:first-child) { margin-top: 1.1em; }
 
 #manual ul { margin: 0; padding: 0; list-style: none; }
@@ -304,16 +303,6 @@ kbd {
   letter-spacing: 0.04em;
 }
 kbd.larga { min-width: auto; }
-
-.contexto li {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.8em;
-  padding: 0.18em 0;
-  font-size: 0.95em;
-  opacity: 0.75;
-}
-.contexto b { font-weight: 400; opacity: 0.6; }
 
 #manual .nota.nota-topo { padding-top: 0; border-top: none; }
 #manual .nota b { color: var(--tinta); opacity: 0.9; font-weight: 700; }

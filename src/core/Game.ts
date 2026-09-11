@@ -375,6 +375,7 @@ export class Game {
     // O banhista so' anda quando existe: dentro da quadra quem se mexe e' o
     // atleta, e o corpo na areia esta' guardado.
     if (!this.player) {
+      this.girarACamera();
       this.banhista.update(dt);
       this.atualizarPasseio();
     }
@@ -453,6 +454,25 @@ export class Game {
     // O placar volta a ser de CPU contra CPU: quem estava escrito ali era voce,
     // e voce acabou de sair.
     this.focar(arena);
+  }
+
+  /**
+   * Girar a camera com o mouse. So' fora da quadra.
+   *
+   * Exige BOTAO SEGURADO, e nao mouse solto. Sem pointer lock o cursor tem uma
+   * posicao na tela que importa — e' por ela que a mira do jogo se resolve — e
+   * uma camera que gira com o cursor solto giraria tambem quando a mao so'
+   * atravessa a tela pra chegar em outro canto. Arrastar e' a intencao dita.
+   *
+   * Qualquer botao serve: aqui nenhum deles tem outro trabalho.
+   */
+  private girarACamera(): void {
+    const arrastando = this.input.isMouseDown(0)
+      || this.input.isMouseDown(1)
+      || this.input.isMouseDown(2);
+
+    if (arrastando) this.rig.orbitar(this.input.arrasteX, this.input.arrasteY);
+    this.rig.aproximar(this.input.roda);
   }
 
   /** A quadra mais perto de quem anda, e por qual lado ele esta' chegando. */

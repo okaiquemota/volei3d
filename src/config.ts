@@ -395,6 +395,45 @@ export const CAMERA = {
    */
   passeioAltura: 4.5,
   passeioDistancia: 10,
+
+  /**
+   * A camera de quem anda GIRA, e as outras duas nao.
+   *
+   * Dentro da quadra ela e' presa a' quadra de proposito: a leitura do campo —
+   * onde esta' a rede, onde esta' a linha de fundo — se perde se o mundo girar
+   * a cada bola lateral. Fora da quadra nao ha' campo pra ler, ha' um lugar pra
+   * olhar, e travar o angulo so' esconde metade dele.
+   *
+   * Girar aqui nao reintroduz a realimentacao que a camera presa ao corpo tinha:
+   * o angulo passa a ser INPUT do jogador, nao consequencia da rotacao do
+   * corpo. O corpo e' que segue a camera, e nao o contrario.
+   *
+   * Os valores acima viram o angulo INICIAL: 10 m atras e 4,5 m de altura sao o
+   * mesmo que um raio de 10,4 m com 16 graus de elevacao.
+   */
+  passeioGiroPorPixel: 0.005,
+  /** Limites da elevacao: nem enterrada na areia, nem em cima da cabeca. */
+  passeioElevacaoMin: 0.10,
+  passeioElevacaoMax: 1.25,
+  /**
+   * Metros por pixel de roda, e ate' onde.
+   *
+   * Um entalhe de mouse manda ~100 px, entao um entalhe vale 1,4 m — e um
+   * deslize de trackpad, que manda muito menos por evento, vale
+   * proporcionalmente menos.
+   */
+  passeioZoomPorPixel: 0.014,
+  passeioRaioMin: 3.5,
+  passeioRaioMax: 30,
+  /**
+   * A camera de passeio responde mais rapido que as outras.
+   *
+   * As de jogo amaciam o movimento de OUTRA coisa — o atleta, a bola — e 7 e' o
+   * que impede o tranco. Esta amacia a mao do jogador, e o mesmo 7 vira atraso:
+   * a camera chega onde o mouse mandou um terco de segundo depois, e o arrasto
+   * parece solto.
+   */
+  passeioSuavidade: 20,
   /** Folga minima atras da linha de fundo: a camera nunca entra na quadra. */
   minDepthMargin: 2,
   positionSmoothing: 7,
