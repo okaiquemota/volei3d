@@ -137,6 +137,7 @@ export class Game {
 
     this.ligarTelas();
     this.aplicarAjustes();
+    this.aquecerShaders();
 
     // Perder o foco pausa. Um jogo de navegador que continua rodando numa aba
     // escondida devolve o jogador a um ponto que ele nao viu acontecer.
@@ -184,6 +185,26 @@ export class Game {
 
     this.scene.add(sol);
     this.scene.add(sol.target);
+  }
+
+  /**
+   * Compila tudo antes da partida comecar.
+   *
+   * No three, o shader de um material so' e' compilado quando ele aparece pela
+   * primeira vez — e isso trava o quadro. No meio de um rally e' justamente o
+   * pior momento. A licao vem do rpk.fps, onde o engasgo aparecia a cada tiro.
+   *
+   * Renderiza um quadro DE VERDADE, e nao so' `renderer.compile`: aquele nao
+   * cobre o shader de sombra nem o envio das geometrias pra GPU.
+   *
+   * Se voce adicionar material ou geometria novos, eles precisam estar na cena
+   * neste ponto — senao o custo volta a cair no meio da partida.
+   */
+  private aquecerShaders(): void {
+    // Todo mundo ja' esta' na cena: quadra, rede, postes, bola e os dois
+    // atletas. Basta um quadro com a camera enxergando o conjunto.
+    this.rig.encaixar();
+    this.renderer.render(this.scene, this.camera);
   }
 
   // ==================================================================
