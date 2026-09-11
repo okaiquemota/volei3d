@@ -1,0 +1,41 @@
+/* Base do rpk.fps: reset, fonte monoespacada e o painel do F3.
+   O HUD do volei entra por cima, na Fase 5. */
+
+:root {
+  --tinta: #e8e6e3;
+  --fundo: #0d1014;
+  --home: #2970d1;
+  --away: #d94d38;
+  --painel: rgba(13, 16, 20, 0.55);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--fundo);
+  color: var(--tinta);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  -webkit-font-smoothing: antialiased;
+}
+
+#viewport { display: block; width: 100%; height: 100%; }
+
+.hidden { display: none !important; }
+
+#perf {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  padding: 6px 10px;
+  background: var(--painel);
+  border: 1px solid rgba(232, 230, 227, 0.15);
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+  pointer-events: none;
+  z-index: 50;
+}

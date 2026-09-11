@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>VOLEI 3D</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#127952;</text></svg>" />
+  <link rel="stylesheet" href="/src/ui/style.css" />
+</head>
+<body>
+  <canvas id="viewport"></canvas>
+
+  <!-- ================= HUD ================= -->
+  <div id="hud" class="hidden">
+    <!-- topo: placar e quem saca -->
+    <div id="hud-top">
+      <div id="scoreboard">
+        <span class="lado home" id="home-name">VOCE</span>
+        <span class="pontos" id="home-score">0</span>
+        <span class="sep">:</span>
+        <span class="pontos" id="away-score">0</span>
+        <span class="lado away" id="away-name">CPU</span>
+      </div>
+      <div id="serve-line">SAQUE: VOCE</div>
+    </div>
+
+    <!-- centro: aviso do ponto -->
+    <div id="announcement"></div>
+
+    <!-- centro: aviso de acao (so' aparece no saque do jogador) -->
+    <div id="action-hint" class="hidden">CLIQUE ou E para SACAR</div>
+
+    <!-- rodape: controles -->
+    <div id="hints">
+      WASD mover &middot; ESPACO pular &middot; MOUSE mirar &middot;
+      CLIQUE / E tocar na bola &middot; BOTAO DIREITO / SHIFT atacar por cima da rede
+    </div>
+  </div>
+
+  <!-- ================= TELAS ================= -->
+  <div id="screens">
+    <!-- menu inicial -->
+    <div id="menu" class="tela">
+      <h1 class="titulo">VOLEI <span class="tres">3D</span></h1>
+      <p class="sub">Volei de praia, uma quadra, 15 pontos.</p>
+      <div class="opcoes">
+        <label class="campo">
+          <span>DIFICULDADE</span>
+          <select id="opt-skill">
+            <option value="facil">FACIL</option>
+            <option value="normal" selected>NORMAL</option>
+            <option value="dificil">DIFICIL</option>
+          </select>
+        </label>
+        <label class="campo">
+          <span>RESOLUCAO <b id="opt-res-valor">100%</b></span>
+          <input id="opt-res" type="range" min="50" max="100" step="10" value="100" />
+        </label>
+      </div>
+      <button id="btn-jogar" class="botao">JOGAR</button>
+      <p class="rodape">ESC pausa &middot; F3 desempenho</p>
+    </div>
+
+    <!-- pausa -->
+    <div id="pause" class="tela hidden">
+      <h2 class="titulo-menor">PAUSADO</h2>
+      <button id="btn-voltar" class="botao">CONTINUAR</button>
+      <button id="btn-sair" class="botao secundario">SAIR PRO MENU</button>
+    </div>
+
+    <!-- fim de jogo -->
+    <div id="gameover" class="tela hidden">
+      <h2 id="go-titulo" class="titulo-menor">FIM DE JOGO</h2>
+      <p id="go-placar" class="sub">PLACAR FINAL 0 x 0</p>
+      <button id="btn-denovo" class="botao">JOGAR NOVAMENTE (R)</button>
+    </div>
+  </div>
+
+  <div id="perf" class="hidden"></div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
