@@ -261,14 +261,25 @@ export interface AiSkill {
   aimError: number;
   /** Chance de tentar cortar quando a bola vem alta perto da rede. */
   spikeChance: number;
+  /**
+   * Chance de ARMAR no primeiro toque em vez de devolver de primeira.
+   *
+   * E' o que separa um jogo de volei de uma partida de frescobol. Sem isto a
+   * IA devolve toda bola de primeira, num balao alto que o outro lado sempre
+   * alcanca — dois bots assim rebatem pra sempre e o placar nunca sai do zero.
+   * Armando, o primeiro toque fica em casa, perto da rede, e o segundo e' um
+   * ataque de verdade: rapido, baixo, dificil de defender. E' dai' que vem o
+   * ponto.
+   */
+  chanceDeArmar: number;
   /** Tempo parado antes de sacar. */
   serveDelay: number;
 }
 
 export const AI_SKILL: Record<'facil' | 'normal' | 'dificil', AiSkill> = {
-  facil: { reactionDelay: 0.34, positionError: 1.15, aimError: 2.0, spikeChance: 0.2, serveDelay: 1.4, attackForce: 0.15 },
-  normal: { reactionDelay: 0.18, positionError: 0.55, aimError: 1.1, spikeChance: 0.45, serveDelay: 1.1, attackForce: 0.3 },
-  dificil: { reactionDelay: 0.08, positionError: 0.22, aimError: 0.5, spikeChance: 0.7, serveDelay: 0.8, attackForce: 0.55 },
+  facil: { reactionDelay: 0.34, positionError: 1.15, aimError: 2.0, spikeChance: 0.2, serveDelay: 1.4, attackForce: 0.15, chanceDeArmar: 0.35 },
+  normal: { reactionDelay: 0.18, positionError: 0.55, aimError: 1.1, spikeChance: 0.45, serveDelay: 1.1, attackForce: 0.3, chanceDeArmar: 0.7 },
+  dificil: { reactionDelay: 0.08, positionError: 0.22, aimError: 0.5, spikeChance: 0.7, serveDelay: 0.8, attackForce: 0.55, chanceDeArmar: 0.9 },
 };
 
 export const AI = {

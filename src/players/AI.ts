@@ -1,15 +1,15 @@
 import * as THREE from 'three';
-import { AI, AI_SKILL, BALL, type AiSkill } from '../config';
+import { AI, AI_SKILL, BALL, PLAYER, type AiSkill } from '../config';
 import { randomInCircle } from '../core/math';
 import { oposto } from '../world/Court';
 import { Athlete } from './Athlete';
+import type { Acao } from './Hitter';
 
 const _pouso = new THREE.Vector3();
 const _desejado = new THREE.Vector3();
 const _paraOAlvo = new THREE.Vector3();
 const _paraABola = new THREE.Vector3();
 const _alvo = new THREE.Vector3();
-const _erro = new THREE.Vector2();
 const _direcao = new THREE.Vector3();
 
 /**
@@ -31,6 +31,33 @@ export class AIPlayer extends Athlete {
   private esperaDeDecisao = 0;
   private querCortar = false;
 
+  /**
+   * Este toque fica em casa (armacao) ou cruza a rede (acabamento)?
+   *
+   * Antes disto existir a IA devolvia TUDO de primeira, sempre num balao alto
+   * mirado no fundo do campo adversario. Contra um humano passava — ele ataca,
+   * e o ataque termina o ponto. Entre dois bots nao passava: o balao sempre
+   * chega, sempre e' alcancado e sempre volta. Medido, dava rally eterno, 0 a
+   * 0 depois de dois minutos, e uma praia inteira de quadras congeladas.
+   */
+  private armando = false;
+  /** Com quantos toques do meu lado a decisao acima foi tomada. */
+  private decididoCom = -1;
+
+  /**
+   * O erro de leitura desta bola, em metros. Um por bola, nao um por quadro.
+   *
+   * O alvo de corrida e' recalculado 12 vezes por segundo, e sortear o erro
+   * junto o transformava em RUIDO: doze desvios aleatorios em torno do ponto
+   * certo se cancelam, e a IA chegava exatamente onde a bola ia cair por mais
+   * alto que fosse o `positionError`. Era por isso que dois bots dificeis
+   * rebatiam pra sempre — nao por serem rapidos, mas por nao errarem nunca.
+   *
+   * Sorteado uma vez por bola lida, o erro vira o que deveria ser desde o
+   * comeco: uma leitura errada, que se paga.
+   */
+  private readonly erroDeLeitura = new THREE.Vector2();
+
   definirHabilidade(habilidade: AiSkill): void {
     this.habilidade = habilidade;
     this.hitter.ruidoDeMira = habilidade.aimError;
@@ -40,12 +67,19 @@ export class AIPlayer extends Athlete {
     super.prepararSaque();
     this.esperaDoSaque = this.habilidade.serveDelay;
     this.alvoDeCorrida.copy(this.motor.posicao);
+    this.esquecerAJogada();
   }
 
   override aoTerminarOPonto(): void {
     super.aoTerminarOPonto();
-    this.querCortar = false;
     this.alvoDeCorrida.copy(this.motor.posicao);
+    this.esquecerAJogada();
+  }
+
+  private esquecerAJogada(): void {
+    this.querCortar = false;
+    this.armando = false;
+    this.decididoCom = -1;
   }
 
   override update(dt: number): void {
@@ -98,6 +132,8 @@ export class AIPlayer extends Athlete {
     const meu = this.ball.ultimoTocador?.side === this.side;
     if (!meu && this.ball.tempoDesdeOToque < this.habilidade.reactionDelay) return;
 
+    this.decidirAJogada();
+
     // Mesmo alvo do marcador: o centro da bola no contato, nao o chao.
     this.ball.preverPouso(this.court.floorY + BALL.radius, _pouso);
 
@@ -108,16 +144,42 @@ export class AIPlayer extends Athlete {
       return;
     }
 
-    randomInCircle(this.habilidade.positionError, _erro);
-    _desejado.set(_pouso.x + _erro.x, 0, _pouso.z + _erro.y);
+    _desejado.set(_pouso.x + this.erroDeLeitura.x, 0, _pouso.z + this.erroDeLeitura.y);
     this.court.limitarArea(_desejado, this.side, this.alvoDeCorrida);
 
-    // Bola alta e perto da rede: vale tentar uma cortada.
+    // Bola alta e perto da rede: vale tentar uma cortada. Armando, nao: quem
+    // arma toca pra cima e fica no chao.
     const pertoDaRede = Math.abs(this.court.distanciaAteRede(this.alvoDeCorrida)) < this.court.halfLength * 0.45;
     const bolaAlta = this.ball.posicao.y > this.court.netTopY + 0.4;
-    this.querCortar = pertoDaRede && bolaAlta && Math.random() < this.habilidade.spikeChance;
+
+    // Se a bola que vem e' o MEU proprio levantamento, a cortada nao e' um
+    // sorteio: foi pra isso que ela subiu.
+    const eOMeuLevantamento = this.rally.toquesDoLado(this.side) > 0;
+    this.querCortar = !this.armando && pertoDaRede && bolaAlta
+      && (eOMeuLevantamento || Math.random() < this.habilidade.spikeChance);
 
     this.esperaDeDecisao = AI.decisionCooldown;
+  }
+
+  /**
+   * Armar ou acabar — decidido UMA vez por posse, nao a cada decisao.
+   *
+   * O alvo de corrida e' recalculado a cada 0,08 s; sortear aqui dentro faria
+   * a intencao piscar entre um quadro e outro, e o toque sairia com a moeda
+   * que caiu no ultimo instante. A contagem de toques do lado zera quando a
+   * bola cruza a rede, entao ela serve de relogio da posse: uma decisao por
+   * valor novo.
+   */
+  private decidirAJogada(): void {
+    const toques = this.rally.toquesDoLado(this.side);
+    if (toques === this.decididoCom) return;
+
+    this.decididoCom = toques;
+    randomInCircle(this.habilidade.positionError, this.erroDeLeitura);
+    this.armando = toques === 0
+      && this.rally.rallyVivo
+      && !this.precisaCruzarARede()
+      && Math.random() < this.habilidade.chanceDeArmar;
   }
 
   private atualizarMovimento(): void {
@@ -146,14 +208,32 @@ export class AIPlayer extends Athlete {
 
     if (!this.hitter.alcanca(this.ball, this.motor.posicao)) return;
 
-    const acao = this.hitter.escolherAcao(this.ball, this.motor.posicao, this.motor.noChao);
-    this.escolherAlvoDeAtaque(_alvo);
+    const acao = this.escolherToque();
+    if (this.armando) this.alvoDeArmacao(PLAYER.setSetupDepth, _alvo);
+    else this.escolherAlvoDeAtaque(_alvo);
 
     // A IA nao carrega: bate sempre com a forca da dificuldade. Mesma fisica
     // do humano, mesma funcao — o que muda e' o numero.
     if (this.hitter.bater(this.ball, this.court, this, acao, _alvo, this.habilidade.attackForce)) {
       this.querCortar = false;
+      this.armando = false;
+      this.decididoCom = -1;
     }
+  }
+
+  /**
+   * O toque, dado o que se quer fazer com a bola.
+   *
+   * O contexto (altura da bola, pes no chao ou nao) decide quase tudo — e' a
+   * mesma funcao do humano. So' ha' UM desvio: acabando, de pe', com a bola na
+   * altura das maos, o contexto diria `levantamento`, e levantamento mirado no
+   * fundo do campo adversario e' o balao lento que nunca termina ponto. Ali
+   * cabe `ataque`: a mesma batida de pe' que o jogador da' segurando o botao.
+   */
+  private escolherToque(): Acao {
+    const acao = this.hitter.escolherAcao(this.ball, this.motor.posicao, this.motor.noChao);
+    if (this.armando || acao !== 'levantamento') return acao;
+    return 'ataque';
   }
 
   /** Pula quando a bola ja' esta' em cima dele e alta o bastante pra virar ataque. */
