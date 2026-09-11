@@ -357,3 +357,10 @@ kbd.larga { min-width: auto; }
 /* Carga cheia: o branco quente e' o mesmo do anel de mira. */
 #carga.cheia #carga-fill { background: #fff0c0; }
 #carga.cheia { opacity: 1; }
+
+/* Os dois ultimos segundos do saque. */
+#action-hint.urgente {
+  color: #ffd0c0;
+  background: rgba(120, 30, 20, 0.65);
+  animation-duration: 0.5s;
+}

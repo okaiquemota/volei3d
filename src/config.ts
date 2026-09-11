@@ -91,39 +91,6 @@ export const SURFACE = {
   out: { restitution: 0.35, tangential: 0.5 },
 } as const;
 
-/**
- * Medidas e cores do CORPO. Separadas de ATHLETE, que e' fisica.
- *
- * Um atleta de 1,86 m: quadril na metade, ombro a 1,47, topo da cabeca em
- * 1,85. Nao sao numeros de gosto — sao as proporcoes que fazem a silhueta ler
- * como pessoa em vez de boneco.
- */
-export const ATLETA = {
-  ombroY: 1.47,
-  quadrilY: 0.95,
-  /**
-   * Ombro mais LARGO que o tronco, de proposito.
-   *
-   * Com o ombro em 0.21 e o tronco em 0.175 de raio, o braco nascia dentro da
-   * capsula e os dois viravam uma massa so'. A silhueta precisa do vao entre
-   * braco e tronco pra ler como pessoa.
-   */
-  ombroX: 0.235,
-  quadrilX: 0.1,
-  bracoComprimento: 0.62,
-  pernaComprimento: 0.95,
-
-  pele: 0xd9a879,
-  cabelo: 0x2a2119,
-
-  /** Passadas por metro corrido. Define o ritmo da animacao. */
-  passadasPorMetro: 1.35,
-  /** Quanto a perna gira no auge da passada, em radianos. */
-  amplitudeDaPassada: 0.62,
-  /** Repetido de ATHLETE pra animacao normalizar a corrida sem importar fisica. */
-  moveSpeed: 6.5,
-} as const;
-
 export const ATHLETE = {
   /** Altura e raio da capsula de colisao. */
   height: 1.86,
@@ -303,6 +270,16 @@ export const MATCH = {
   maxTouches: 3,
   /** Pausa entre o ponto e o proximo saque. */
   pointBreak: 1.7,
+
+  /**
+   * Segundos pra sacar depois que a bola vai pra mao.
+   *
+   * No volei de verdade o arbitro apita e o sacador tem 8 segundos. Aqui sao 5:
+   * sem arbitro e sem cerimonia, 8 e' tempo de sobra e o rally demora a
+   * comecar. A regra existe pelo mesmo motivo que existe no jogo real — sem
+   * ela, quem esta' perdendo simplesmente nao saca.
+   */
+  tempoLimiteDeSaque: 5,
   /** Tempo que o aviso de ponto fica na tela. */
   announcement: 2.0,
 } as const;
@@ -318,19 +295,8 @@ export const CAMERA = {
    * as duas mudancas sao a mesma decisao.
    */
   fov: 45,
-  /**
-   * Near e far.
-   *
-   * O far era 400 e o domo do ceu esta' a 900: o ceu inteiro caia fora do
-   * frustum e simplesmente nao desenhava — o que aparecia no topo do quadro
-   * era o mar, nao o ceu. Erro que nao da' aviso nenhum, so' uma imagem errada.
-   *
-   * Com far em 1500 o near sobe junto pra 0.4, senao a razao far/near come a
-   * precisao do buffer de profundidade. A bola tem 21 cm e a camera esta' a 13
-   * metros: 0.4 nao corta nada que se veja.
-   */
-  near: 0.4,
-  far: 1500,
+  near: 0.1,
+  far: 400,
   /**
    * Altura e distancia da camera.
    *
@@ -357,52 +323,19 @@ export const CAMERA = {
 } as const;
 
 /**
- * O ambiente: ceu, sol e mar.
- *
- * O sol esta' BAIXO de proposito. Sombra longa e' o que faz um lugar parecer um
- * lugar; a pino, tudo achata — a licao e' do rpk.fps e vale igual numa praia.
- * E o azimute poe o sol a' frente e a' esquerda, sobre o mar: e' o que da' o
- * caminho de brilho na agua e contorna os atletas por tras.
- *
- * Quem le' esses dois numeros: a luz direcional, o disco no ceu e o brilho na
- * agua — todos por DIRECAO_DO_SOL, em world/ambiente.ts. Separados, o ceu
- * mostra o sol num canto enquanto a sombra cai pro outro.
- */
-export const AMBIENTE = {
-  /** Graus acima do horizonte. Baixo = sombra longa = fim de tarde. */
-  elevacaoDoSol: 26,
-  /** Graus a partir do eixo Z (pra onde a camera olha). Negativo = esquerda. */
-  azimuteDoSol: -28,
-
-  zenite: 0x1f66ae,
-  /** Bruma quente do horizonte. A nevoa da cena usa esta MESMA cor. */
-  horizonte: 0xf0dcbc,
-  discoDoSol: 0xfff3d6,
-
-  marRaso: 0x3f93a6,
-  marFundo: 0x1d5f7d,
-  areiaMolhada: 0xa8845c,
-
-  /** Onde a areia acaba e o mar comeca, no Z do mundo. */
-  zDaOrla: 46,
-} as const;
-
-/**
  * Cores. Vieram do VisualLibrary do Unity, que gerava tudo por codigo — mesma
  * ideia daqui, entao os valores passaram direto.
  */
 export const COLORS = {
-  sand: 0xe8cb98,
+  sky: 0x73b8eb,
+  sand: 0xe6c995,
   line: 0xf7f7f2,
   post: 0x33383f,
   home: 0x2970d1,
   away: 0xd94d38,
-  /** Luz do sol de fim de tarde: quente, nao branca. */
-  sunLight: 0xffd9a8,
-  /** Luz do ceu, de cima. */
-  skyLight: 0x9fc4e8,
-  /** Quique da areia, de baixo. Quente, porque a areia e' quente. */
-  groundLight: 0xc9a273,
+  sunLight: 0xfff7e6,
+  skyLight: 0x99b8d9,
+  groundLight: 0x6b5f4d,
 } as const;
 
 export const STORAGE_KEY = 'volei3d.save.v1';

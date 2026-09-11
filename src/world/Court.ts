@@ -145,6 +145,27 @@ export class Court {
   }
 
   /**
+   * Limita a posicao do SACADOR: atras da linha de fundo.
+   *
+   * No volei, sacar com o pe' dentro da quadra e' falta. Sem este limite o
+   * jogador anda ate' a rede com a bola na mao e saca de la', o que nao e'
+   * saque nenhum — e' um ataque de graca, sem ninguem podendo defender.
+   *
+   * A lateral continua sendo a zona livre inteira: atras da linha de fundo, o
+   * sacador pode se posicionar onde quiser, e isso e' regra de verdade.
+   */
+  limitarAreaDeSaque(mundo: THREE.Vector3, lado: Side, out = new THREE.Vector3()): THREE.Vector3 {
+    this.paraLocal(mundo, _local);
+
+    _local.x = clamp(_local.x, -this.halfWidthFree, this.halfWidthFree);
+    _local.z = lado === 'home'
+      ? clamp(_local.z, -this.halfLengthFree, -this.halfLength)
+      : clamp(_local.z, this.halfLength, this.halfLengthFree);
+
+    return this.paraMundo(_local, out);
+  }
+
+  /**
    * Limita uma posicao a' area de corrida de um lado: meia quadra + zona livre,
    * parando antes da rede.
    *

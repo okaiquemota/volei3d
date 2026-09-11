@@ -7,7 +7,7 @@ import { oposto, type Court, type Side } from '../world/Court';
 export type EstadoDaPartida = 'parada' | 'esperandoSaque' | 'rally' | 'intervalo' | 'acabou';
 
 /** Por que o ponto aconteceu. Vira texto no HUD. */
-export type MotivoDoPonto = 'BOLA NO CHAO' | 'BOLA FORA' | 'QUATRO TOQUES';
+export type MotivoDoPonto = 'BOLA NO CHAO' | 'BOLA FORA' | 'QUATRO TOQUES' | 'DEMOROU NO SAQUE';
 
 /** O minimo que a partida precisa saber sobre um atleta. */
 export interface AtletaDaPartida {
@@ -46,6 +46,8 @@ export class Match implements EstadoDoRally {
   private ladoDaBola: Side = 'home';
   private estado: EstadoDaPartida = 'parada';
   private tempoDeIntervalo = 0;
+  /** Segundos que restam pro sacador bater. Vale so' em 'esperandoSaque'. */
+  private tempoDeSaque = 0;
 
   /**
    * Um rally marca UM ponto. Sem esta trava, a bola que quica duas vezes no
@@ -80,6 +82,11 @@ export class Match implements EstadoDoRally {
   get quemSaca(): Side { return this.sacador; }
   get estadoAtual(): EstadoDaPartida { return this.estado; }
 
+  /** Segundos restantes pro saque, ou null fora da espera. O HUD le' daqui. */
+  get segundosParaSacar(): number | null {
+    return this.estado === 'esperandoSaque' ? Math.max(0, this.tempoDeSaque) : null;
+  }
+
   /** Zera tudo e comeca a partida. */
   comecar(): void {
     this.homeScore = 0;
@@ -99,6 +106,19 @@ export class Match implements EstadoDoRally {
     if (this.estado === 'intervalo') {
       this.tempoDeIntervalo -= dt;
       if (this.tempoDeIntervalo <= 0) this.iniciarSaque();
+      return;
+    }
+
+    /**
+     * O relogio do saque.
+     *
+     * Sem ele, quem esta' perdendo simplesmente nao saca — e nao ha' nada no
+     * jogo que o obrigue. E' a mesma razao pela qual a regra existe no volei de
+     * verdade, onde o sacador tem 8 segundos depois do apito.
+     */
+    if (this.estado === 'esperandoSaque') {
+      this.tempoDeSaque -= dt;
+      if (this.tempoDeSaque <= 0) this.darPonto(oposto(this.sacador), 'DEMOROU NO SAQUE');
       return;
     }
 
@@ -129,6 +149,7 @@ export class Match implements EstadoDoRally {
     this.toquesAway = 0;
     this.pontoResolvido = false;
     this.ladoDaBola = this.sacador;
+    this.tempoDeSaque = MATCH.tempoLimiteDeSaque;
 
     const sacador = this.sacador === 'home' ? this.home : this.away;
     const recebedor = this.sacador === 'home' ? this.away : this.home;

@@ -35,6 +35,7 @@ export class HUD {
   private preenchimentoDaCarga = elemento('carga-fill');
 
   private tempoDoAviso = 0;
+  private ehMeuSaque = false;
 
   constructor() {
     this.restaurarManual();
@@ -82,6 +83,26 @@ export class HUD {
     this.linhaDeSaque.textContent = `SAQUE: ${nome}`;
     this.linhaDeSaque.classList.toggle('away', lado === 'away');
     this.dicaDeAcao.classList.toggle('hidden', !ehVoce);
+    this.ehMeuSaque = ehVoce;
+  }
+
+  /**
+   * Contagem regressiva do saque. Null esconde.
+   *
+   * So' aparece pro saque do JOGADOR: um relogio correndo no saque da CPU e'
+   * informacao que ele nao pode usar pra nada, e relogio na tela sem acao
+   * possivel e' so' ansiedade.
+   */
+  relogioDoSaque(segundos: number | null): void {
+    if (segundos === null || !this.ehMeuSaque) {
+      this.dicaDeAcao.classList.add('hidden');
+      return;
+    }
+
+    this.dicaDeAcao.classList.remove('hidden');
+    this.dicaDeAcao.textContent = `CLIQUE ou E para SACAR  ${Math.ceil(segundos)}`;
+    // Os dois ultimos segundos acendem: e' quando ainda da' tempo de reagir.
+    this.dicaDeAcao.classList.toggle('urgente', segundos <= 2);
   }
 
   esconderDicaDeSaque(): void {

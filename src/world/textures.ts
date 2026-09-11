@@ -79,35 +79,14 @@ export function criarAreia(): Superficie {
   const imagem = ctx.createImageData(TAM, TAM);
   const grao = new Float32Array(TAM * TAM);
 
-  /**
-   * Duas frequencias na mesma imagem, e cada uma serve a um mapa.
-   *
-   * O GRAO (alta frequencia) vira relevo: e' geometria pequena demais pra
-   * modelar e grande demais pra ignorar, e e' o que reage a' luz rasante.
-   *
-   * A ONDULACAO (baixa frequencia) fica so' na cor: sao as marcas de pe' e de
-   * rastelo que uma areia batida tem. Se ela entrasse no mapa de normal, cada
-   * marca viraria um calombo de meio metro no meio da quadra.
-   */
-  const ondular = (x: number, y: number): number => {
-    const a = Math.sin(x * 0.11 + Math.cos(y * 0.07) * 2.3);
-    const b = Math.sin((x + y) * 0.055 + 1.7);
-    return (a * 0.6 + b * 0.4) * 0.5;
-  };
-
   // Base + grao. A cor base e' a da areia seca ao sol.
   const base = { r: 230, g: 201, b: 149 };
   for (let i = 0; i < grao.length; i++) {
-    const x = i % TAM;
-    const y = Math.floor(i / TAM);
-
     const g = (rnd() - 0.5) * 0.1;
     grao[i] = g;
-
-    const variacao = g + ondular(x, y) * 0.075;
-    imagem.data[i * 4 + 0] = base.r * (1 + variacao);
-    imagem.data[i * 4 + 1] = base.g * (1 + variacao * 0.9);
-    imagem.data[i * 4 + 2] = base.b * (1 + variacao * 0.7);
+    imagem.data[i * 4 + 0] = base.r * (1 + g);
+    imagem.data[i * 4 + 1] = base.g * (1 + g * 0.9);
+    imagem.data[i * 4 + 2] = base.b * (1 + g * 0.7);
     imagem.data[i * 4 + 3] = 255;
   }
   ctx.putImageData(imagem, 0, 0);

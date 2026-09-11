@@ -81,11 +81,6 @@ pé, qualquer carga sai a ~10 m/s. Carregue correndo, **pule**, e solte em cima
 da bola — ali a mesma carga vira 24 m/s, e a bola cruza a quadra em 0,27 s em
 vez de 1 s. Não é uma regra, é a geometria da rede cobrando.
 
-**Praia de fim de tarde.** Céu com gradiente e disco do sol, mar além da linha
-de fundo adversária, sol baixo a 26° e sombras longas na areia. Tudo procedural:
-o céu e o mar são shaders de vinte linhas, a areia é canvas 2D em duas escalas.
-Nenhum arquivo.
-
 **Marcadores no chão.** O anel branco mostra onde a bola **vai cair** — e
 aperta conforme ela chega, então diz também *quando*. O anel azul mostra para
 onde o **seu ataque** vai. A previsão do branco é a mesma que a IA usa: não há
@@ -168,15 +163,6 @@ que existem testes: essa parte roda no Node.
 - **O marcador de queda prevê até o centro da bola no contato, não até o chão.**
   A bola toca a areia com o centro a um raio de altura; mirar em `y = 0` erra
   uns dez centímetros sempre para o mesmo lado. Medido: 0,9 cm de erro médio.
-- **O céu é a decisão visual mais cara que existe**, e custa um `draw call`.
-  Uma cor chapada acima da rede faz a quadra parecer um recorte, por melhor que
-  esteja a areia. Uma única fonte (`DIRECAO_DO_SOL`) alimenta a luz, o disco no
-  céu e o brilho na água — separadas, o sol aparece num canto e a sombra cai
-  pro outro.
-- **A areia é a mesma textura amostrada em duas escalas.** O grão repete a cada
-  2 m, que é o certo para grão; a mancha larga vem de uma segunda amostra 28×
-  maior, no mesmo mapa. Mancha dentro do tile repetiria junto — e mancha
-  repetida é o que mais denuncia uma textura tileada.
 - **A folga exigida sobre a fita é menor num ataque** (0,15 m) do que num passe
   (0,35 m). Com a folga do passe, *nenhuma* velocidade cruzava a rede num tiro
   reto, o solver transformava tudo em balão e a carga não existia na prática.
