@@ -3,6 +3,7 @@ import { PLAYER } from '../config';
 import type { Input } from '../core/Input';
 import { oposto } from '../world/Court';
 import { Athlete } from './Athlete';
+import type { Acao } from './Hitter';
 
 const _frente = new THREE.Vector3();
 const _direita = new THREE.Vector3();
@@ -12,6 +13,7 @@ const _ndc = new THREE.Vector2();
 const _raio = new THREE.Raycaster();
 const _planoDoChao = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const _pontoDoChao = new THREE.Vector3();
+const _alvoDoToque = new THREE.Vector3();
 
 /**
  * O jogador humano.
@@ -33,6 +35,7 @@ export class Human extends Athlete {
   input: Input | null = null;
 
   override update(dt: number): void {
+    this.hitter.update(dt);
     this.atualizarMira();
     this.atualizarMovimento();
     this.atualizarAcoes(dt);
@@ -94,18 +97,42 @@ export class Human extends Athlete {
     const pediuToque = input.wasPressed('KeyE') || input.wasMousePressed(0);
     if (pediuToque) this.bufferDeToque = PLAYER.hitBuffer;
     else if (this.bufferDeToque > 0) this.bufferDeToque -= dt;
+
+    if (this.bufferDeToque <= 0) return;
+
+    if (this.sacando) {
+      if (this.hitter.sacar(this.ball, this.court, this, this.pontoDeMira)) this.bufferDeToque = 0;
+      return;
+    }
+
+    if (!this.rally.rallyVivo) return;
+    if (!this.hitter.alcanca(this.ball, this.motor.posicao)) return;
+
+    const acao = this.hitter.escolherAcao(this.ball, this.motor.posicao, this.motor.noChao);
+    this.escolherAlvo(acao, _alvoDoToque);
+
+    if (this.hitter.bater(this.ball, this.court, this, acao, _alvoDoToque)) this.bufferDeToque = 0;
   }
 
-  /** O toque em si entra na Fase 4; por ora so' o buffer e' mantido. */
-  protected get querTocar(): boolean {
-    return this.bufferDeToque > 0;
+  /**
+   * Pra onde mandar a bola.
+   *
+   * Cortada, terceiro toque ou botao de ataque segurado => campo adversario,
+   * na mira do mouse. Qualquer outra coisa => armacao no proprio campo.
+   *
+   * Isso e' o que faz os dois primeiros toques montarem a jogada sozinhos: o
+   * jogador nao precisa decidir "passar ou atacar" a cada toque, so' quando
+   * quiser quebrar o padrao.
+   */
+  private escolherAlvo(acao: Acao, out: THREE.Vector3): THREE.Vector3 {
+    const atacar = acao === 'cortada' || this.forcandoAtaque || this.precisaCruzarARede();
+    if (atacar) return out.copy(this.pontoDeMira);
+
+    const profundidade = acao === 'manchete' ? PLAYER.bumpSetupDepth : PLAYER.setSetupDepth;
+    return this.alvoDeArmacao(profundidade, out);
   }
 
-  protected consumirToque(): void {
-    this.bufferDeToque = 0;
-  }
-
-  protected get forcandoAtaque(): boolean {
+  private get forcandoAtaque(): boolean {
     const input = this.input;
     return !!input && (input.isMouseDown(2) || input.isDown('ShiftLeft') || input.isDown('ShiftRight'));
   }

@@ -3,6 +3,7 @@ import { COURT, PLAYER } from '../config';
 import type { Ball, Tocador } from '../ball/Ball';
 import { Court, oposto, type Side } from '../world/Court';
 import { construirAtleta, type AtletaVisual } from './buildAthlete';
+import { Hitter } from './Hitter';
 import { Motor } from './Motor';
 
 const _direcao = new THREE.Vector3();
@@ -27,6 +28,7 @@ export interface EstadoDoRally {
  */
 export abstract class Athlete implements Tocador {
   readonly motor: Motor;
+  readonly hitter = new Hitter();
   readonly visual: AtletaVisual;
 
   /** Esta' esperando pra sacar? */
@@ -54,6 +56,7 @@ export abstract class Athlete implements Tocador {
   /** Chamado pelo Match quando este atleta vai sacar. */
   prepararSaque(): void {
     this.sacando = true;
+    this.hitter.zerarEspera();
     this.motor.colocarEm(
       this.court.posicaoDeSaque(this.side, _ponto),
       this.court.direcaoParaRede(this.side, _direcao),
@@ -69,6 +72,7 @@ export abstract class Athlete implements Tocador {
   /** Chamado quando o ponto termina: hora de voltar pra base. */
   aoTerminarOPonto(): void {
     this.sacando = false;
+    this.hitter.zerarEspera();
     this.voltarParaOSpawn();
   }
 
