@@ -215,13 +215,33 @@ export const MATCH = {
 } as const;
 
 export const CAMERA = {
-  fov: 62,
+  /**
+   * Lente. O prototipo usava 62, com a camera a 6 m — perto e aberta.
+   *
+   * Subir a camera pra 10,5 m (ver abaixo) afastou tudo: com 62 a quadra
+   * ocupava 40% da altura do quadro e o resto era areia vazia. Fechar pra 45
+   * devolve o enquadramento — a quadra inteira passa a ocupar 55%, e o atleta
+   * volta a ter tamanho de leitura. Camera mais alta pede lente mais fechada;
+   * as duas mudancas sao a mesma decisao.
+   */
+  fov: 45,
   near: 0.1,
   far: 400,
-  /** Altura da camera acima do chao da quadra. */
-  height: 6.0,
-  /** Distancia atras do jogador, no eixo da quadra. */
-  distance: 9.5,
+  /**
+   * Altura e distancia da camera.
+   *
+   * O prototipo usava 6 m e 9,5 m, e isso NAO funciona aqui. A conta: a linha
+   * de visao que raspa o topo da rede (2,24 m) a partir de uma camera a altura
+   * h e distancia D toca o chao do outro lado a 2,24*D/(h-2,24) metros da rede.
+   * Com 6 e 9,5 isso da' 8,5 m — alem da linha de fundo adversaria, que tem 8.
+   * Ou seja: o campo inteiro do adversario ficava escondido atras da rede.
+   *
+   * Num jogo em que se MIRA com o mouse num ponto do campo adversario, isso e'
+   * fatal. Com 10,5 e 13 a conta da' 4,8 m, e sobram 3,2 m de campo adversario
+   * visiveis por cima da fita — o resto se ve' pela malha, que e' vazada.
+   */
+  height: 10.5,
+  distance: 13,
   /** Quanto a camera acompanha o jogador lateralmente (0 = trava no centro). */
   lateralFollow: 0.55,
   /** Quanto o foco puxa pra bola (0 = so' o jogador). */

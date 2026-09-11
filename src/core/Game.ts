@@ -1,10 +1,13 @@
 import * as THREE from 'three';
-import { CAMERA, COLORS } from '../config';
+import { CAMERA, COLORS, MATCH } from '../config';
 import { Input } from './Input';
 import { CameraRig } from './CameraRig';
 import { PerfMeter } from '../ui/PerfMeter';
 import { Ball } from '../ball/Ball';
-import { Court } from '../world/Court';
+import { Human } from '../players/Human';
+import type { EstadoDoRally } from '../players/Athlete';
+import { descartarGeometriasDeAtleta } from '../players/buildAthlete';
+import { Court, type Side } from '../world/Court';
 import { construirQuadra, type Colisores } from '../world/buildCourt';
 import { setMaxAnisotropy } from '../world/textures';
 
@@ -32,6 +35,7 @@ export class Game {
   readonly court = new Court();
   readonly colisores: Colisores;
   readonly ball: Ball;
+  readonly player: Human;
   readonly rig: CameraRig;
 
   /** Tudo que precisa de dispose no fim. */
@@ -77,27 +81,38 @@ export class Game {
     this.colisores = quadra.colisores;
     this.descartaveis.push(...quadra.descartaveis);
 
+    this.input = new Input(canvas);
+
     this.ball = new Ball(this.court, this.colisores);
     this.scene.add(this.ball.mesh);
     this.descartaveis.push(this.ball);
+
+    /**
+     * Ate' o Match existir (Fase 5), o rally e' um estado de mentirinha: sempre
+     * vivo, zero toques. E' o bastante pra mexer e tocar na bola.
+     */
+    const rallyProvisorio: EstadoDoRally = {
+      toquesDoLado: (_lado: Side) => 0,
+      maxToques: MATCH.maxTouches,
+      rallyVivo: true,
+    };
+
+    this.player = new Human('VOCE', 'home', COLORS.home, this.court, this.ball, rallyProvisorio);
+    this.player.camera = this.camera;
+    this.player.input = this.input;
+    this.scene.add(this.player.objeto);
+    this.descartaveis.push(this.player);
 
     this.criarLuzes();
 
     this.rig = new CameraRig(this.camera, this.court, 'home');
 
-    // Ate' o atleta existir (Fase 3), a camera segue um marcador na posicao de
-    // spawn — assim o enquadramento ja' e' o de jogo, nao um chute.
-    const marcador = new THREE.Object3D();
-    marcador.position.copy(this.court.posicaoDeSpawn('home'));
-    this.scene.add(marcador);
-    this.rig.alvo = marcador;
+    this.rig.alvo = this.player.objeto;
     this.rig.bola = this.ball.mesh;
     this.rig.encaixar();
 
     // Ate' haver saque (Fase 5), a bola comeca parada no alto do lado Home.
     this.ball.teleportar(this.court.pontoDaQuadra('home', 0, 0.5).setY(3));
-
-    this.input = new Input(canvas);
 
     window.addEventListener('resize', this.onResize);
     requestAnimationFrame(this.loop);
@@ -168,6 +183,7 @@ export class Game {
 
   /** Um passo de jogo. Publico: e' a porta de entrada dos testes. */
   update(dt: number): void {
+    this.player.update(dt);
     this.ball.update(dt);
     this.rig.update(dt);
   }
@@ -191,6 +207,7 @@ export class Game {
     window.removeEventListener('resize', this.onResize);
     this.input.dispose();
     for (const d of this.descartaveis) d.dispose();
+    descartarGeometriasDeAtleta();
     this.renderer.dispose();
   }
 }
