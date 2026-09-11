@@ -3,6 +3,7 @@ import { CAMERA, COLORS } from '../config';
 import { Input } from './Input';
 import { CameraRig } from './CameraRig';
 import { PerfMeter } from '../ui/PerfMeter';
+import { Ball } from '../ball/Ball';
 import { Court } from '../world/Court';
 import { construirQuadra, type Colisores } from '../world/buildCourt';
 import { setMaxAnisotropy } from '../world/textures';
@@ -30,6 +31,7 @@ export class Game {
 
   readonly court = new Court();
   readonly colisores: Colisores;
+  readonly ball: Ball;
   readonly rig: CameraRig;
 
   /** Tudo que precisa de dispose no fim. */
@@ -75,6 +77,10 @@ export class Game {
     this.colisores = quadra.colisores;
     this.descartaveis.push(...quadra.descartaveis);
 
+    this.ball = new Ball(this.court, this.colisores);
+    this.scene.add(this.ball.mesh);
+    this.descartaveis.push(this.ball);
+
     this.criarLuzes();
 
     this.rig = new CameraRig(this.camera, this.court, 'home');
@@ -85,7 +91,11 @@ export class Game {
     marcador.position.copy(this.court.posicaoDeSpawn('home'));
     this.scene.add(marcador);
     this.rig.alvo = marcador;
+    this.rig.bola = this.ball.mesh;
     this.rig.encaixar();
+
+    // Ate' haver saque (Fase 5), a bola comeca parada no alto do lado Home.
+    this.ball.teleportar(this.court.pontoDaQuadra('home', 0, 0.5).setY(3));
 
     this.input = new Input(canvas);
 
@@ -158,6 +168,7 @@ export class Game {
 
   /** Um passo de jogo. Publico: e' a porta de entrada dos testes. */
   update(dt: number): void {
+    this.ball.update(dt);
     this.rig.update(dt);
   }
 

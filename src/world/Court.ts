@@ -31,6 +31,16 @@ export class Court {
   readonly matrix = new THREE.Matrix4();
   private readonly matrixInv = new THREE.Matrix4();
 
+  /**
+   * A rotacao da quadra, separada da matriz.
+   *
+   * Velocidade se converte por ROTACAO, nunca por transformDirection: aquele
+   * normaliza o resultado, e uma bola a 20 m/s viraria uma bola a 1 m/s sem
+   * erro de tipo nenhum pra avisar.
+   */
+  readonly quaternion = new THREE.Quaternion();
+  readonly quaternionInv = new THREE.Quaternion();
+
   readonly halfLength = COURT.length / 2;
   readonly halfWidth = COURT.width / 2;
 
@@ -42,11 +52,9 @@ export class Court {
   static readonly NET_GAP = 0.35;
 
   constructor(posicao = new THREE.Vector3(), rotacaoY = 0) {
-    this.matrix.compose(
-      posicao,
-      new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rotacaoY),
-      new THREE.Vector3(1, 1, 1),
-    );
+    this.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rotacaoY);
+    this.quaternionInv.copy(this.quaternion).invert();
+    this.matrix.compose(posicao, this.quaternion, new THREE.Vector3(1, 1, 1));
     this.matrixInv.copy(this.matrix).invert();
   }
 
