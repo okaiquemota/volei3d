@@ -100,7 +100,9 @@ export class HUD {
     }
 
     this.dicaDeAcao.classList.remove('hidden');
-    this.dicaDeAcao.textContent = `CLIQUE ou E para SACAR  ${Math.ceil(segundos)}`;
+    // "Segure" e nao "clique": o saque sai dos dois jeitos, mas o que o
+    // jogador precisa descobrir e' que segurar muda alguma coisa.
+    this.dicaDeAcao.textContent = `SEGURE e SOLTE para SACAR  ${Math.ceil(segundos)}`;
     // Os dois ultimos segundos acendem: e' quando ainda da' tempo de reagir.
     this.dicaDeAcao.classList.toggle('urgente', segundos <= 2);
   }

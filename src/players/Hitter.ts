@@ -133,11 +133,26 @@ export class Hitter {
       : ATAQUE.dePeMin + (ATAQUE.dePeMax - ATAQUE.dePeMin) * f;
   }
 
-  /** Saque: o mesmo solver do passe alto, com apice proprio e sem espera. */
-  sacar(ball: Ball, court: Court, por: Tocador, alvoNoChao: THREE.Vector3): boolean {
+  /**
+   * Saque: o mesmo solver do passe alto, com o apice saindo da CARGA.
+   *
+   * Carga zero e' balao — sobe alto e da' tempo de sobra pro outro lado. Carga
+   * cheia e' o arco mais raso que a rede deixa passar, e corta quase metade do
+   * tempo de reacao de quem recebe.
+   */
+  sacar(
+    ball: Ball,
+    court: Court,
+    por: Tocador,
+    alvoNoChao: THREE.Vector3,
+    forca = 0,
+  ): boolean {
     this.aplicarRuido(alvoNoChao, _alvo);
 
-    const apice = Math.max(HIT.serveApex, ball.posicao.y + 1);
+    const f = Math.max(0, Math.min(1, forca));
+    const pedido = HIT.serveApexFraco + (HIT.serveApexForte - HIT.serveApexFraco) * f;
+    // O apice tem que estar acima do ponto de contato, senao nao ha' parabola.
+    const apice = Math.max(pedido, ball.posicao.y + 1);
     if (!this.resolverArco(ball.posicao, _alvo, court, true, apice)) return false;
 
     ball.bater(_velocidade, por);
@@ -147,9 +162,7 @@ export class Hitter {
   }
 
   private apicePara(acao: Acao, alturaDeContato: number): number {
-    const base = acao === 'manchete' ? HIT.bumpApex
-               : acao === 'saque' ? HIT.serveApex
-               : HIT.setApex;
+    const base = acao === 'manchete' ? HIT.bumpApex : HIT.setApex;
 
     // O apice tem que estar acima do ponto de contato, senao nao ha' parabola.
     return Math.max(base, alturaDeContato + 0.6);

@@ -38,7 +38,7 @@ npm run build:single # dist/volei3d.html — joga com duplo clique, offline
 | Passar | Toque rápido no clique esquerdo (ou `E`) |
 | Atacar por cima da rede | **Segurar** o clique esquerdo e soltar |
 | Levantar no próprio campo | **Clique direito** |
-| Sacar | Clique esquerdo ou `E`, quando for seu saque |
+| Sacar | Segure e solte o clique esquerdo — a carga vale aqui também |
 | Reiniciar | `R`, na tela de fim de jogo |
 | Pausar / desempenho | `Esc` / `F3` |
 | Esconder o manual de teclas | `H` |
@@ -46,6 +46,11 @@ npm run build:single # dist/volei3d.html — joga com duplo clique, offline
 O manual fica na lateral esquerda da tela — a maior área de areia vazia que a
 câmera enquadra, então ele não cobre nada que se precise ver. `H` esconde, e a
 preferência fica guardada.
+
+**No saque, a carga muda o arco.** Um toque manda um balão de 2 s de voo; a
+carga cheia baixa o arco até o limite que a rede deixa passar e o voo cai para
+1,1 s — 43% menos tempo de reação para o outro lado. A mira continua sendo sua:
+os dois caem no mesmo ponto.
 
 **A carga é a intenção.** O mesmo botão passa e ataca: quem só encosta arma a
 jogada no próprio campo, quem segura manda por cima da rede. Não há decisão de

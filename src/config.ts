@@ -132,7 +132,29 @@ export const HIT = {
   /** Apice do arco, em metros de MUNDO. */
   bumpApex: 5.5,
   setApex: 6.0,
-  serveApex: 6.5,
+
+  /**
+   * Apice do saque, da carga zero a' carga cheia.
+   *
+   * O saque ignorava a forca: apice fixo em 6,5 e pronto. Segurar o botao nao
+   * mudava nada, e a unica decisao do saque era a mira.
+   *
+   * O que a carga PODE mudar aqui e' a ALTURA do arco, nao a velocidade
+   * direto — quem manda e' a geometria. De 1,35 m de contato, cruzando a rede
+   * a 8,8 m de distancia, um arco mais raso que 2,8 m de apice bate na fita: o
+   * solver so' o levantaria de volta, e a carga nao existiria na pratica.
+   *
+   * Na faixa que cabe, a diferenca e' grande mesmo assim:
+   *
+   *   apice 8.0   voo de 2,10 s    7,0 m/s   balao, tempo de sobra pro outro
+   *   apice 6.5   voo de 1,87 s    7,9 m/s   o saque de antes
+   *   apice 3.0   voo de 1,17 s   12,6 m/s   quase metade do tempo de reacao
+   *
+   * A IA saca com a forca da dificuldade, e "normal" em 0,3 cai exatamente em
+   * 6,5 — o saque que ela ja' tinha. O jogador ganhou a alavanca, ela nao.
+   */
+  serveApexFraco: 8.0,
+  serveApexForte: 3.0,
 
   /** Folga minima acima da fita da rede ao atacar o outro lado. */
   netClearance: 0.35,

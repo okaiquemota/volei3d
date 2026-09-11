@@ -70,7 +70,8 @@ export class AIPlayer extends Athlete {
     if (this.esperaDoSaque > 0) return;
 
     this.escolherAlvoDeAtaque(_alvo);
-    if (this.hitter.sacar(this.ball, this.court, this, _alvo)) {
+    // A IA nao carrega: saca sempre com a forca da dificuldade.
+    if (this.hitter.sacar(this.ball, this.court, this, _alvo, this.habilidade.attackForce)) {
       this.esperaDoSaque = this.habilidade.serveDelay;
     }
   }

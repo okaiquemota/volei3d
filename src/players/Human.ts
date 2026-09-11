@@ -164,7 +164,7 @@ export class Human extends Athlete {
     if (this.bufferDeToque <= 0) return;
 
     if (this.sacando) {
-      if (this.hitter.sacar(this.ball, this.court, this, this.pontoDeMira)) {
+      if (this.hitter.sacar(this.ball, this.court, this, this.pontoDeMira, this.carga)) {
         this.bufferDeToque = 0;
         this.esquecerAtaque();
       }
