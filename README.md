@@ -1,7 +1,8 @@
 # VÔLEI 3D
 
-Vôlei de praia em 3D numa praia com três quadras: você joga numa, as outras
-jogam sozinhas, e dá pra ir assistir a qualquer uma sem sair da sua partida.
+Vôlei de praia em 3D numa praia com três quadras. Você joga numa, as outras
+jogam sozinhas, e a qualquer momento dá pra sair da quadra, **andar pela areia**
+e entrar em outra — ou só assistir.
 Feito em **TypeScript + Three.js**, sem framework de jogo e sem engine de
 física — tudo escrito à mão.
 
@@ -13,7 +14,7 @@ Abre e joga: não tem instalador, não tem plugin, não tem barra de carregament
 > [RIP.volei3d-unity](https://github.com/okaiquemota/RIP.volei3d-unity) — ela
 > funcionava, mas cada build levava de 20 a 30 minutos num runner de CI, exigia
 > licença Unity e entregava dezenas de MB com tela de carregamento. Esta versão
-> compila em **um segundo** e entrega **147 KB comprimidos**.
+> compila em **um segundo** e entrega **149 KB comprimidos**.
 
 ---
 
@@ -41,8 +42,10 @@ npm run build:single # dist/volei3d.html — joga com duplo clique, offline
 | Atacar por cima da rede | **Segurar** o clique esquerdo e soltar |
 | Levantar no próprio campo | **Clique direito** |
 | Sacar | Segure e solte o clique esquerdo — a carga vale aqui também |
-| Trocar de quadra | `[` e `]` |
-| Voltar pra sua quadra | `Tab` |
+| Sair da quadra e andar pela areia | `Q` |
+| Entrar na quadra em que você está encostado | `E` |
+| Assistir outra quadra | `[` e `]` |
+| Voltar a câmera pra você | `Tab` |
 | Reiniciar | `R`, na tela de fim de jogo |
 | Pausar / desempenho | `Esc` / `F3` |
 | Esconder o manual de teclas | `H` |
@@ -73,6 +76,12 @@ ataque.
 tempo, cada uma com sua bola e seu placar; assistir não pausa a sua, e a sua
 não pausa as delas. Quando uma quadra de bots chega a 15, ela descansa seis
 segundos e começa outra — nenhuma quadra vira cenário.
+
+**`Q` te tira da quadra.** Um bot assume seu lado na hora e a partida continua
+sem interrupção — se a bola estava vindo pra você, agora é dele. Fora da quadra
+você anda pela areia com o mesmo `W A S D`, o placar do HUD acompanha a quadra
+mais perto, e `E` te põe no lugar do bot do lado em que você chegou. A rede e os
+postes te barram: dá pra contornar uma quadra, não atravessar.
 
 ---
 
@@ -135,8 +144,9 @@ src/
   world/
     Arena.ts            uma partida, numa quadra, num lugar do mundo
     praia.ts            onde ficam as quadras — só dado, sem código
+    buildBeach.ts       o chão: um só, pro mundo inteiro
     Court.ts            a única fonte de verdade sobre geometria de jogo
-    buildCourt.ts       areia, linhas, rede, postes — e os colisores junto
+    buildCourt.ts       linhas, rede e postes — e os colisores junto
     Physics.ts          o integrador da bola e as colisões
     Markers.ts          os anéis de queda e de mira, no chão
     textures.ts         areia, rede e bola desenhadas em canvas 2D
@@ -146,6 +156,8 @@ src/
     Motor.ts            corrida e pulo (cinemático: não empurra a bola)
     Hitter.ts           manchete, levantamento, cortada e saque
     Human.ts            lê o input, mira no chão
+    Banhista.ts         você fora da quadra, andando pela areia
+    controle.ts         a direção que o teclado pede, relativa à câmera
     AI.ts               prevê, persegue, arma e ataca
     buildAthlete.ts     o corpo low-poly
   match/Match.ts        placar, saque, toques, fim de jogo — lógica pura
@@ -256,7 +268,7 @@ O menu tem um controle de resolução (50% a 100%). O custo do quadro cresce com
 
 - Som: toque, quique na areia, apito. O `Audio.ts` do rpk.fps é a fundação.
 - Duplas, em vez de um contra um.
-- Andar pela praia a pé e escolher a quadra chegando perto, em vez de `[` e `]`.
+- Mais quadras, e com gente diferente em cada uma.
 - Multiplayer de verdade: hoje as outras quadras são bots. As partes puras
   (`Match`, `Court`, `ballistics`, `Physics`) já rodariam num servidor Node sem
   mudança; o que falta é `Athlete` e `Ball` pararem de importar render.

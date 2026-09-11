@@ -45,6 +45,11 @@ está ligado, junto com `noUnusedLocals` e `noUnusedParameters`.
 - HUD: markup em `index.html`, setters em `ui/HUD.ts`, estilo em `ui/style.css`.
 - Uma partida numa quadra num lugar do mundo: `world/Arena.ts`. Onde ficam as
   quadras da praia: `world/praia.ts` — é só dado, mexer ali não mexe em código.
+- O chão da praia: `world/buildBeach.ts`. Um só, pro mundo inteiro.
+- Quem anda pela areia: `players/Banhista.ts`. **Não** é um `Athlete`, e não
+  deve virar um: `Athlete` nasce preso a um `Court` e a um `Side`, e quem passeia
+  não tem nenhum dos dois. Entrar numa quadra cria um `Human`; sair descarta ele
+  e devolve o bot (`Arena.ocupar` / `Arena.liberar`).
 - Quem olha pra qual quadra: `core/Game.ts` (`assistir`, `arenaEmFoco`).
 
 ## A regra que sustenta o projeto inteiro
@@ -311,6 +316,69 @@ Se for mexer nisso de novo: o sintoma "placar parado" tem três causas
 diferentes e elas se parecem no relatório. Instrumente `match.estadoAtual` ao
 longo do tempo antes de supor. `rallies: 0` com toques acontecendo é rally
 eterno; `rallies: 0` sem toque nenhum é partida que nunca saiu de `parada`.
+
+## `Matrix4.lookAt` é convenção de CÂMERA, e mordeu
+
+`Matrix4.lookAt(olho, alvo, cima)` coloca o **+Z apontando do alvo pro olho** —
+pra trás do que se olha. É certo pra câmera e errado pra corpo. O `Motor`
+chamava `lookAt(origem, frente, ...)`, então o +Z do atleta apontava pro lado
+oposto ao que ele encarava.
+
+Nada quebra visivelmente: a cápsula é simétrica. O que quebra é **tudo que mora
+no +Z do corpo**, e moram duas coisas:
+
+- O marcador branco de frente, cujo único trabalho é dizer pra onde o atleta
+  está virado. Virou marcador de costas.
+- A **âncora do saque**, que segura a bola. O sacador segurava a bola atrás do
+  próprio corpo, meio metro atrás da linha de fundo em vez de meio metro à
+  frente dela — e era dali que o solver do saque partia.
+
+Invertidos os dois argumentos, o +Z vira a frente de verdade. E aí aparece o
+segundo efeito: com a bola de fato à frente, ela some atrás do tronco na linha
+de visão da câmera. A âncora saiu do eixo (`-0.42, altura, 0.42`), que também é
+como se segura uma bola pra sacar.
+
+Pra conferir isto não olhe a tela: leia `objeto.getWorldDirection()` e compare
+com a direção do movimento. A cápsula parece igual dos dois lados.
+
+## Encarar a bola presa é perseguir o próprio braço
+
+O `Human` encarava a bola sempre que ela estava do lado dele — inclusive quando
+ela estava **na mão dele**. A bola presa fica na âncora, a âncora é filha do
+corpo, o corpo gira pra encarar a bola, a âncora gira junto: o sacador rodava em
+torno de si mesmo o saque inteiro, e a direção do corpo nunca assentava.
+
+Com o +Z invertido o laço oscilava; com ele certo, assentaria em qualquer
+direção — inclusive de costas pra rede. Os dois casos são errados pelo mesmo
+motivo. `ball.presa` sai da conta: bola na própria mão não é alvo.
+
+## Ida e volta pra espaço local não devolve o mesmo número
+
+`Court.desviarDaRede` empurra quem anda pra fora da rede. A primeira versão
+convertia pra local, empurrava (ou não) e convertia de volta — sempre. Numa
+quadra transladada em 26 m, a volta `x + 26 - 26` **não devolve x**: com x na
+casa dos milésimos, 26 come os bits de baixo.
+
+Isso seria ruído inofensivo se alguém não comparasse por igualdade exata. O
+`Motor` compara: `if (_limitado.x !== this.posicao.x) velocidade.x = 0` é como
+ele sabe que bateu numa parede. Com o erro da volta, ele achava que batia na
+parede **todo quadro** — quem andava pelo eixo X fazia dois metros e parava.
+
+A regra que fica: função de limite que não mexeu em nada devolve o vetor
+**intocado**, sem passar por transformação nenhuma. Vale pra qualquer `LimitarArea`
+que venha depois.
+
+## O chão é do mundo, não da quadra
+
+`construirQuadra` desenhava a laje de areia junto com as linhas. Com uma quadra
+estava certo; com três virou **três lajes de 400 m coplanares**, empilhadas no
+mesmo y. A contagem de desenhos não acusa — são três meshes como sempre — mas a
+GPU pinta a tela inteira de areia três vezes por quadro, com textura e normal
+map, e guarda três cópias das texturas.
+
+O sintoma é medível só em `renderer.info.memory.textures` (13 caiu pra 9) e em
+triângulos. Se for acrescentar cenário, pergunte antes de que ele é: do mundo ou
+da quadra.
 
 ## A câmera de quem assiste não é a de quem joga
 
