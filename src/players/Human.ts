@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PLAYER } from '../config';
+import { ATAQUE, PLAYER } from '../config';
 import type { Input } from '../core/Input';
 import { oposto } from '../world/Court';
 import { Athlete } from './Athlete';
@@ -30,6 +30,12 @@ export class Human extends Athlete {
   readonly pontoDeMira = new THREE.Vector3();
 
   private bufferDeToque = 0;
+
+  /** Carga do ataque, de 0 a 1. Sobe enquanto o botao esta' segurado. */
+  private carga = 0;
+  private carregando = false;
+  /** Soltou o botao e ainda nao bateu: a intencao vale enquanto o buffer durar. */
+  private ataquePendente = false;
 
   camera: THREE.PerspectiveCamera | null = null;
   input: Input | null = null;
@@ -98,46 +104,98 @@ export class Human extends Athlete {
     if (input.wasPressed('Space')) this.motor.pular();
 
     /**
+     * O botao de ataque CARREGA enquanto segurado e bate ao SOLTAR.
+     *
+     * Segurar da' ao jogador uma alavanca sobre a forca. Sem ela o ataque sai
+     * sempre igual e a unica decisao que sobra e' pra onde mirar; com ela,
+     * chegar cedo embaixo da bola passa a valer alguma coisa — da' tempo de
+     * carregar.
+     *
+     * O gatilho e' soltar, e nao apertar, porque um toque rapido ainda tem que
+     * sair: ele so' sai fraco.
+     */
+    const segurandoAtaque = input.isMouseDown(2)
+      || input.isDown('ShiftLeft') || input.isDown('ShiftRight');
+
+    if (segurandoAtaque) {
+      this.carregando = true;
+      this.carga = Math.min(1, this.carga + dt / ATAQUE.tempoDeCarga);
+    }
+
+    const soltouOAtaque = this.carregando && !segurandoAtaque;
+    if (soltouOAtaque) {
+      this.carregando = false;
+      /**
+       * A INTENCAO de atacar sobrevive a' soltada.
+       *
+       * Zerar aqui seria o bastante pra quebrar tudo: no quadro em que se
+       * solta, o botao ja' subiu, e se o alvo dependesse do botao o ataque
+       * viraria um passe manso bem na hora de bater. A intencao dura o que
+       * durar o buffer.
+       */
+      this.ataquePendente = true;
+    }
+
+    /**
      * Buffer de toque.
      *
      * O clique dado um quadro antes da bola entrar no alcance nao pode se
      * perder: sem isso o jogo parece travado justamente quando o jogador
      * acertou o tempo. E' o irmao do jumpBuffer do rpk.fps.
      */
-    /**
-     * O botao direito e' um TOQUE, nao so' um modificador.
-     *
-     * Antes ele so' modificava: pra atacar era preciso SEGURAR o direito e
-     * CLICAR o esquerdo ao mesmo tempo. Funcionava, e ninguem descobria — o
-     * manual dizia "DIREITO: atacar por cima", que se le' como "o direito
-     * ataca", e clicar o direito sozinho nao fazia nada. Um acorde de dois
-     * botoes pra acao mais comum do jogo e' controle ruim, mesmo que
-     * documentado.
-     *
-     * Agora o direito bate E manda por cima da rede, porque `forcandoAtaque`
-     * ja' le' o botao como segurado no mesmo quadro. Segurar direito e clicar
-     * esquerdo continua valendo, pra quem se acostumou.
-     */
-    const pediuToque = input.wasPressed('KeyE')
-      || input.wasMousePressed(0)
-      || input.wasMousePressed(2);
-    if (pediuToque) this.bufferDeToque = PLAYER.hitBuffer;
-    else if (this.bufferDeToque > 0) this.bufferDeToque -= dt;
+    const pediuToque = input.wasPressed('KeyE') || input.wasMousePressed(0) || soltouOAtaque;
+    if (pediuToque) {
+      this.bufferDeToque = PLAYER.hitBuffer;
+    } else if (this.bufferDeToque > 0) {
+      this.bufferDeToque -= dt;
+      // Buffer vencido sem tocar na bola: a carga e a intencao morrem junto,
+      // senao o proximo toque herda a forca de um ataque que nao aconteceu.
+      if (this.bufferDeToque <= 0) this.esquecerAtaque();
+    }
 
     if (this.bufferDeToque <= 0) return;
 
     if (this.sacando) {
-      if (this.hitter.sacar(this.ball, this.court, this, this.pontoDeMira)) this.bufferDeToque = 0;
+      if (this.hitter.sacar(this.ball, this.court, this, this.pontoDeMira)) {
+        this.bufferDeToque = 0;
+        this.esquecerAtaque();
+      }
       return;
     }
 
     if (!this.rally.rallyVivo) return;
     if (!this.hitter.alcanca(this.ball, this.motor.posicao)) return;
 
-    const acao = this.hitter.escolherAcao(this.ball, this.motor.posicao, this.motor.noChao);
+    const acao = this.escolherAcao();
     this.escolherAlvo(acao, _alvoDoToque);
 
-    if (this.hitter.bater(this.ball, this.court, this, acao, _alvoDoToque)) this.bufferDeToque = 0;
+    if (this.hitter.bater(this.ball, this.court, this, acao, _alvoDoToque, this.carga)) {
+      this.bufferDeToque = 0;
+      this.esquecerAtaque();
+    }
+  }
+
+  private esquecerAtaque(): void {
+    this.carga = 0;
+    this.ataquePendente = false;
+  }
+
+  /**
+   * A acao sai do contexto, com uma excecao: atacar de pe' vira `ataque`.
+   *
+   * Sem isso, forcar o ataque com os pes no chao devolvia "levantamento" — o
+   * solver de apice, um arco de 6 metros mirado longe. Ia por cima da rede,
+   * mas em camera lenta.
+   */
+  private escolherAcao(): Acao {
+    const contextual = this.hitter.escolherAcao(this.ball, this.motor.posicao, this.motor.noChao);
+    if (contextual === 'cortada') return 'cortada';
+    return this.vaiAtacar(contextual) ? 'ataque' : contextual;
+  }
+
+  /** O toque vai cruzar a rede? */
+  private vaiAtacar(acao: Acao): boolean {
+    return acao === 'cortada' || this.forcandoAtaque || this.precisaCruzarARede();
   }
 
   /**
@@ -151,17 +209,19 @@ export class Human extends Athlete {
    * quiser quebrar o padrao.
    */
   private escolherAlvo(acao: Acao, out: THREE.Vector3): THREE.Vector3 {
-    const atacar = acao === 'cortada' || this.forcandoAtaque || this.precisaCruzarARede();
-    if (atacar) return out.copy(this.pontoDeMira);
+    if (this.vaiAtacar(acao)) return out.copy(this.pontoDeMira);
 
     const profundidade = acao === 'manchete' ? PLAYER.bumpSetupDepth : PLAYER.setSetupDepth;
     return this.alvoDeArmacao(profundidade, out);
   }
 
   private get forcandoAtaque(): boolean {
-    const input = this.input;
-    return !!input && (input.isMouseDown(2) || input.isDown('ShiftLeft') || input.isDown('ShiftRight'));
+    return this.carregando || this.ataquePendente;
   }
+
+  /** Carga atual, de 0 a 1. O HUD e o marcador de mira leem daqui. */
+  get forcaDoAtaque(): number { return this.carregando ? this.carga : 0; }
+  get carregandoAtaque(): boolean { return this.carregando; }
 
   /**
    * A mira e' um ponto no CHAO, resolvido pela posicao do cursor.

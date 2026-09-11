@@ -348,8 +348,13 @@ export class Game {
     // A mira so' aparece quando ha' o que mirar: no seu saque, ou com a bola
     // do seu lado. Sempre visivel, ela vira enfeite e polui a leitura.
     const vale = this.player.sacando || this.court.ladoDe(this.ball.posicao) === 'home';
-    if (vale && this.state === 'playing') this.markers.mostrarMira(this.player.pontoDeMira);
-    else this.markers.esconderMira();
+    if (vale && this.state === 'playing') {
+      this.markers.mostrarMira(this.player.pontoDeMira, this.player.forcaDoAtaque);
+    } else {
+      this.markers.esconderMira();
+    }
+
+    this.hud.carga(this.player.carregandoAtaque ? this.player.forcaDoAtaque : -1);
   }
 
   private render(): void {

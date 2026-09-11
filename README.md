@@ -36,7 +36,7 @@ npm run build:single # dist/volei3d.html — joga com duplo clique, offline
 | Pular | `Espaço` |
 | Mirar | Mouse — a mira é um **ponto no chão**, não uma direção |
 | Tocar na bola | Clique esquerdo ou `E` |
-| Atacar por cima da rede | **Clique direito**, ou `Shift` + clique |
+| Atacar por cima da rede | **Segurar o clique direito e soltar** (ou `Shift` + clique) |
 | Sacar | Clique esquerdo ou `E`, quando for seu saque |
 | Reiniciar | `R`, na tela de fim de jogo |
 | Pausar / desempenho | `Esc` / `F3` |
@@ -69,6 +69,12 @@ pouco, a rede praticamente mata a bola, o poste devolve.
 **Partida.** Rally point: ponto quando a bola toca o chão dentro da quadra, sai
 fora, ou um lado dá mais de três toques. Quem faz o ponto passa a sacar. 15
 pontos com dois de vantagem e teto em 25.
+
+**Força vem de altura.** Segurar o botão de ataque carrega a batida. Mas com os
+pés no chão a bola precisa *subir* para passar da fita, e a carga se perde: de
+pé, qualquer carga sai a ~10 m/s. Carregue correndo, **pule**, e solte em cima
+da bola — ali a mesma carga vira 24 m/s, e a bola cruza a quadra em 0,27 s em
+vez de 1 s. Não é uma regra, é a geometria da rede cobrando.
 
 **Marcadores no chão.** O anel branco mostra onde a bola **vai cair** — e
 aperta conforme ela chega, então diz também *quando*. O anel azul mostra para
@@ -152,6 +158,10 @@ que existem testes: essa parte roda no Node.
 - **O marcador de queda prevê até o centro da bola no contato, não até o chão.**
   A bola toca a areia com o centro a um raio de altura; mirar em `y = 0` erra
   uns dez centímetros sempre para o mesmo lado. Medido: 0,9 cm de erro médio.
+- **A folga exigida sobre a fita é menor num ataque** (0,15 m) do que num passe
+  (0,35 m). Com a folga do passe, *nenhuma* velocidade cruzava a rede num tiro
+  reto, o solver transformava tudo em balão e a carga não existia na prática.
+  O preço é do jogador: bola mais rasteira acerta a fita com mais facilidade.
 - **O clique direito é uma ação, não um modificador.** Ele nasceu como
   modificador — para atacar era preciso *segurar* o direito e *clicar* o
   esquerdo ao mesmo tempo. Funcionava e ninguém descobria: um acorde de dois

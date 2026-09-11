@@ -143,6 +143,42 @@ um tapete voador, não como uma praia.
 desenhada vai a 400 m e a névoa come o fim dela. Os limites de corrida e de bola
 dentro/fora continuam saindo do `Court`, com a zona livre de 4 m intacta.
 
+## Ataque: a geometria da rede é quem manda, não o número
+
+A carga do ataque escala a velocidade pedida (`ATAQUE`), mas quem decide o que
+sai é o laço de folga da rede: se a trajetória não cruza a fita com folga, ele
+alonga o tempo de voo até cruzar — e isso **desfaz** a força.
+
+A conta que explica tudo: um ataque com contato a `h`, a `D` metros da rede,
+mirando `z`, cruza a fita a
+
+```
+altura = h + vy*t_rede - g*t_rede²/2,   t_rede = D / vz
+```
+
+Com contato a 2,5 m (de pé, braço esticado) e a folga de 0,35 m do passe,
+**nenhuma velocidade passa** — nem 10, nem 24 m/s. Toda carga convergia para o
+mesmo balão, e a queixa "o ataque parece toque normal" era literalmente isso.
+
+Duas coisas resolveram, e as duas são geometria, não balanceamento:
+
+- a folga exigida de um ATAQUE caiu para 0,15 m (`ATAQUE.folgaDaRede`); passe,
+  levantamento e saque seguem com 0,35;
+- o ataque forçado passou a usar o solver de TEMPO. Antes, com os pés no chão,
+  `escolherAcao` devolvia "levantamento" — solver de ápice, arco de 6 m.
+
+O resultado medido, e é a forma que o jogo deve ter:
+
+| de onde | carga leve | carga cheia |
+|---|---|---|
+| de pé, fundo | 10,3 m/s | 10,2 m/s |
+| de pé, na rede | 10,6 m/s | 10,3 m/s |
+| **pulando, na rede** | **14,5 m/s** | **24,2 m/s** |
+
+De pé a carga não faz nada, e isso é **correto**: não se crava uma bola com os
+pés no chão. Se alguém "consertar" isso um dia, vai estar lutando contra a
+altura da rede, não contra um número.
+
 ## Marcadores: medir isso é mais escorregadio do que parece
 
 O anel branco sai de `preverPouso`, a mesma previsão da IA. Ele mira
@@ -183,10 +219,22 @@ que elas mentiram, porque o padrão se repete:
 4. **`ultimaAcao` vaza entre casos.** Um lance que não aconteceu aparece como se
    tivesse acontecido, porque o campo guarda o anterior.
 
+5. **congelar a partida quebra a contagem de toques.** `match.update` é quem
+   zera os toques no cruzamento da rede; com ele parado, o quarto lance seguido
+   dispara "QUATRO TOQUES", a partida sai do rally e todos os casos seguintes
+   falham calados. Chame `match.comecar()` + `registrarToque(quemSaca)` a cada
+   caso.
+6. **a bola cai enquanto se carrega.** Medindo carga de 800 ms com a bola solta,
+   ela já está na areia na hora da soltada. Congele a bola durante a carga.
+7. **espiar dentro do `bater` não diz por que ele não foi chamado.** Se um
+   portão anterior (`alcanca`, `rallyVivo`, buffer) barrou, o espião nem roda —
+   e a ausência de dado parece "não bateu" em vez de "nem tentou".
+
 O padrão: **o jogo é um sistema vivo, e uma bancada que não o congela mede
-outra coisa.** Antes de medir input, desligue o que se move —
-`g.match.update = () => {}`, `g.opponent.update = () => {}`, `g.ball.soltar()`,
-e zere o que guarda estado entre casos.
+outra coisa — mas congelar demais cria problemas novos.** Antes de medir input,
+desligue o que se move (`g.match.update`, `g.opponent.update`, `g.ball.soltar()`),
+zere o que guarda estado entre casos, e instrumente o portão que barra, não o
+que está depois dele.
 
 E registre só o PRIMEIRO evento de cada tipo. Foi o que separou "a balística
 manda a bola para trás" de "a CPU devolveu".

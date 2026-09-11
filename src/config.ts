@@ -133,8 +133,6 @@ export const HIT = {
   bumpApex: 5.5,
   setApex: 6.0,
   serveApex: 6.5,
-  /** Velocidade horizontal alvo da cortada. */
-  spikeSpeed: 17,
 
   /** Folga minima acima da fita da rede ao atacar o outro lado. */
   netClearance: 0.35,
@@ -149,6 +147,50 @@ export const HIT = {
   apexStep: 0.7,
   /** Quanto o tempo de voo da cortada cresce a cada tentativa. */
   timeStep: 0.07,
+} as const;
+
+/**
+ * Ataque com carga.
+ *
+ * O problema que isto resolve: forcar o ataque so' mudava o ALVO. A acao
+ * continuava saindo do contexto, e com o atleta no chao isso da' "levantamento"
+ * — o solver de APICE, um arco de 6 metros. Mirado no campo adversario e' um
+ * balao lento, nao um ataque; parecia toque normal porque era toque normal.
+ *
+ * Agora o ataque forcado usa o solver de TEMPO (o mesmo da cortada) e a
+ * velocidade sai da carga. Segurar o botao carrega; soltar bate.
+ *
+ * O arco mais rasteiro se auto-limita: bola baixa e rapida bate na rede, e o
+ * laco de folga alonga o tempo ate' passar. Ou seja, nao da' pra cravar uma
+ * bola rasante do fundo da quadra — a fisica cobra, nao uma regra.
+ */
+export const ATAQUE = {
+  /** Segundos segurando ate' a forca cheia. */
+  tempoDeCarga: 0.6,
+
+  /** Velocidade horizontal do ataque com os pes no chao, da carga zero a' cheia. */
+  dePeMin: 10,
+  dePeMax: 18,
+
+  /** No ar e em cima da bola: a cortada de verdade. */
+  noArMin: 14,
+  noArMax: 24,
+
+  /**
+   * Folga sobre a fita exigida de um ATAQUE. Menor que a dos outros toques.
+   *
+   * A folga de 0,35 m do passe engolia a carga inteira: com a bola a 2,5 m e a
+   * rede a 2,24, NENHUMA velocidade cruza a fita 35 cm acima dela — o laco
+   * alonga o tempo ate' virar balao, e toda carga converge pro mesmo lance.
+   *
+   * Com 0,15 a conta muda de lugar: de pe' continua travado em ~10 m/s (que e'
+   * correto — nao se crava uma bola com os pes no chao), mas PULANDO a faixa
+   * inteira passa, de 14 a 24. Altura vira forca, que e' como volei funciona.
+   *
+   * O preco e' do jogador: bola mais rasteira erra a fita com mais facilidade,
+   * e rede e' ponto do adversario. E' a aposta que a carga oferece.
+   */
+  folgaDaRede: 0.15,
 } as const;
 
 export const PLAYER = {
@@ -173,6 +215,14 @@ export const PLAYER = {
 export interface AiSkill {
   /** Atraso entre o adversario bater e a IA reagir. */
   reactionDelay: number;
+  /**
+   * Forca do ataque, de 0 a 1, na mesma escala da carga do jogador.
+   *
+   * A IA nao carrega — ela bate sempre com a mesma forca. "normal" em 0,3 da'
+   * 17 m/s na cortada, que e' exatamente a velocidade que ela tinha antes de
+   * existir carga: o jogador ganhou uma alavanca, o adversario nao mudou.
+   */
+  attackForce: number;
   /** Erro de posicionamento ao perseguir a bola, em metros. */
   positionError: number;
   /** Erro de mira ao devolver, em metros no chao. */
@@ -184,9 +234,9 @@ export interface AiSkill {
 }
 
 export const AI_SKILL: Record<'facil' | 'normal' | 'dificil', AiSkill> = {
-  facil: { reactionDelay: 0.34, positionError: 1.15, aimError: 2.0, spikeChance: 0.2, serveDelay: 1.4 },
-  normal: { reactionDelay: 0.18, positionError: 0.55, aimError: 1.1, spikeChance: 0.45, serveDelay: 1.1 },
-  dificil: { reactionDelay: 0.08, positionError: 0.22, aimError: 0.5, spikeChance: 0.7, serveDelay: 0.8 },
+  facil: { reactionDelay: 0.34, positionError: 1.15, aimError: 2.0, spikeChance: 0.2, serveDelay: 1.4, attackForce: 0.15 },
+  normal: { reactionDelay: 0.18, positionError: 0.55, aimError: 1.1, spikeChance: 0.45, serveDelay: 1.1, attackForce: 0.3 },
+  dificil: { reactionDelay: 0.08, positionError: 0.22, aimError: 0.5, spikeChance: 0.7, serveDelay: 0.8, attackForce: 0.55 },
 };
 
 export const AI = {

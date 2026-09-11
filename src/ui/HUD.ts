@@ -31,6 +31,8 @@ export class HUD {
   private aviso = elemento('announcement');
   private dicaDeAcao = elemento('action-hint');
   private manual = elemento('manual');
+  private barraDeCarga = elemento('carga');
+  private preenchimentoDaCarga = elemento('carga-fill');
 
   private tempoDoAviso = 0;
 
@@ -84,6 +86,22 @@ export class HUD {
 
   esconderDicaDeSaque(): void {
     this.dicaDeAcao.classList.add('hidden');
+  }
+
+  /**
+   * Barra de forca do ataque. Menos de zero esconde.
+   *
+   * O anel de mira ja' cresce com a carga, e e' pra la' que o jogador olha. A
+   * barra existe pro caso em que nao ha' anel — bola do outro lado, ou mira
+   * fora da quadra — pra carga nunca ser invisivel.
+   */
+  carga(fracao: number): void {
+    const visivel = fracao >= 0;
+    this.barraDeCarga.classList.toggle('hidden', !visivel);
+    if (!visivel) return;
+
+    this.preenchimentoDaCarga.style.width = `${Math.round(fracao * 100)}%`;
+    this.barraDeCarga.classList.toggle('cheia', fracao >= 0.999);
   }
 
   ponto(lado: Side, motivo: MotivoDoPonto, nome: string): void {

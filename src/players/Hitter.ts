@@ -1,12 +1,19 @@
 import * as THREE from 'three';
-import { HIT } from '../config';
+import { ATAQUE, HIT } from '../config';
 import { alturaAoCruzarRede, arcoPorApice, arcoPorTempo, corrigirArrasto } from '../core/ballistics';
 import { randomInCircle } from '../core/math';
 import type { Ball, Tocador } from '../ball/Ball';
 import type { Court } from '../world/Court';
 
-/** As acoes possiveis sobre a bola, escolhidas pelo contexto. */
-export type Acao = 'manchete' | 'levantamento' | 'cortada' | 'saque';
+/**
+ * As acoes possiveis sobre a bola.
+ *
+ * `manchete`, `levantamento` e `cortada` saem do contexto. `ataque` e' a
+ * unica que o jogador PEDE: e' a batida forcada por cima da rede com os pes no
+ * chao, e existe porque sem ela um ataque de pe' virava levantamento mirado
+ * longe — arco alto e lento, com cara de passe.
+ */
+export type Acao = 'manchete' | 'levantamento' | 'cortada' | 'ataque' | 'saque';
 
 const _velocidade = new THREE.Vector3();
 const _alvo = new THREE.Vector3();
@@ -85,6 +92,7 @@ export class Hitter {
     por: Tocador,
     acao: Acao,
     alvoNoChao: THREE.Vector3,
+    forcaDoAtaque?: number,
   ): boolean {
     if (!this.pronto) return false;
 
@@ -92,8 +100,15 @@ export class Hitter {
     this.aplicarRuido(alvoNoChao, _alvo);
 
     const precisaPassar = this.cruzaARede(court, de, _alvo);
-    const ok = acao === 'cortada'
-      ? this.resolverCortada(de, _alvo, court, precisaPassar)
+
+    /**
+     * Ataque e cortada compartilham o solver de TEMPO; passe e levantamento, o
+     * de apice. E' a diferenca entre "chegar rapido" e "subir o bastante pra
+     * alguem chegar embaixo" — e e' o que faz um ataque parecer um ataque.
+     */
+    const ehAtaque = acao === 'cortada' || acao === 'ataque';
+    const ok = ehAtaque
+      ? this.resolverCortada(de, _alvo, court, precisaPassar, this.velocidadeDoAtaque(acao, forcaDoAtaque))
       : this.resolverArco(de, _alvo, court, precisaPassar, this.apicePara(acao, de.y));
 
     if (!ok) return false;
@@ -102,6 +117,20 @@ export class Hitter {
     this.espera = HIT.cooldown;
     this.ultimaAcao = acao;
     return true;
+  }
+
+  /**
+   * Velocidade horizontal alvo do ataque, a partir da carga.
+   *
+   * No ar e em cima da bola bate mais forte que de pe' — a diferenca entre
+   * cravar e empurrar. Sem forca informada, meia carga: e' o que um toque
+   * apressado merece.
+   */
+  private velocidadeDoAtaque(acao: Acao, forca = 0.5): number {
+    const f = Math.max(0, Math.min(1, forca));
+    return acao === 'cortada'
+      ? ATAQUE.noArMin + (ATAQUE.noArMax - ATAQUE.noArMin) * f
+      : ATAQUE.dePeMin + (ATAQUE.dePeMax - ATAQUE.dePeMin) * f;
   }
 
   /** Saque: o mesmo solver do passe alto, com apice proprio e sem espera. */
@@ -167,18 +196,19 @@ export class Hitter {
     alvo: THREE.Vector3,
     court: Court,
     precisaPassar: boolean,
+    velocidade: number,
   ): boolean {
     _plana.subVectors(alvo, de);
     _plana.y = 0;
 
     const distancia = Math.max(0.5, _plana.length());
-    let tempo = Math.max(0.18, distancia / Math.max(4, HIT.spikeSpeed));
+    let tempo = Math.max(0.18, distancia / Math.max(4, velocidade));
 
     for (let tentativa = 0; tentativa < HIT.netAttempts; tentativa++) {
       const ok = corrigirArrasto(de, alvo, _velocidade, (a, b, out) => arcoPorTempo(a, b, tempo, out));
       if (!ok) return false;
 
-      if (!precisaPassar || this.passaPorCima(court, de, _velocidade)) return true;
+      if (!precisaPassar || this.passaPorCima(court, de, _velocidade, ATAQUE.folgaDaRede)) return true;
       tempo += HIT.timeStep;
     }
 
@@ -191,7 +221,12 @@ export class Hitter {
   }
 
   /** A trajetoria passa acima da fita com folga? */
-  private passaPorCima(court: Court, de: THREE.Vector3, velocidade: THREE.Vector3): boolean {
+  private passaPorCima(
+    court: Court,
+    de: THREE.Vector3,
+    velocidade: THREE.Vector3,
+    folga: number = HIT.netClearance,
+  ): boolean {
     court.paraLocal(de, _posLocal);
     _velLocal.copy(velocidade).applyQuaternion(court.quaternionInv);
 
@@ -199,7 +234,7 @@ export class Hitter {
     // NaN = nao cruza o plano indo pra frente; nao ha' nada pra passar por cima.
     if (Number.isNaN(altura)) return true;
 
-    return altura >= court.netTopY + HIT.netClearance;
+    return altura >= court.netTopY + folga;
   }
 
   private aplicarRuido(alvo: THREE.Vector3, out: THREE.Vector3): void {

@@ -148,7 +148,9 @@ export class AIPlayer extends Athlete {
     const acao = this.hitter.escolherAcao(this.ball, this.motor.posicao, this.motor.noChao);
     this.escolherAlvoDeAtaque(_alvo);
 
-    if (this.hitter.bater(this.ball, this.court, this, acao, _alvo)) {
+    // A IA nao carrega: bate sempre com a forca da dificuldade. Mesma fisica
+    // do humano, mesma funcao — o que muda e' o numero.
+    if (this.hitter.bater(this.ball, this.court, this, acao, _alvo, this.habilidade.attackForce)) {
       this.querCortar = false;
     }
   }

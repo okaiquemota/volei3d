@@ -29,6 +29,9 @@ const ALTURA = 0.02;
 /** Acima deste tempo de voo o anel para de crescer. */
 const TEMPO_CHEIO = 1.2;
 
+/** Destino da cor do anel de mira com a carga cheia. */
+const _branco = new THREE.Color(0xfff0c0);
+
 export class Markers {
   readonly group = new THREE.Group();
 
@@ -103,9 +106,19 @@ export class Markers {
     this.queda.visible = false;
   }
 
-  mostrarMira(ponto: THREE.Vector3): void {
+  /**
+   * @param forca carga do ataque, de 0 a 1. O anel cresce e acende com ela —
+   *   o jogador esta' olhando pro alvo, nao pra uma barra no canto da tela.
+   */
+  mostrarMira(ponto: THREE.Vector3, forca = 0): void {
     this.mira.visible = true;
     this.mira.position.set(ponto.x, ponto.y + ALTURA - 0.002, ponto.z);
+    this.mira.scale.setScalar(1 + forca * 0.45);
+
+    const material = this.mira.material as THREE.MeshBasicMaterial;
+    material.opacity = 0.5 + forca * 0.45;
+    // Do azul do time pro branco quente da carga cheia.
+    material.color.setHex(COLORS.home).lerp(_branco, forca);
   }
 
   esconderMira(): void {
