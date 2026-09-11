@@ -11,7 +11,7 @@ Abre e joga: não tem instalador, não tem plugin, não tem barra de carregament
 > [RIP.volei3d-unity](https://github.com/okaiquemota/RIP.volei3d-unity) — ela
 > funcionava, mas cada build levava de 20 a 30 minutos num runner de CI, exigia
 > licença Unity e entregava dezenas de MB com tela de carregamento. Esta versão
-> compila em **um segundo** e entrega **130 KB comprimidos**.
+> compila em **um segundo** e entrega **147 KB comprimidos**.
 
 ---
 
@@ -80,6 +80,12 @@ pouco, a rede praticamente mata a bola, o poste devolve.
 fora, ou um lado dá mais de três toques. Quem faz o ponto passa a sacar. 15
 pontos com dois de vantagem e teto em 25.
 
+**Saque.** Só de trás da linha de fundo — durante o saque a área de corrida
+encolhe para a faixa atrás da linha, com a zona livre inteira na lateral, que é
+a regra de verdade. E o sacador tem **5 segundos**: passou disso é ponto do
+adversário. Sem relógio, quem está perdendo simplesmente não saca, e não havia
+nada no jogo que o obrigasse.
+
 **Força vem de altura.** Segurar o botão de ataque carrega a batida. Mas com os
 pés no chão a bola precisa *subir* para passar da fita, e a carga se perde: de
 pé, qualquer carga sai a ~10 m/s. Carregue correndo, **pule**, e solte em cima
@@ -115,6 +121,7 @@ src/
     Court.ts            a única fonte de verdade sobre geometria de jogo
     buildCourt.ts       areia, linhas, rede, postes — e os colisores junto
     Physics.ts          o integrador da bola e as colisões
+    Markers.ts          os anéis de queda e de mira, no chão
     textures.ts         areia, rede e bola desenhadas em canvas 2D
   ball/Ball.ts          estado, eventos e previsão de queda
   players/
@@ -133,8 +140,10 @@ src/
 tests/                  balística e regras da partida
 ```
 
-`ballistics`, `Match`, `Court` e `Hitter` **não importam Three.js**. É por isso
-que existem testes: essa parte roda no Node.
+`ballistics`, `Match`, `Court` e `Hitter` **não tocam em nada de render** — nem
+`Mesh`, nem `Material`, nem `Scene`, nem geometria. Eles usam o Three só como
+biblioteca de vetores (`Vector3`, `Matrix4`), que roda no Node como qualquer
+outra. É por isso que essa parte tem teste e o resto não.
 
 ---
 
@@ -172,10 +181,19 @@ que existem testes: essa parte roda no Node.
   (0,35 m). Com a folga do passe, *nenhuma* velocidade cruzava a rede num tiro
   reto, o solver transformava tudo em balão e a carga não existia na prática.
   O preço é do jogador: bola mais rasteira acerta a fita com mais facilidade.
-- **O clique direito é uma ação, não um modificador.** Ele nasceu como
-  modificador — para atacar era preciso *segurar* o direito e *clicar* o
-  esquerdo ao mesmo tempo. Funcionava e ninguém descobria: um acorde de dois
-  botões para a ação mais comum do jogo é controle ruim, mesmo documentado.
+- **A carga é a intenção, e por isso passar e atacar são o mesmo botão.**
+  O esquema passou por três versões. O ataque nasceu como *modificador* — era
+  preciso segurar o direito e clicar o esquerdo ao mesmo tempo, um acorde de
+  dois botões para a ação mais comum do jogo, e ninguém descobria. Virou ação
+  no direito. Hoje está no esquerdo, junto com o passe: decidir entre passar e
+  atacar é decisão de **mira e de tempo**, não de qual dedo usar. O direito
+  ficou com o que faltava — *levantar* de propósito, venha a bola na canela ou
+  na cabeça.
+- **No saque, a carga muda o arco e não a velocidade direto.** De 1,35 m de
+  contato, cruzando a rede a 8,8 m de distância, um arco mais raso que 2,8 m de
+  ápice bate na fita — o solver só o levantaria de volta. Na faixa que cabe a
+  diferença é grande mesmo assim: o voo cai de 2,0 s para 1,1 s entre o toque e
+  a carga cheia.
 - **Um buffer de 0,18 s guarda o clique adiantado.** Sem ele o jogo parece
   travado justamente quando o jogador acertou o tempo.
 - **Nenhum arquivo binário no repositório.** Textura é canvas 2D, geometria é

@@ -38,6 +38,10 @@ está ligado, junto com `noUnusedLocals` e `noUnusedParameters`.
 - Como a bola se move: `world/Physics.ts`. Leia o aviso antes de mexer.
 - Como um toque é resolvido: `players/Hitter.ts`.
 - Regras: `match/Match.ts`. É lógica pura, tem teste, mexa com teste.
+- "Lógica pura" aqui quer dizer **sem nada de render** — sem `Mesh`,
+  `Material`, `Scene` ou geometria. O `Vector3` do Three entra à vontade: é
+  biblioteca de vetores e roda no Node. Confundir os dois leva a reimplementar
+  matemática de vetor à mão por nada.
 - HUD: markup em `index.html`, setters em `ui/HUD.ts`, estilo em `ui/style.css`.
 
 ## A regra que sustenta o projeto inteiro
