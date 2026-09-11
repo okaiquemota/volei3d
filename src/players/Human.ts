@@ -4,9 +4,8 @@ import type { Input } from '../core/Input';
 import { oposto } from '../world/Court';
 import { Athlete } from './Athlete';
 import type { Acao } from './Hitter';
+import { direcaoDoTeclado } from './controle';
 
-const _frente = new THREE.Vector3();
-const _direita = new THREE.Vector3();
 const _direcao = new THREE.Vector3();
 const _paraABola = new THREE.Vector3();
 const _ndc = new THREE.Vector2();
@@ -56,42 +55,19 @@ export class Human extends Athlete {
     const input = this.input;
     if (!input) return;
 
-    const x = (input.isDown('KeyD') || input.isDown('ArrowRight') ? 1 : 0)
-            - (input.isDown('KeyA') || input.isDown('ArrowLeft') ? 1 : 0);
-    const z = (input.isDown('KeyW') || input.isDown('ArrowUp') ? 1 : 0)
-            - (input.isDown('KeyS') || input.isDown('ArrowDown') ? 1 : 0);
+    // Movimento relativo a' CAMERA, nao ao corpo — a mesma conta de quem anda
+    // pela areia, e por isso ela mora em `controle.ts` e nao aqui.
+    this.motor.moverPara(direcaoDoTeclado(input, this.camera, _direcao));
 
-    // Movimento relativo a' CAMERA, nao ao corpo: com a camera fixa em relacao
-    // a' quadra, "pra frente" e' sempre pra rede, e o controle nao inverte
-    // quando o atleta vira pra pegar uma bola lateral.
-    if (this.camera) {
-      this.camera.getWorldDirection(_frente);
-      _frente.y = 0;
-      _frente.normalize();
-      /**
-       * `cross(frente, cima)` JA' e' a direita da tela — nao inverta.
-       *
-       * Com a camera olhando pra -Z (o caso canonico) a conta devolve +X, que
-       * e' a direita. Com a nossa camera, que fica atras do jogador Home e
-       * olha pra +Z, ela devolve -X — e -X e' mesmo a direita de quem olha
-       * naquela direcao. Um negate() aqui troca o A com o D, e como o D passa
-       * a andar pra esquerda o erro parece "o controle esta' espelhado" em vez
-       * de "a conta esta' errada".
-       */
-      _direita.crossVectors(_frente, THREE.Object3D.DEFAULT_UP);
-    } else {
-      _frente.set(0, 0, 1);
-      _direita.set(1, 0, 0);
-    }
-
-    _direcao.set(0, 0, 0)
-      .addScaledVector(_frente, z)
-      .addScaledVector(_direita, x);
-    this.motor.moverPara(_direcao);
-
-    // Encara a bola quando ela esta' do meu lado; senao, encara a rede. E' o
-    // que faz o atleta "prestar atencao" na jogada sem custar input nenhum.
-    if (this.bolaNoMeuLado()) {
+    /**
+     * Encara a bola quando ela esta' do meu lado; senao, encara a rede. E' o
+     * que faz o atleta "prestar atencao" na jogada sem custar input nenhum.
+     *
+     * Bola PRESA nao conta. Ela esta' na ancora do meu proprio corpo: encarar
+     * a bola e' encarar o proprio braco, o corpo gira atras dele, a ancora gira
+     * junto, e o sacador fica rodando em torno de si mesmo esperando o saque.
+     */
+    if (!this.ball.presa && this.bolaNoMeuLado()) {
       _paraABola.subVectors(this.ball.posicao, this.motor.posicao);
       this.motor.encarar(_paraABola);
     } else {

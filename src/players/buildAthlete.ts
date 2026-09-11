@@ -70,9 +70,17 @@ export function construirAtleta(cor: number, alturaDaBolaNoSaque: number): Atlet
   // e' uma capsula. Sem ele nao da' pra saber se vai encarar a bola ou a rede.
   adicionar(g.frente, materialClaro, 0, 1.68, 0.17);
 
-  // A bola do saque fica a' frente do corpo, na altura da mao.
+  /**
+   * A bola do saque: a' frente do corpo e PRA FORA DO EIXO, na altura da mao.
+   *
+   * Centrada, ela some. A camera olha o sacador de cima e de tras, e uma bola
+   * a 55 cm a' frente do peito fica exatamente atras do tronco nessa linha de
+   * visao — o jogador perde de vista justamente a bola que esta' prestes a
+   * sacar. Meio metro pro lado resolve, e ainda e' como se segura uma bola pra
+   * sacar: o braco esticado, nao o peito.
+   */
   const ancoraDeSaque = new THREE.Object3D();
-  ancoraDeSaque.position.set(0, alturaDaBolaNoSaque, 0.55);
+  ancoraDeSaque.position.set(-0.42, alturaDaBolaNoSaque, 0.42);
   root.add(ancoraDeSaque);
 
   return {

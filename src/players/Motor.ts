@@ -7,6 +7,8 @@ const _limitado = new THREE.Vector3();
 const _olhar = new THREE.Quaternion();
 const _matriz = new THREE.Matrix4();
 const _frente = new THREE.Vector3();
+/** Fixo, e fora do laco: alocar um Vector3 por quadro por atleta e' lixo de graca. */
+const _ORIGEM = new THREE.Vector3();
 
 /** Limita uma posicao a' area onde o atleta pode correr. */
 export type LimitarArea = (posicao: THREE.Vector3, out: THREE.Vector3) => THREE.Vector3;
@@ -117,12 +119,28 @@ export class Motor {
     this.posicao.z = _limitado.z;
   }
 
-  /** Rotacao suavizada, pra aplicar no objeto visual. */
+  /**
+   * Rotacao suavizada, pra aplicar no objeto visual.
+   *
+   * A ordem dos argumentos do `lookAt` nao e' detalhe. `Matrix4.lookAt(olho,
+   * alvo, cima)` usa a convencao de CAMERA: o +Z da matriz aponta do alvo pro
+   * olho, ou seja, pra TRAS do que se olha. Chamado como `lookAt(origem,
+   * frente, ...)`, o corpo ficava com o +Z apontando pro lado oposto ao que o
+   * atleta encara — e tudo que mora no +Z do corpo ia junto.
+   *
+   * Duas coisas moram la': o marcador branco de frente, cujo unico trabalho e'
+   * dizer pra onde o atleta esta' virado, e a ANCORA DO SAQUE, que segura a
+   * bola. O marcador virou marcador de costas, e o sacador segurava a bola
+   * atras do proprio corpo — meio metro atras da linha de fundo em vez de meio
+   * metro a' frente dela, que e' de onde o solver do saque partia.
+   *
+   * Invertendo os dois argumentos, o +Z passa a ser a frente de verdade.
+   */
   aplicarRotacao(objeto: THREE.Object3D, dt: number): void {
     _frente.copy(this.direcaoDeFrente);
     if (_frente.lengthSq() < 1e-4) return;
 
-    _matriz.lookAt(new THREE.Vector3(), _frente, THREE.Object3D.DEFAULT_UP);
+    _matriz.lookAt(_frente, _ORIGEM, THREE.Object3D.DEFAULT_UP);
     _olhar.setFromRotationMatrix(_matriz);
     objeto.quaternion.slerp(_olhar, dampFactor(ATHLETE.turnSpeed, dt));
   }
