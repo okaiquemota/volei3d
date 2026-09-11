@@ -40,6 +40,11 @@ npm run build:single # dist/volei3d.html — joga com duplo clique, offline
 | Sacar | Clique esquerdo ou `E`, quando for seu saque |
 | Reiniciar | `R`, na tela de fim de jogo |
 | Pausar / desempenho | `Esc` / `F3` |
+| Esconder o manual de teclas | `H` |
+
+O manual fica na lateral esquerda da tela — a maior área de areia vazia que a
+câmera enquadra, então ele não cobre nada que se precise ver. `H` esconde, e a
+preferência fica guardada.
 
 **Não existe tecla de manchete nem de cortada.** A ação sai do contexto: a
 altura da bola em relação a você, e se você está no ar. Bola baixa vira

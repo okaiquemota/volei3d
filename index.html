@@ -30,11 +30,29 @@
     <!-- centro: aviso de acao (so' aparece no saque do jogador) -->
     <div id="action-hint" class="hidden">CLIQUE ou E para SACAR</div>
 
-    <!-- rodape: controles -->
-    <div id="hints">
-      WASD mover &middot; ESPACO pular &middot; MOUSE mirar &middot;
-      CLIQUE / E tocar na bola &middot; BOTAO DIREITO / SHIFT atacar por cima da rede
-    </div>
+    <!-- lateral: manual de controles -->
+    <aside id="manual">
+      <h2>CONTROLES</h2>
+      <ul class="teclas">
+        <li><span class="k"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span class="o">correr</span></li>
+        <li><span class="k"><kbd class="larga">ESPACO</kbd></span><span class="o">pular</span></li>
+        <li><span class="k"><kbd class="larga">MOUSE</kbd></span><span class="o">mirar no chao</span></li>
+        <li><span class="k"><kbd>CLIQUE</kbd><i>/</i><kbd>E</kbd></span><span class="o">tocar na bola</span></li>
+        <li><span class="k"><kbd>DIREITO</kbd><i>/</i><kbd>SHIFT</kbd></span><span class="o">atacar por cima</span></li>
+      </ul>
+
+      <h2>O TOQUE E CONTEXTUAL</h2>
+      <ul class="contexto">
+        <li><b>bola baixa</b> manchete</li>
+        <li><b>na cabeca</b> levantamento</li>
+        <li><b>alta e no ar</b> cortada</li>
+      </ul>
+      <p class="nota">Os dois primeiros toques armam no seu campo. O terceiro
+        cruza a rede sozinho.</p>
+
+      <p class="rodape-manual"><kbd>ESC</kbd> pausa &middot; <kbd>F3</kbd> desempenho
+        &middot; <kbd>H</kbd> esconde</p>
+    </aside>
   </div>
 
   <!-- ================= TELAS ================= -->

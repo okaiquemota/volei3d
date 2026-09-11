@@ -1,4 +1,6 @@
-import { MATCH } from '../config';
+import { MATCH, STORAGE_KEY } from '../config';
+
+const CHAVE_DO_MANUAL = `${STORAGE_KEY}.manual-escondido`;
 import type { MotivoDoPonto } from '../match/Match';
 import type { Side } from '../world/Court';
 
@@ -28,11 +30,40 @@ export class HUD {
   private linhaDeSaque = elemento('serve-line');
   private aviso = elemento('announcement');
   private dicaDeAcao = elemento('action-hint');
+  private manual = elemento('manual');
 
   private tempoDoAviso = 0;
 
+  constructor() {
+    this.restaurarManual();
+  }
+
   mostrar(visivel: boolean): void {
     this.raiz.classList.toggle('hidden', !visivel);
+  }
+
+  /**
+   * Mostra ou esconde o manual de teclas.
+   *
+   * A preferencia e' guardada: quem ja' decorou os controles nao devia ter que
+   * esconder o painel toda vez que abre o jogo.
+   */
+  alternarManual(): void {
+    const escondido = this.manual.classList.toggle('hidden');
+    try {
+      localStorage.setItem(CHAVE_DO_MANUAL, escondido ? '1' : '0');
+    } catch {
+      // localStorage bloqueado (aba anonima, cookies desligados). Esconder o
+      // painel nao pode depender disso funcionar.
+    }
+  }
+
+  private restaurarManual(): void {
+    try {
+      if (localStorage.getItem(CHAVE_DO_MANUAL) === '1') this.manual.classList.add('hidden');
+    } catch {
+      // idem
+    }
   }
 
   definirNomes(home: string, away: string): void {

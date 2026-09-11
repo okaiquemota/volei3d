@@ -88,6 +88,30 @@ deu para ver isso com o jogo na tela. Hoje são `h = 10,5` e `D = 13`, que dão
 Subir a câmera afasta tudo, então a lente fechou junto: FOV 62 → 45. **As duas
 mudanças são a mesma decisão**; mexer numa sem a outra desenquadra.
 
+## Movimento é relativo à CÂMERA, e o sinal já mordeu
+
+`cross(frente, cima)` **já é a direita da tela** — não inverta.
+
+Com a câmera olhando para −Z (o caso canônico) a conta devolve +X, que é a
+direita. Com a nossa câmera, que fica atrás do jogador Home e olha para +Z, ela
+devolve −X — e −X é mesmo a direita de quem olha naquela direção.
+
+Um `negate()` ali troca o `A` com o `D`. E como o `D` passa a andar para a
+esquerda, o sintoma parece "o controle está espelhado" em vez de "a conta está
+errada" — o que manda você procurar no lugar errado.
+
+**Conferir isso no olho não funciona**, porque as duas leituras parecem
+plausíveis. O jeito é projetar o atleta na TELA e ver para que lado o pixel foi:
+
+```js
+const v = __VOLEI.player.objeto.position.clone();
+v.project(__VOLEI.rig.camera);   // v.x > 0 e' a metade direita da tela
+```
+
+Lembre que o deslocamento na tela é menor que no mundo: a câmera acompanha 55%
+do movimento lateral (`CAMERA.lateralFollow`), então o que importa é o SINAL,
+não a magnitude.
+
 ## Armadilhas do Three (herdadas do rpk.fps, valem igual aqui)
 
 - **NUNCA mude a quantidade de luzes durante o jogo.** Entrar ou sair uma luz —

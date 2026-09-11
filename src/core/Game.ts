@@ -283,6 +283,7 @@ export class Game {
     this.lastTime = now;
 
     if (this.input.wasPressed('F3')) this.perf.toggle();
+    if (this.input.wasPressed('KeyH')) this.hud.alternarManual();
 
     if (this.state === 'playing') {
       if (this.input.wasPressed('Escape')) this.pausar();

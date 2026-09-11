@@ -216,3 +216,102 @@ html, body {
   font-weight: 400;
 }
 .botao.secundario:hover { background: rgba(232, 230, 227, 0.1); }
+
+/* ======================= MANUAL ======================= */
+
+/*
+ * Fica na lateral ESQUERDA por um motivo: a quadra ocupa o centro do quadro e
+ * a bola vive na metade de cima. A esquerda e' a maior area de areia vazia que
+ * a camera enquadra, entao o manual nao cobre nada que se precise ver.
+ */
+#manual {
+  position: absolute;
+  top: 50%;
+  left: 1.8vmin;
+  transform: translateY(-50%);
+  width: 19.5em;
+  padding: 1em 1.1em;
+  background: var(--painel);
+  border: 1px solid rgba(232, 230, 227, 0.12);
+  border-radius: 6px;
+  backdrop-filter: blur(3px);
+  font-size: 0.92em;
+  line-height: 1.45;
+}
+
+/* Sem quebra no rotulo da acao: "tocar na bola" em duas linhas desalinha a
+   lista inteira e o painel deixa de ser varrido de relance. */
+.teclas .o, .contexto li { white-space: nowrap; }
+
+#manual h2 {
+  margin: 0 0 0.6em;
+  font-size: 0.82em;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--home);
+  opacity: 0.9;
+}
+#manual h2 + * { margin-top: 0; }
+#manual .contexto { margin-top: 0; }
+#manual h2:not(:first-child) { margin-top: 1.1em; }
+
+#manual ul { margin: 0; padding: 0; list-style: none; }
+
+.teclas li {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  margin-bottom: 0.45em;
+}
+.teclas .k { display: flex; align-items: center; gap: 0.2em; flex-shrink: 0; }
+.teclas .o { opacity: 0.7; font-size: 0.95em; }
+.teclas i { opacity: 0.35; font-style: normal; font-size: 0.85em; }
+
+kbd {
+  display: inline-block;
+  min-width: 1.75em;
+  padding: 0.15em 0.35em;
+  background: rgba(232, 230, 227, 0.1);
+  border: 1px solid rgba(232, 230, 227, 0.22);
+  /* A sombra de baixo e' o que faz ler como TECLA e nao como caixinha. */
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  font: inherit;
+  font-size: 0.82em;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+kbd.larga { min-width: auto; }
+
+.contexto li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8em;
+  padding: 0.18em 0;
+  font-size: 0.95em;
+  opacity: 0.75;
+}
+.contexto b { font-weight: 400; opacity: 0.6; }
+
+#manual .nota {
+  margin: 0.7em 0 0;
+  padding-top: 0.7em;
+  border-top: 1px solid rgba(232, 230, 227, 0.1);
+  font-size: 0.85em;
+  opacity: 0.5;
+  line-height: 1.4;
+}
+
+#manual .rodape-manual {
+  margin: 0.9em 0 0;
+  font-size: 0.74em;
+  opacity: 0.4;
+  text-align: center;
+  white-space: nowrap;
+}
+#manual .rodape-manual kbd { font-size: 0.9em; min-width: auto; }
+
+/* Telas baixas: o manual competiria com a quadra. Some. */
+@media (max-height: 560px), (max-width: 900px) {
+  #manual { display: none; }
+}

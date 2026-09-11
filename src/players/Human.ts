@@ -60,7 +60,17 @@ export class Human extends Athlete {
       this.camera.getWorldDirection(_frente);
       _frente.y = 0;
       _frente.normalize();
-      _direita.crossVectors(_frente, THREE.Object3D.DEFAULT_UP).negate();
+      /**
+       * `cross(frente, cima)` JA' e' a direita da tela — nao inverta.
+       *
+       * Com a camera olhando pra -Z (o caso canonico) a conta devolve +X, que
+       * e' a direita. Com a nossa camera, que fica atras do jogador Home e
+       * olha pra +Z, ela devolve -X — e -X e' mesmo a direita de quem olha
+       * naquela direcao. Um negate() aqui troca o A com o D, e como o D passa
+       * a andar pra esquerda o erro parece "o controle esta' espelhado" em vez
+       * de "a conta esta' errada".
+       */
+      _direita.crossVectors(_frente, THREE.Object3D.DEFAULT_UP);
     } else {
       _frente.set(0, 0, 1);
       _direita.set(1, 0, 0);
