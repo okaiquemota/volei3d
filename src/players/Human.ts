@@ -36,6 +36,8 @@ export class Human extends Athlete {
   private carregando = false;
   /** Soltou o botao e ainda nao bateu: a intencao vale enquanto o buffer durar. */
   private ataquePendente = false;
+  /** Pediu levantamento no botao direito e ainda nao bateu. */
+  private levantarPendente = false;
 
   camera: THREE.PerspectiveCamera | null = null;
   input: Input | null = null;
@@ -104,37 +106,44 @@ export class Human extends Athlete {
     if (input.wasPressed('Space')) this.motor.pular();
 
     /**
-     * O botao de ataque CARREGA enquanto segurado e bate ao SOLTAR.
+     * Dois botoes, duas intencoes — e o esquerdo faz as duas coisas que o
+     * jogador mais faz.
      *
-     * Segurar da' ao jogador uma alavanca sobre a forca. Sem ela o ataque sai
-     * sempre igual e a unica decisao que sobra e' pra onde mirar; com ela,
-     * chegar cedo embaixo da bola passa a valer alguma coisa — da' tempo de
-     * carregar.
+     *   ESQUERDO (ou E)  joga a bola. Toque rapido arma no proprio campo;
+     *                    SEGURAR carrega e manda por cima da rede.
+     *   DIREITO          levanta: sobe a bola no proprio campo, de proposito.
      *
-     * O gatilho e' soltar, e nao apertar, porque um toque rapido ainda tem que
-     * sair: ele so' sai fraco.
+     * A versao anterior tinha o ataque no direito e o passe no esquerdo, e
+     * errava em dois pontos. O jogador precisava trocar de dedo pra decidir
+     * entre passar e atacar, o que e' uma decisao de MIRA e nao de botao; e
+     * levantar de proposito nao existia — dependia da altura em que a bola
+     * chegava.
+     *
+     * Agora a carga E' a intencao: quem so' encosta passa, quem segura ataca.
      */
-    const segurandoAtaque = input.isMouseDown(2)
-      || input.isDown('ShiftLeft') || input.isDown('ShiftRight');
+    const segurandoOToque = input.isMouseDown(0) || input.isDown('KeyE');
 
-    if (segurandoAtaque) {
+    if (segurandoOToque) {
       this.carregando = true;
       this.carga = Math.min(1, this.carga + dt / ATAQUE.tempoDeCarga);
     }
 
-    const soltouOAtaque = this.carregando && !segurandoAtaque;
-    if (soltouOAtaque) {
+    const soltouOToque = this.carregando && !segurandoOToque;
+    if (soltouOToque) {
       this.carregando = false;
       /**
        * A INTENCAO de atacar sobrevive a' soltada.
        *
-       * Zerar aqui seria o bastante pra quebrar tudo: no quadro em que se
-       * solta, o botao ja' subiu, e se o alvo dependesse do botao o ataque
-       * viraria um passe manso bem na hora de bater. A intencao dura o que
-       * durar o buffer.
+       * No quadro em que se solta o botao ja' subiu; se o alvo dependesse do
+       * botao, o ataque viraria passe manso bem na hora de bater. A intencao
+       * dura o que durar o buffer.
        */
-      this.ataquePendente = true;
+      this.ataquePendente = this.carga >= ATAQUE.cargaMinimaParaAtacar || this.segurandoModificador;
     }
+
+    // O levantamento nao carrega: e' um toque de armacao, sai na hora.
+    const pediuLevantar = input.wasMousePressed(2);
+    if (pediuLevantar) this.levantarPendente = true;
 
     /**
      * Buffer de toque.
@@ -143,8 +152,7 @@ export class Human extends Athlete {
      * perder: sem isso o jogo parece travado justamente quando o jogador
      * acertou o tempo. E' o irmao do jumpBuffer do rpk.fps.
      */
-    const pediuToque = input.wasPressed('KeyE') || input.wasMousePressed(0) || soltouOAtaque;
-    if (pediuToque) {
+    if (soltouOToque || pediuLevantar) {
       this.bufferDeToque = PLAYER.hitBuffer;
     } else if (this.bufferDeToque > 0) {
       this.bufferDeToque -= dt;
@@ -178,6 +186,7 @@ export class Human extends Athlete {
   private esquecerAtaque(): void {
     this.carga = 0;
     this.ataquePendente = false;
+    this.levantarPendente = false;
   }
 
   /**
@@ -188,6 +197,15 @@ export class Human extends Athlete {
    * mas em camera lenta.
    */
   private escolherAcao(): Acao {
+    /**
+     * Levantar e' a unica acao que o jogador PEDE contra o contexto.
+     *
+     * Bola na canela ou na cabeca, tanto faz: pedindo levantamento, ela sobe.
+     * E' o toque que monta a jogada, e depender da altura em que a bola chegou
+     * pra poder montar deixaria a decisao nas maos do adversario.
+     */
+    if (this.levantarPendente && !this.precisaCruzarARede()) return 'levantamento';
+
     const contextual = this.hitter.escolherAcao(this.ball, this.motor.posicao, this.motor.noChao);
     if (contextual === 'cortada') return 'cortada';
     return this.vaiAtacar(contextual) ? 'ataque' : contextual;
@@ -195,6 +213,9 @@ export class Human extends Athlete {
 
   /** O toque vai cruzar a rede? */
   private vaiAtacar(acao: Acao): boolean {
+    // Levantar pedido explicitamente NUNCA cruza — a nao ser no ultimo toque
+    // permitido, onde ficar com a bola e' ponto do adversario.
+    if (this.levantarPendente) return this.precisaCruzarARede();
     return acao === 'cortada' || this.forcandoAtaque || this.precisaCruzarARede();
   }
 
@@ -216,7 +237,19 @@ export class Human extends Athlete {
   }
 
   private get forcandoAtaque(): boolean {
-    return this.carregando || this.ataquePendente;
+    return this.ataquePendente;
+  }
+
+  /**
+   * Shift continua forcando o ataque, mesmo com carga baixa.
+   *
+   * E' a valvula pra quando a bola chega em cima e nao ha' tempo de segurar:
+   * o toque sai fraco, mas sai por cima da rede em vez de armar no proprio
+   * campo, que naquele momento seria perder o ponto.
+   */
+  private get segurandoModificador(): boolean {
+    const input = this.input;
+    return !!input && (input.isDown('ShiftLeft') || input.isDown('ShiftRight'));
   }
 
   /** Carga atual, de 0 a 1. O HUD e o marcador de mira leem daqui. */

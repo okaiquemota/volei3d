@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { COLORS, COURT } from '../config';
+import { AMBIENTE, COLORS, COURT } from '../config';
 import { AABB } from '../core/math';
 import { Court } from './Court';
 import { criarAreia, criarRede, escalarUVsDaCaixa } from './textures';
@@ -60,10 +60,20 @@ export function construirQuadra(court: Court): QuadraConstruida {
    * Nada disso toca em regra: os limites de corrida e de bola dentro/fora saem
    * do Court, que segue com a zona livre de 4 m.
    */
-  const PRAIA = 400; // alem do alcance da nevoa: a borda nunca aparece
+  const LARGURA_DA_PRAIA = 500;   // alem do alcance da nevoa: a borda nunca aparece
+  const PRAIA_ATRAS = 250;        // do fundo da quadra pra tras
   const LAJE_ESPESSURA = 0.5;
-  const lajeX = PRAIA;
-  const lajeZ = PRAIA;
+
+  /**
+   * A areia vai ate' a ORLA, e nao alem.
+   *
+   * Na primeira versao ela era um quadrado de 400 m centrado na origem — e
+   * passava por cima do mar inteiro. O mar existia, estava na cena, e nao
+   * aparecia em quadro nenhum: coberto por baixo pela propria praia.
+   */
+  const lajeX = LARGURA_DA_PRAIA;
+  const lajeZ = PRAIA_ATRAS + AMBIENTE.zDaOrla;
+  const centroZ = (AMBIENTE.zDaOrla - PRAIA_ATRAS) / 2;
 
   const geoAreia = guardar(new THREE.BoxGeometry(lajeX, LAJE_ESPESSURA, lajeZ));
   // Textura medida em metros: um grao de areia tem o mesmo tamanho em qualquer peca.
@@ -80,8 +90,33 @@ export function construirQuadra(court: Court): QuadraConstruida {
     metalness: 0,
   }));
 
+  /**
+   * Mancha larga por cima do grao fino — a mesma textura, em duas escalas.
+   *
+   * O grao repete a cada 2 metros, e isso e' certo: grao de areia TEM que ser
+   * medido em centimetros. So' que uma superficie com uma unica frequencia le'
+   * como plano pintado, por mais bem desenhado que seja o grao. E botar mancha
+   * grande na mesma textura seria pior ainda: ela repetiria a cada 2 m, e
+   * mancha repetida e' o que mais denuncia um tile (licao do rpk.fps).
+   *
+   * A saida e' amostrar o MESMO mapa uma segunda vez, numa escala muito maior.
+   * Sai de graca — nenhuma textura nova, nenhum arquivo — e da' o desnivel de
+   * areia seca e areia pisada que faz a praia parecer chao de verdade.
+   */
+  matAreia.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <map_fragment>',
+      `#include <map_fragment>
+       vec3 mancha = texture2D(map, vMapUv * 0.035).rgb;
+       // Centrada em 1: a mancha modula o albedo, nao o substitui.
+       // 0.45 e' o ponto entre "plano pintado" e "areia suja": acima disso a
+       // mancha vira nodoa e chama mais atencao que a quadra.
+       diffuseColor.rgb *= mix(vec3(1.0), mancha / 0.86, 0.45);`,
+    );
+  };
+
   const meshAreia = new THREE.Mesh(geoAreia, matAreia);
-  meshAreia.position.y = -LAJE_ESPESSURA / 2;
+  meshAreia.position.set(0, -LAJE_ESPESSURA / 2, centroZ);
   meshAreia.receiveShadow = true;
   root.add(meshAreia);
 

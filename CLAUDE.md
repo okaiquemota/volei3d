@@ -112,6 +112,68 @@ Lembre que o deslocamento na tela é menor que no mundo: a câmera acompanha 55%
 do movimento lateral (`CAMERA.lateralFollow`), então o que importa é o SINAL,
 não a magnitude.
 
+## A cara do jogo: céu, sol, mar e areia
+
+A ordem de impacto é a mesma que o rpk.fps documenta, e por aqui ela se
+confirmou inteira.
+
+**O céu decide a leitura.** Ele ocupa a faixa toda acima da rede; uma cor
+chapada ali faz a quadra parecer um recorte, por melhor que esteja a areia.
+Hoje é um domo com gradiente, bruma quente no horizonte e o disco do sol.
+
+**`DIRECAO_DO_SOL` é a única fonte da direção.** A luz direcional, o disco no
+céu e o caminho de brilho na água leem dali. Separados, o céu mostra o sol num
+canto enquanto a sombra cai pro outro — ninguém estranha de imediato, só fica
+com cara de cenário falso.
+
+**Sol baixo (26°).** Sombra longa é o que faz um lugar parecer um lugar. O
+frustum da sombra precisa da sobra que isso exige: a 26° a sombra de um atleta
+de 1,86 m tem quase 4 metros, e sombra cortada lê pior que sombra nenhuma.
+
+### Três erros de céu que não dão aviso nenhum
+
+1. **O expoente do halo do sol.** Estava em 6. `cos^6` só cai pra metade a 24°
+   do sol e ainda vale 10% a 45°: o halo cobria metade do céu visível e lavava
+   o azul inteiro. O céu saía cinza e a culpa parecia ser do tone mapping. Hoje
+   são três camadas — disco (1400), brilho curto (90) e bruma larga fraquíssima
+   (4).
+2. **O `far` da câmera cortava o domo.** O céu está a 900 m e o `far` era 400:
+   o domo inteiro caía fora do frustum e simplesmente não desenhava. O que
+   aparecia no topo do quadro era o mar, não o céu.
+3. **A areia cobria o mar.** A laje era um quadrado de 400 m centrado na origem
+   e passava por cima da água inteira. O mar existia, estava na cena, e não
+   aparecia em quadro nenhum. Hoje a areia termina em `AMBIENTE.zDaOrla`.
+
+**Cor autorada depois do ACES.** O tone mapping comprime e *dessatura* as altas
+luzes. As cores do céu entram multiplicadas por `ganho` (1,5) justamente para
+sobreviver a ele — mexer numa sem a outra muda o céu inteiro.
+
+### Areia: duas frequências, e duas ESCALAS
+
+O grão (alta frequência) vira relevo; a ondulação larga fica só na cor. Se a
+mancha entrasse no mapa de normal, cada marca viraria um calombo de meio metro.
+
+Mas há um segundo eixo, que é só daqui: o grão repete a cada **2 m**, e mancha
+grande na mesma textura repetiria junto — e mancha repetida é o que mais
+denuncia um tile. A saída foi amostrar o **mesmo** mapa uma segunda vez, numa
+escala 28× maior, no `onBeforeCompile` do material da areia. Custa zero textura
+nova. A mistura fica em 0,45: acima disso a mancha vira nódoa e chama mais
+atenção que a quadra.
+
+### O atleta
+
+Não tem modelo nem esqueleto, e continua low-poly — mas tem **pernas**, e é
+isso que faz a silhueta ler como pessoa. Ombro (0,235) mais largo que o tronco
+(0,155 de raio) de propósito: sem o vão entre braço e tronco os dois viram uma
+massa só.
+
+Ombro e quadril são **pivôs**, e a animação gira os pivôs. Com o mesh centrado
+no pivô, girar faria o membro atravessar o tronco.
+
+A fase da passada anda com a **velocidade do motor**, não com o relógio — bater
+no limite da área para o atleta, e a perna tem que parar junto em vez de pedalar
+contra a parede invisível.
+
 ## Armadilhas do Three (herdadas do rpk.fps, valem igual aqui)
 
 - **NUNCA mude a quantidade de luzes durante o jogo.** Entrar ou sair uma luz —
@@ -226,7 +288,10 @@ que elas mentiram, porque o padrão se repete:
    caso.
 6. **a bola cai enquanto se carrega.** Medindo carga de 800 ms com a bola solta,
    ela já está na areia na hora da soltada. Congele a bola durante a carga.
-7. **espiar dentro do `bater` não diz por que ele não foi chamado.** Se um
+7. **a câmera volta sozinha.** Com a partida em `playing`, `rig.update` a
+   reposiciona todo quadro e qualquer câmera de depuração é desfeita. Solte o
+   alvo (`g.rig.alvo = null`) antes de enquadrar à mão.
+8. **espiar dentro do `bater` não diz por que ele não foi chamado.** Se um
    portão anterior (`alcanca`, `rallyVivo`, buffer) barrou, o espião nem roda —
    e a ausência de dado parece "não bateu" em vez de "nem tentou".
 

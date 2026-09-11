@@ -84,10 +84,34 @@ export abstract class Athlete implements Tocador {
     this.sincronizarVisual();
   }
 
-  /** Leva a posicao do motor pro objeto da cena. Chamar no fim do update. */
+  /**
+   * Leva a posicao do motor pro objeto da cena e toca a animacao.
+   *
+   * A animacao le' a velocidade REAL do motor, nao a tecla apertada: batendo
+   * no limite da area o atleta para, e a perna tem que parar junto — senao ele
+   * pedala contra a parede invisivel.
+   */
   protected sincronizarVisual(dt = 0): void {
     this.visual.root.position.copy(this.motor.posicao);
-    if (dt > 0) this.motor.aplicarRotacao(this.visual.root, dt);
+    if (dt <= 0) return;
+
+    this.motor.aplicarRotacao(this.visual.root, dt);
+
+    const velocidade = this.motor.velocidadeHorizontal.length();
+    this.visual.animar(dt, velocidade, this.motor.noChao, this.bracosLevantados());
+  }
+
+  /**
+   * Quanto os bracos devem estar levantados, de 0 a 1.
+   *
+   * Sobe com a bola ao alcance e no ar — as duas situacoes em que um jogador de
+   * volei de verdade ja' esta' com os bracos prontos. Nao espera o toque
+   * acontecer: um braco que sobe DEPOIS da batida chega atrasado na tela.
+   */
+  protected bracosLevantados(): number {
+    if (this.sacando) return 0.15;
+    if (!this.motor.noChao) return 0.85;
+    return this.hitter.alcanca(this.ball, this.motor.posicao) ? 0.6 : 0;
   }
 
   /** Direcao horizontal, em mundo, que aponta deste atleta pra rede. */

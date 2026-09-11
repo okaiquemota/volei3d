@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { AI_SKILL, BALL, CAMERA, COLORS } from '../config';
+import { AI_SKILL, AMBIENTE, BALL, CAMERA, COLORS } from '../config';
 import { Input } from './Input';
 import { CameraRig } from './CameraRig';
 import { PerfMeter } from '../ui/PerfMeter';
@@ -13,6 +13,7 @@ import { descartarGeometriasDeAtleta } from '../players/buildAthlete';
 import { Court } from '../world/Court';
 import { construirQuadra, type Colisores } from '../world/buildCourt';
 import { Markers } from '../world/Markers';
+import { construirCeu, construirMar, DIRECAO_DO_SOL } from '../world/ambiente';
 import { setMaxAnisotropy } from '../world/textures';
 
 export type GameState = 'menu' | 'playing' | 'paused' | 'over';
@@ -47,6 +48,9 @@ export class Game {
 
   /** Publico so' pra depuracao pelo __VOLEI, como o resto. */
   readonly markers = new Markers();
+  private materialDoMar: THREE.ShaderMaterial | null = null;
+  /** Relogio do mar. So' as ondas dependem dele. */
+  private tempoDoMar = 0;
 
   private hud = new HUD();
   /** Publico so' pra depuracao pelo __VOLEI, como o rpk.fps faz. */
@@ -73,15 +77,24 @@ export class Game {
     // nascem em construirQuadra, logo abaixo.
     setMaxAnisotropy(this.renderer.capabilities.getMaxAnisotropy());
 
-    this.scene.background = new THREE.Color(COLORS.sky);
     /**
-     * A nevoa usa a MESMA cor do ceu — se destoar, a borda da areia recorta do
-     * ceu como adesivo (a licao e' do rpk.fps, onde a parede do fundo fazia
-     * isso). Comeca longe: a 60 m nao ha' bruma nenhuma pra ver numa praia ao
-     * sol, ela existe aqui so' pra fazer a areia terminar em vez de ser
-     * cortada.
+     * A nevoa usa a cor da BRUMA DO HORIZONTE, nao a do zenite.
+     *
+     * E' o detalhe que faz a areia terminar no ceu em vez de ser cortada por
+     * ele. Com a cor do topo do ceu, a linha do horizonte recorta como adesivo
+     * — foi a licao do rpk.fps, onde a parede do fundo fazia exatamente isso.
      */
-    this.scene.fog = new THREE.Fog(COLORS.sky, 60, 175);
+    this.scene.fog = new THREE.Fog(AMBIENTE.horizonte, 70, 260);
+
+    /**
+     * Tone mapping: sem ele, o sol quente estoura a areia em branco chapado.
+     *
+     * ACES comprime as altas luzes e devolve o contraste do meio-tom, que e'
+     * onde vivem a quadra e os atletas. A exposicao abaixo de 1 compensa a
+     * soma do sol com a hemisferica.
+     */
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 0.95;
 
     this.camera = new THREE.PerspectiveCamera(
       CAMERA.fov,
@@ -89,6 +102,15 @@ export class Game {
       CAMERA.near,
       CAMERA.far,
     );
+
+    const ceu = construirCeu();
+    this.scene.add(ceu.mesh);
+    this.descartaveis.push(...ceu.descartaveis);
+
+    const mar = construirMar();
+    this.scene.add(mar.grupo);
+    this.materialDoMar = mar.material;
+    this.descartaveis.push(...mar.descartaveis);
 
     const quadra = construirQuadra(this.court);
     this.scene.add(quadra.root);
@@ -164,32 +186,34 @@ export class Game {
    * precisar apagar alguma, use `intensity = 0`.
    */
   private criarLuzes(): void {
-    const ceu = new THREE.HemisphereLight(COLORS.skyLight, COLORS.groundLight, 1.1);
+    const ceu = new THREE.HemisphereLight(COLORS.skyLight, COLORS.groundLight, 1.5);
     this.scene.add(ceu);
 
-    const sol = new THREE.DirectionalLight(COLORS.sunLight, 2.6);
-    // Mesma direcao do prototipo: Euler(52, -35, 0) apontando pra frente.
-    const direcao = new THREE.Vector3(0, 0, 1)
-      .applyEuler(new THREE.Euler(THREE.MathUtils.degToRad(52), THREE.MathUtils.degToRad(-35), 0))
-      .negate();
-    sol.position.copy(direcao).multiplyScalar(30);
+    const sol = new THREE.DirectionalLight(COLORS.sunLight, 3.2);
+    // A MESMA direcao do disco no ceu e do brilho na agua. Ver ambiente.ts.
+    sol.position.copy(DIRECAO_DO_SOL).multiplyScalar(70);
     sol.castShadow = true;
 
     /**
-     * O frustum da sombra cobre a quadra e a zona livre, e mais nada.
+     * O frustum da sombra cobre a quadra, a zona livre e a sobra que um sol
+     * BAIXO exige.
      *
-     * E' o ajuste que decide se a sombra tem resolucao: esticar o frustum pra
-     * cobrir area vazia gasta o mapa inteiro em areia sem nada em cima.
+     * A 26 graus de elevacao a sombra de um atleta de 1,86 m tem quase quatro
+     * metros. Com o frustum apertado na quadra ela some no meio do caminho, e
+     * sombra cortada le' pior que sombra nenhuma.
      */
-    const alcance = this.court.halfLengthFree + 2;
+    const alcance = this.court.halfLengthFree + 10;
     sol.shadow.camera.left = -alcance;
     sol.shadow.camera.right = alcance;
     sol.shadow.camera.top = alcance;
     sol.shadow.camera.bottom = -alcance;
-    sol.shadow.camera.near = 1;
-    sol.shadow.camera.far = 80;
+    sol.shadow.camera.near = 20;
+    sol.shadow.camera.far = 140;
     sol.shadow.mapSize.set(2048, 2048);
-    sol.shadow.bias = -0.0008;
+    sol.shadow.bias = -0.0009;
+    // Sol rasante puxa acne de sombra na areia; o normalBias resolve sem
+    // afastar a sombra do pe' do atleta.
+    sol.shadow.normalBias = 0.03;
 
     this.scene.add(sol);
     this.scene.add(sol.target);
@@ -311,6 +335,9 @@ export class Game {
 
   /** Um passo de jogo. Publico: e' a porta de entrada dos testes. */
   update(dt: number): void {
+    this.tempoDoMar += dt;
+    if (this.materialDoMar) this.materialDoMar.uniforms.tempo!.value = this.tempoDoMar;
+
     this.match.update(dt);
     this.player.update(dt);
     this.opponent.update(dt);
