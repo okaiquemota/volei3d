@@ -36,7 +36,7 @@ npm run build:single # dist/volei3d.html — joga com duplo clique, offline
 | Pular | `Espaço` |
 | Mirar | Mouse — a mira é um **ponto no chão**, não uma direção |
 | Tocar na bola | Clique esquerdo ou `E` |
-| Forçar ataque por cima da rede | Segurar clique direito ou `Shift` |
+| Atacar por cima da rede | **Clique direito**, ou `Shift` + clique |
 | Sacar | Clique esquerdo ou `E`, quando for seu saque |
 | Reiniciar | `R`, na tela de fim de jogo |
 | Pausar / desempenho | `Esc` / `F3` |
@@ -152,6 +152,10 @@ que existem testes: essa parte roda no Node.
 - **O marcador de queda prevê até o centro da bola no contato, não até o chão.**
   A bola toca a areia com o centro a um raio de altura; mirar em `y = 0` erra
   uns dez centímetros sempre para o mesmo lado. Medido: 0,9 cm de erro médio.
+- **O clique direito é uma ação, não um modificador.** Ele nasceu como
+  modificador — para atacar era preciso *segurar* o direito e *clicar* o
+  esquerdo ao mesmo tempo. Funcionava e ninguém descobria: um acorde de dois
+  botões para a ação mais comum do jogo é controle ruim, mesmo documentado.
 - **Um buffer de 0,18 s guarda o clique adiantado.** Sem ele o jogo parece
   travado justamente quando o jogador acertou o tempo.
 - **Nenhum arquivo binário no repositório.** Textura é canvas 2D, geometria é

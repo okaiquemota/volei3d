@@ -165,6 +165,32 @@ num marcador que estava certo:
 
 Com as três corrigidas: 0,9 cm de erro médio, 1,8 cm no pior caso.
 
+## Medir o input é onde eu mais me enganei
+
+Uma queixa de "o clique direito não ataca" custou QUATRO medições erradas antes
+de virar diagnóstico, e nenhuma delas apontava para o lugar certo. A ordem em
+que elas mentiram, porque o padrão se repete:
+
+1. **a bola continua presa.** `Ball.teleportar` não solta a âncora, e a partida
+   prende a bola na mão do sacador no início. `alcanca()` recusa bola presa,
+   então nenhum clique fazia nada — nem o esquerdo.
+2. **a partida cobra o ponto.** Deixando o `Match` ver a queda do primeiro
+   caso, ele entra em "intervalo", `rallyVivo` vira falso, e todos os casos
+   seguintes falham em silêncio.
+3. **a CPU devolve.** O espião registrava QUALQUER `ball.bater`, então o que se
+   media era a devolução da IA — uma velocidade apontando para trás, que parecia
+   bug de balística.
+4. **`ultimaAcao` vaza entre casos.** Um lance que não aconteceu aparece como se
+   tivesse acontecido, porque o campo guarda o anterior.
+
+O padrão: **o jogo é um sistema vivo, e uma bancada que não o congela mede
+outra coisa.** Antes de medir input, desligue o que se move —
+`g.match.update = () => {}`, `g.opponent.update = () => {}`, `g.ball.soltar()`,
+e zere o que guarda estado entre casos.
+
+E registre só o PRIMEIRO evento de cada tipo. Foi o que separou "a balística
+manda a bola para trás" de "a CPU devolveu".
+
 ## Como testar de verdade
 
 **Não dá para medir fps neste ambiente.** Sob renderização por software o jogo

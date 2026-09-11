@@ -104,7 +104,23 @@ export class Human extends Athlete {
      * perder: sem isso o jogo parece travado justamente quando o jogador
      * acertou o tempo. E' o irmao do jumpBuffer do rpk.fps.
      */
-    const pediuToque = input.wasPressed('KeyE') || input.wasMousePressed(0);
+    /**
+     * O botao direito e' um TOQUE, nao so' um modificador.
+     *
+     * Antes ele so' modificava: pra atacar era preciso SEGURAR o direito e
+     * CLICAR o esquerdo ao mesmo tempo. Funcionava, e ninguem descobria — o
+     * manual dizia "DIREITO: atacar por cima", que se le' como "o direito
+     * ataca", e clicar o direito sozinho nao fazia nada. Um acorde de dois
+     * botoes pra acao mais comum do jogo e' controle ruim, mesmo que
+     * documentado.
+     *
+     * Agora o direito bate E manda por cima da rede, porque `forcandoAtaque`
+     * ja' le' o botao como segurado no mesmo quadro. Segurar direito e clicar
+     * esquerdo continua valendo, pra quem se acostumou.
+     */
+    const pediuToque = input.wasPressed('KeyE')
+      || input.wasMousePressed(0)
+      || input.wasMousePressed(2);
     if (pediuToque) this.bufferDeToque = PLAYER.hitBuffer;
     else if (this.bufferDeToque > 0) this.bufferDeToque -= dt;
 
