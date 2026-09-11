@@ -39,3 +39,180 @@ html, body {
   pointer-events: none;
   z-index: 50;
 }
+
+/* ======================= HUD ======================= */
+
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  /* A referencia e' 1920x1080; vmin faz o HUD encolher junto com a janela,
+     como o CanvasScaler fazia. */
+  font-size: clamp(12px, 1.5vmin, 20px);
+}
+
+#hud-top {
+  position: absolute;
+  top: 1.6vmin;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+}
+
+#scoreboard {
+  display: flex;
+  align-items: center;
+  gap: 1.2em;
+  padding: 0.5em 1.4em;
+  background: var(--painel);
+  border: 1px solid rgba(232, 230, 227, 0.12);
+  border-radius: 6px;
+  /* Sem isto o placar balanca a cada ponto: os digitos tem larguras diferentes. */
+  font-variant-numeric: tabular-nums;
+}
+
+#scoreboard .lado { font-size: 1.1em; letter-spacing: 0.1em; opacity: 0.85; }
+#scoreboard .lado.home { color: var(--home); }
+#scoreboard .lado.away { color: var(--away); }
+#scoreboard .pontos { font-size: 2.6em; font-weight: 700; line-height: 1; }
+#scoreboard .sep { font-size: 1.8em; opacity: 0.4; }
+
+#serve-line {
+  margin-top: 0.6em;
+  font-size: 1.1em;
+  letter-spacing: 0.08em;
+  color: var(--home);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+#serve-line.away { color: var(--away); }
+
+#announcement {
+  position: absolute;
+  top: 28%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 2em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--home);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+  opacity: 0;
+  transition: opacity 0.18s;
+  white-space: nowrap;
+}
+#announcement.away { color: var(--away); }
+#announcement.visivel { opacity: 1; }
+
+#action-hint {
+  position: absolute;
+  top: 62%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.4em 1em;
+  background: var(--painel);
+  border-radius: 4px;
+  font-size: 1.1em;
+  letter-spacing: 0.06em;
+  animation: pulsar 1.4s ease-in-out infinite;
+}
+
+@keyframes pulsar { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+
+#hints {
+  position: absolute;
+  bottom: 1.6vmin;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.95em;
+  opacity: 0.5;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+/* ======================= TELAS ======================= */
+
+#screens { position: fixed; inset: 0; z-index: 20; pointer-events: none; }
+
+.tela {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 1.2rem;
+  padding: 2rem;
+  text-align: center;
+  background: rgba(13, 16, 20, 0.82);
+  pointer-events: auto;
+}
+
+.titulo {
+  margin: 0;
+  font-size: clamp(2.5rem, 9vmin, 6rem);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  line-height: 1;
+}
+.titulo .tres { color: var(--home); }
+
+.titulo-menor {
+  margin: 0;
+  font-size: clamp(1.8rem, 5vmin, 3.2rem);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+.titulo-menor.away { color: var(--away); }
+
+.sub { margin: 0; opacity: 0.6; letter-spacing: 0.05em; }
+.rodape { margin: 0; opacity: 0.35; font-size: 0.85rem; letter-spacing: 0.05em; }
+
+.opcoes { display: grid; gap: 0.8rem; min-width: min(340px, 80vw); }
+
+.campo {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  opacity: 0.8;
+  text-align: left;
+}
+.campo b { color: var(--home); }
+
+.campo select,
+.campo input {
+  width: 100%;
+  padding: 0.5rem;
+  background: rgba(232, 230, 227, 0.07);
+  border: 1px solid rgba(232, 230, 227, 0.18);
+  border-radius: 4px;
+  color: var(--tinta);
+  font: inherit;
+  font-size: 0.95rem;
+}
+.campo input[type='range'] { padding: 0; accent-color: var(--home); }
+
+.botao {
+  padding: 0.8rem 2.4rem;
+  background: var(--tinta);
+  border: none;
+  border-radius: 4px;
+  color: var(--fundo);
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  transition: transform 0.1s, background 0.15s;
+}
+.botao:hover { background: #fff; transform: translateY(-1px); }
+.botao:active { transform: translateY(0); }
+
+.botao.secundario {
+  background: transparent;
+  border: 1px solid rgba(232, 230, 227, 0.3);
+  color: var(--tinta);
+  font-weight: 400;
+}
+.botao.secundario:hover { background: rgba(232, 230, 227, 0.1); }

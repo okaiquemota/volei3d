@@ -16,6 +16,7 @@ export interface Tocador {
 
 export type AoTocarOChao = (tipo: 'chao' | 'fora', ponto: THREE.Vector3) => void;
 export type AoTocarARede = () => void;
+export type AoTocar = (por: Tocador) => void;
 
 /**
  * A bola.
@@ -45,6 +46,13 @@ export class Ball {
 
   aoTocarOChao: AoTocarOChao | null = null;
   aoTocarARede: AoTocarARede | null = null;
+  /**
+   * Alguem bateu na bola.
+   *
+   * A bola nao sabe o que e' um saque nem o que e' o quarto toque — ela so'
+   * sabe que foi tocada. Quem traduz isso em regra e' a partida.
+   */
+  aoTocar: AoTocar | null = null;
 
   private readonly descartaveis: Array<{ dispose(): void }> = [];
 
@@ -102,6 +110,8 @@ export class Ball {
     this.velocidade.copy(velocidade);
     this.ultimoTocador = por;
     this.tempoDesdeOToque = 0;
+
+    if (por) this.aoTocar?.(por);
   }
 
   update(dt: number): void {
