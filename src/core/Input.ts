@@ -1,11 +1,14 @@
 /**
  * Teclado e mouse. O jogo so' le' estado daqui; nada de listener espalhado.
  *
- * Vem do Input do rpk.fps SEM o pointer lock. La' a camera gira com o
- * movimento relativo do mouse, entao capturar o cursor e' obrigatorio — e
- * metade daquele arquivo e' o conserto de quando a captura falha. Aqui a mira
- * e' um ponto no CHAO, resolvido pela posicao absoluta do cursor: travar o
- * cursor so' atrapalharia, e tudo aquilo some.
+ * O pointer lock vale em UM lugar so', e a divisao explica o resto do arquivo.
+ * Dentro da quadra a mira e' um ponto no CHAO, resolvido pela posicao ABSOLUTA
+ * do cursor: travar o cursor ali so' atrapalharia. Fora da quadra nao ha' mira
+ * nenhuma, e a camera gira com o movimento RELATIVO — ali travar e' o unico
+ * jeito de girar sem fim, porque cursor solto para de andar na borda da tela.
+ *
+ * Por isso `pointerX/Y` (absoluto, pra mira) e `arrasteX/Y` (relativo, pra
+ * camera) convivem: sao duas perguntas diferentes, nao duas versoes da mesma.
  *
  * O que ficou, e por que:
  *
@@ -35,9 +38,10 @@ export class Input {
    * pode receber varios `mousemove`, e pegar so' o ultimo joga fora movimento
    * — a camera gira menos do que a mao andou, e o arrasto fica pesado.
    *
-   * Isto NAO substitui `pointerX/Y`. A mira continua sendo posicao absoluta:
-   * sem pointer lock, um ponto no chao se resolve pelo cursor onde ele esta',
-   * nao por quanto ele andou.
+   * Com o ponteiro TRAVADO vem de `movementX/Y`, que e' o movimento cru do
+   * mouse e continua chegando depois que o cursor "encostaria" na borda. Solto,
+   * vem da diferenca de `clientX/Y`, que e' o que sobra quando o navegador
+   * recusa a captura.
    */
   arrasteX = 0;
   arrasteY = 0;
@@ -83,6 +87,18 @@ export class Input {
   };
 
   private onMouseMove = (e: MouseEvent): void => {
+    /**
+     * Travado, o cursor nao anda: `clientX/Y` congelam e so' `movementX/Y`
+     * reporta. Sair daqui cedo tambem PRESERVA `pointerX/Y` onde o cursor
+     * estava — e' pra la' que ele reaparece ao destravar, e e' de la' que a
+     * mira do jogo parte antes do primeiro movimento dentro da quadra.
+     */
+    if (this.ponteiroTravado) {
+      this.arrasteX += e.movementX;
+      this.arrasteY += e.movementY;
+      return;
+    }
+
     this.arrasteX += e.clientX - this.pointerX;
     this.arrasteY += e.clientY - this.pointerY;
     this.pointerX = e.clientX;
@@ -142,6 +158,37 @@ export class Input {
     this.arrasteX = 0;
     this.arrasteY = 0;
     this.roda = 0;
+  }
+
+  /** O navegador esta' com o cursor capturado pelo canvas? */
+  get ponteiroTravado(): boolean { return document.pointerLockElement === this.canvas; }
+
+  /**
+   * Pede a captura do cursor. Pode falhar, e falhar e' normal.
+   *
+   * O navegador so' concede depois de um gesto do usuario, recusa por um
+   * segundo depois de um Esc, e nem existe em alguns contextos. Nenhum desses
+   * casos e' erro: quem chama tem que continuar funcionando sem a captura — por
+   * isso a promessa e' engolida, e nao propagada.
+   */
+  travarPonteiro(): void {
+    if (this.ponteiroTravado) return;
+
+    try {
+      // `unadjustedMovement` tira a aceleracao do mouse do sistema, que e' o
+      // que faz um giro de camera responder diferente do que a mao fez. So' o
+      // Chrome tem; onde nao houver, a chamada cai no pedido simples.
+      const pedido = this.canvas.requestPointerLock({ unadjustedMovement: true }) as unknown;
+      if (pedido instanceof Promise) {
+        pedido.catch(() => { try { this.canvas.requestPointerLock(); } catch { /* sem captura */ } });
+      }
+    } catch {
+      /* sem captura: o arrasto com botao ainda gira a camera */
+    }
+  }
+
+  destravarPonteiro(): void {
+    if (this.ponteiroTravado) document.exitPointerLock();
   }
 
   isDown(code: string): boolean { return this.keys.has(code); }

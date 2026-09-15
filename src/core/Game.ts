@@ -296,6 +296,8 @@ export class Game {
     if (this.state !== 'playing') return;
     this.state = 'paused';
     this.screens.mostrarPausa(true);
+    // Sem cursor nao se clica em "continuar".
+    this.input.destravarPonteiro();
   }
 
   private continuar(): void {
@@ -350,8 +352,12 @@ export class Game {
       // jogando sai, quem esta' na areia entra.
       if (this.player) {
         if (this.input.wasPressed('KeyQ')) this.sairDaQuadra();
-      } else if (this.input.wasPressed('KeyE')) {
-        this.entrarNaQuadraMaisPerto();
+      } else {
+        if (this.input.wasPressed('KeyE')) this.entrarNaQuadraMaisPerto();
+
+        // Um clique na areia recaptura o cursor. E' o caminho de volta depois
+        // do Esc — e o unico, porque o navegador so' concede depois de gesto.
+        if (this.input.wasMousePressed(0)) this.input.travarPonteiro();
       }
 
       if (this.input.wasPressed('Escape')) this.pausar();
@@ -422,6 +428,10 @@ export class Game {
     this.hud.dicaDaPraia(null);
     this.hud.esconderAvisoDeQuadra();
 
+    // Dentro da quadra o cursor volta a ser cursor: e' por ele que a mira
+    // resolve um ponto no chao.
+    this.input.destravarPonteiro();
+
     this.focar(arena);
     this.rig.jogar(arena.court, lado, humano.objeto, arena.ball.mesh);
   }
@@ -451,6 +461,10 @@ export class Game {
     this.rig.passear(this.banhista.objeto);
     this.hud.esconderAvisoDeQuadra();
 
+    // Fora da quadra o mouse vira camera, e camera pede cursor capturado: solto,
+    // ele para de andar na borda da tela e o giro morre no meio.
+    this.input.travarPonteiro();
+
     // O placar volta a ser de CPU contra CPU: quem estava escrito ali era voce,
     // e voce acabou de sair.
     this.focar(arena);
@@ -467,11 +481,22 @@ export class Game {
    * Qualquer botao serve: aqui nenhum deles tem outro trabalho.
    */
   private girarACamera(): void {
-    const arrastando = this.input.isMouseDown(0)
+    /**
+     * Com o cursor capturado, mover o mouse ja' gira: e' pra isso que ele foi
+     * capturado. Sem captura ainda da' pra girar ARRASTANDO com qualquer botao
+     * — e sem captura acontece de verdade, porque o navegador recusa enquanto
+     * nao houver gesto do usuario e desfaz a captura a cada Esc.
+     *
+     * Exigir botao no caso solto nao e' teimosia: sem captura o cursor tem uma
+     * posicao na tela que importa, e uma camera que girasse com o cursor solto
+     * giraria tambem quando a mao so' atravessa a tela pra chegar noutro canto.
+     */
+    const gira = this.input.ponteiroTravado
+      || this.input.isMouseDown(0)
       || this.input.isMouseDown(1)
       || this.input.isMouseDown(2);
 
-    if (arrastando) this.rig.orbitar(this.input.arrasteX, this.input.arrasteY);
+    if (gira) this.rig.orbitar(this.input.arrasteX, this.input.arrasteY);
     this.rig.aproximar(this.input.roda);
   }
 
@@ -509,7 +534,9 @@ export class Game {
     if (perto.arena !== this.arenaEmFoco) this.focar(perto.arena);
 
     if (perto.distancia > PASSEIO.alcanceDeEntrada) {
-      this.hud.dicaDaPraia(null);
+      // Longe de tudo, a dica vira o aviso de que o mouse esta' solto — que e'
+      // a unica coisa que o jogador precisa saber pra girar a camera de novo.
+      this.hud.dicaDaPraia(this.input.ponteiroTravado ? null : 'CLIQUE pra girar a camera com o mouse');
       return;
     }
 

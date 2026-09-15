@@ -392,11 +392,27 @@ perigo lá era: corpo gira → câmera gira → movimento é relativo à câmera
 corpo gira mais. Aqui o ângulo é **input do jogador**, não consequência da
 rotação do corpo — e o corpo é que segue a câmera. Sem ciclo.
 
-Dois cuidados que não são óbvios:
+**O pointer lock vale fora da quadra, e só lá.** Foi a divisão que o `Input`
+não tinha: dentro da quadra a mira é um ponto no CHÃO, resolvido pela posição
+**absoluta** do cursor, e capturar ali só atrapalharia. Fora não há mira, a
+câmera gira pelo movimento **relativo**, e sem captura o cursor para de andar na
+borda da tela — o giro morre no meio. Por isso `pointerX/Y` e `arrasteX/Y`
+convivem: são duas perguntas, não duas versões da mesma.
 
-- O arrasto exige **botão segurado**. Sem pointer lock, o cursor tem uma posição
-  na tela que importa (é por ela que a mira do jogo se resolve), e uma câmera que
-  gira com o cursor solto giraria também quando a mão só atravessa a tela.
+Com o cursor travado, `clientX/Y` **congelam** e só `movementX/Y` reporta. Sair
+cedo do `mousemove` nesse caso também preserva `pointerX/Y` onde o cursor
+estava, que é pra onde ele reaparece ao destravar — e é de lá que a mira parte
+ao entrar numa quadra.
+
+A captura falha o tempo todo, e falhar é normal: o navegador só concede depois
+de um gesto do usuário, recusa por ~1 s depois de um `Esc`, e o `Esc` a desfaz
+sem avisar a página. Então **tem que funcionar sem ela**: com o cursor solto, o
+arrasto com botão segurado ainda gira. Exigir botão nesse caso não é teimosia —
+sem captura o cursor tem uma posição que importa, e uma câmera que girasse com
+o cursor solto giraria também quando a mão só atravessa a tela.
+
+Outros dois cuidados:
+
 - `wheel` chega em unidades diferentes por navegador (`deltaMode` 0 = pixels,
   1 = linhas, 2 = páginas). Sem converter, o mesmo gesto zooma 16× menos no
   Firefox. E contar `Math.sign` por evento trata igual o clique seco de um mouse
