@@ -419,10 +419,27 @@ Outros dois cuidados:
   e o deslize contínuo de um trackpad — o trackpad dispara dezenas de eventos por
   segundo e atravessaria a faixa inteira num gesto.
 
-A suavização também muda de constante: as outras câmeras amaciam o movimento de
-OUTRA coisa (o atleta, a bola), e 7 é o que impede o tranco. Esta amacia a mão do
-jogador, e o mesmo 7 vira atraso — a câmera chega um terço de segundo depois do
-mouse e o arrasto parece solto.
+**Órbita não se suaviza como câmera de perseguição.** Esta foi a que custou: a
+de passeio nasceu reusando o `update` das outras, que amacia posição e rotação
+**em separado**. Numa câmera que persegue um atleta isso é certo — o alvo
+escorregar um pouco do centro é o que dá peso a ela. Numa órbita é defeito: a
+posição era calculada em volta da posição **crua** do alvo enquanto a câmera
+olhava pro foco **suavizado** (dois pontos diferentes), e a rotação ainda
+chegava atrasada em relação à posição. Girando rápido, a câmera já tinha dado a
+volta e a mira ainda vinha vindo — o personagem escorregava pro canto e voltava
+sozinho.
+
+O conserto é um ponto só: o foco amacia o ANDAR, a órbita é montada em volta
+desse mesmo ponto, e o `lookAt` é **exato**. Medido: girando rápido, o desvio do
+personagem em relação ao centro da tela é **zero**; andando a 6,5 m/s é 0,025 em
+NDC (uns 16 px), que é o atraso de seguir — velocidade dividida pela constante.
+
+Pra medir isto, projete o alvo com `.project(camera)` e veja o quanto ele sai de
+(0,0). A olho, "escorregou e voltou" some no meio do movimento.
+
+A constante de suavização também é outra, e pelo mesmo motivo: nas câmeras de
+jogo ela amacia o movimento de OUTRA coisa, e 7 é o que impede o tranco. Esta
+amacia só o andar do personagem, e ali 7 viraria meio metro de atraso.
 
 ## A câmera de quem assiste não é a de quem joga
 

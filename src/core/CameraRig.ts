@@ -144,22 +144,16 @@ export class CameraRig {
   update(dt: number): void {
     if (!this.alvo || dt <= 0) return;
 
-    /**
-     * A camera de passeio amacia mais rapido.
-     *
-     * As outras duas amaciam o movimento de OUTRA coisa — o atleta, a bola — e
-     * a constante baixa e' o que impede o tranco. Esta amacia a mao do jogador,
-     * e a mesma constante vira ATRASO: a camera chega onde o mouse mandou um
-     * terco de segundo depois, e o arrasto parece solto.
-     */
-    const suavidade = this.modo === 'passeio' ? CAMERA.passeioSuavidade : CAMERA.rotationSmoothing;
-    const suavidadeDePosicao = this.modo === 'passeio' ? CAMERA.passeioSuavidade : CAMERA.positionSmoothing;
+    if (this.modo === 'passeio') {
+      this.seguirPasseio(dt);
+      return;
+    }
 
     this.calcularFoco(_foco);
-    this.foco.lerp(_foco, dampFactor(suavidade, dt));
+    this.foco.lerp(_foco, dampFactor(CAMERA.rotationSmoothing, dt));
 
     this.calcularPosicao(_desejada);
-    this.camera.position.lerp(_desejada, dampFactor(suavidadeDePosicao, dt));
+    this.camera.position.lerp(_desejada, dampFactor(CAMERA.positionSmoothing, dt));
 
     _olhar.subVectors(this.foco, this.camera.position);
     if (_olhar.lengthSq() > 1e-6) {
@@ -167,8 +161,38 @@ export class CameraRig {
       // suavizado ainda produz um tranco quando a bola muda de lado.
       _matriz.lookAt(this.camera.position, this.foco, this.camera.up);
       const destino = new THREE.Quaternion().setFromRotationMatrix(_matriz);
-      this.camera.quaternion.slerp(destino, dampFactor(suavidade, dt));
+      this.camera.quaternion.slerp(destino, dampFactor(CAMERA.rotationSmoothing, dt));
     }
+  }
+
+  /**
+   * A camera de passeio e' RIGIDA: quem ela segue nao sai do meio da tela.
+   *
+   * As outras duas amaciam posicao e rotacao separadamente, e podem: la' o
+   * alvo e' um atleta que corre e uma bola que voa, e o foco escorregar um
+   * pouco do centro e' o que da' peso a' camera.
+   *
+   * Aqui isso e' DEFEITO, e era o defeito. A orbita era calculada em volta da
+   * posicao CRUA do alvo enquanto a camera olhava pro foco SUAVIZADO — dois
+   * pontos diferentes — e ainda por cima a rotacao chegava atrasada em relacao
+   * a' posicao. Girando rapido, a camera ja' tinha dado a volta e a mira ainda
+   * vinha vindo: o personagem escorregava pro canto e voltava sozinho.
+   *
+   * Um ponto so', entao: o foco amacia o ANDAR do personagem, a orbita e'
+   * montada em volta desse mesmo ponto, e o `lookAt` e' exato. Girar passa a
+   * ser 1 pra 1 com o mouse, que e' o que "travado" quer dizer.
+   */
+  private seguirPasseio(dt: number): void {
+    this.calcularFoco(_foco);
+    this.foco.lerp(_foco, dampFactor(CAMERA.passeioSuavidade, dt));
+
+    const plano = Math.cos(this.elevacao) * this.raio;
+    this.camera.position.set(
+      this.foco.x - Math.sin(this.giro) * plano,
+      this.foco.y + Math.sin(this.elevacao) * this.raio,
+      this.foco.z - Math.cos(this.giro) * plano,
+    );
+    this.camera.lookAt(this.foco);
   }
 
   private calcularPosicao(out: THREE.Vector3): THREE.Vector3 {
@@ -183,11 +207,15 @@ export class CameraRig {
      * um lugar. Dali em diante quem manda e' a mao do jogador.
      */
     if (this.modo === 'passeio') {
+      // Em volta do FOCO, nunca da posicao crua do alvo: e' a mesma conta do
+      // `seguirPasseio`, e os dois tem que concordar ou o encaixe da' um
+      // tranco no primeiro quadro.
       const plano = Math.cos(this.elevacao) * this.raio;
+      this.calcularFoco(_foco);
       return out.set(
-        this.alvo!.position.x - Math.sin(this.giro) * plano,
-        this.alvo!.position.y + CAMERA.alturaDoOlhar + Math.sin(this.elevacao) * this.raio,
-        this.alvo!.position.z - Math.cos(this.giro) * plano,
+        _foco.x - Math.sin(this.giro) * plano,
+        _foco.y + Math.sin(this.elevacao) * this.raio,
+        _foco.z - Math.cos(this.giro) * plano,
       );
     }
 

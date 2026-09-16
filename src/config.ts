@@ -411,7 +411,15 @@ export const CAMERA = {
    * Os valores acima viram o angulo INICIAL: 10 m atras e 4,5 m de altura sao o
    * mesmo que um raio de 10,4 m com 16 graus de elevacao.
    */
-  passeioGiroPorPixel: 0.005,
+  /**
+   * Radianos por pixel de mouse.
+   *
+   * Com 0,005 uma meia-volta saia em 630 px — meia tela — e o mundo girava mais
+   * rapido do que a mao conseguia mandar parar. Com 0,0025 a volta INTEIRA pede
+   * 2500 px, uns dois deslizes de mouse, que e' a faixa em que jogo de terceira
+   * pessoa costuma viver.
+   */
+  passeioGiroPorPixel: 0.0025,
   /** Limites da elevacao: nem enterrada na areia, nem em cima da cabeca. */
   passeioElevacaoMin: 0.10,
   passeioElevacaoMax: 1.25,
@@ -426,12 +434,16 @@ export const CAMERA = {
   passeioRaioMin: 3.5,
   passeioRaioMax: 30,
   /**
-   * A camera de passeio responde mais rapido que as outras.
+   * O quanto a camera de passeio amacia o ANDAR do personagem.
    *
-   * As de jogo amaciam o movimento de OUTRA coisa — o atleta, a bola — e 7 e' o
-   * que impede o tranco. Esta amacia a mao do jogador, e o mesmo 7 vira atraso:
-   * a camera chega onde o mouse mandou um terco de segundo depois, e o arrasto
-   * parece solto.
+   * So' o andar: o giro e' 1 pra 1 com o mouse, e a mira e' exata — quem a
+   * camera segue nao sai do meio da tela. E' a diferenca entre esta camera e as
+   * de jogo, que amaciam posicao e rotacao separadamente e podem deixar o alvo
+   * escorregar um pouco do centro.
+   *
+   * O atraso que sobra e' velocidade dividida pela constante: 6,5 m/s por 20 da'
+   * 33 cm, uns 2% da largura do quadro. O bastante pra tirar o tremor de quadro
+   * a quadro, pouco pra se notar.
    */
   passeioSuavidade: 20,
   /** Folga minima atras da linha de fundo: a camera nunca entra na quadra. */
