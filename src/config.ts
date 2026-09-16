@@ -403,12 +403,26 @@ export interface AiSkill {
   chanceDeArmar: number;
   /** Tempo parado antes de sacar. */
   serveDelay: number;
+  /**
+   * Quantos metros FORA das linhas a bola precisa cair pra ela deixar passar.
+   *
+   * A IA salvava tudo. Corria atras de bola que ia morrer um metro depois da
+   * linha de fundo, devolvia, e dava de presente um ponto que ja' era dela —
+   * porque `preverPouso` diz ONDE a bola cai e ninguem perguntava se aquilo era
+   * dentro.
+   *
+   * Julgar bola fora e' das coisas mais dificeis do volei, entao isto e' um
+   * atributo e nao uma regra: o `facil` so' larga o que e' escandalosamente
+   * fora, o `dificil` chama a linha de perto. Errar pro lado errado custa o
+   * ponto — que e' o risco de quem deixa passar na quadra de verdade.
+   */
+  margemDeFora: number;
 }
 
 export const AI_SKILL: Record<'facil' | 'normal' | 'dificil', AiSkill> = {
-  facil: { reactionDelay: 0.34, positionError: 1.15, aimError: 2.0, spikeChance: 0.2, serveDelay: 1.4, attackForce: 0.15, chanceDeArmar: 0.35, defesa: 0 },
-  normal: { reactionDelay: 0.18, positionError: 0.55, aimError: 1.1, spikeChance: 0.45, serveDelay: 1.1, attackForce: 0.3, chanceDeArmar: 0.7, defesa: 0.2 },
-  dificil: { reactionDelay: 0.08, positionError: 0.22, aimError: 0.5, spikeChance: 0.7, serveDelay: 0.8, attackForce: 0.55, chanceDeArmar: 0.9, defesa: 0.4 },
+  facil: { reactionDelay: 0.34, positionError: 1.15, aimError: 2.0, spikeChance: 0.2, serveDelay: 1.4, attackForce: 0.15, chanceDeArmar: 0.35, defesa: 0, margemDeFora: 0.85 },
+  normal: { reactionDelay: 0.18, positionError: 0.55, aimError: 1.1, spikeChance: 0.45, serveDelay: 1.1, attackForce: 0.3, chanceDeArmar: 0.7, defesa: 0.2, margemDeFora: 0.4 },
+  dificil: { reactionDelay: 0.08, positionError: 0.22, aimError: 0.5, spikeChance: 0.7, serveDelay: 0.8, attackForce: 0.55, chanceDeArmar: 0.9, defesa: 0.4, margemDeFora: 0.15 },
 };
 
 export const AI = {
@@ -586,6 +600,23 @@ export const CAMERA = {
   passeioSuavidade: 20,
   /** Folga minima atras da linha de fundo: a camera nunca entra na quadra. */
   minDepthMargin: 2,
+
+  /**
+   * O zoom de quem JOGA, na roda do mouse.
+   *
+   * Multiplica altura e distancia juntas, entao o angulo nao muda — e' o mesmo
+   * enquadramento mais perto ou mais longe. Mexer so' na distancia mudaria a
+   * inclinacao, e aquela conta (a linha de visao que raspa a fita) e' o que
+   * decide se da' pra ver o campo adversario.
+   *
+   * Os limites saem da mesma conta: a 0,7 a linha que raspa a fita toca o chao
+   * a 4,0 m da rede, e a 1,6 a 3,2 m — dentro dos 8 m do campo adversario nos
+   * dois extremos, entao nenhum zoom esconde a quadra.
+   */
+  jogoZoomMin: 0.7,
+  jogoZoomMax: 1.6,
+  /** Quanto o zoom anda por pixel de roda. Um entalhe de mouse da' ~0,11. */
+  jogoZoomPorPixel: 0.0011,
   positionSmoothing: 7,
   rotationSmoothing: 9,
 } as const;

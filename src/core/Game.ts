@@ -389,6 +389,10 @@ export class Game {
       this.atualizarPasseio();
     }
 
+    // A roda aproxima e afasta nos DOIS modos. O que muda e' o que ela mexe:
+    // andando, o raio da orbita; jogando, a altura e a distancia da camera.
+    this.rig.aproximar(this.input.roda);
+
     const carga = this.player?.leituraDaCarga;
     this.hud.carga(
       this.player?.carregandoAtaque ? this.player.forcaDoAtaque : -1,
@@ -541,7 +545,6 @@ export class Game {
       || this.input.isMouseDown(2);
 
     if (gira) this.rig.orbitar(this.input.arrasteX, this.input.arrasteY);
-    this.rig.aproximar(this.input.roda);
   }
 
   /** A quadra mais perto de quem anda, e por qual lado ele esta' chegando. */

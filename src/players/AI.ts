@@ -6,6 +6,7 @@ import { Athlete } from './Athlete';
 import type { Acao } from './Hitter';
 
 const _pouso = new THREE.Vector3();
+const _julgado = new THREE.Vector3();
 const _desejado = new THREE.Vector3();
 const _paraOAlvo = new THREE.Vector3();
 const _paraABola = new THREE.Vector3();
@@ -43,6 +44,17 @@ export class AIPlayer extends Athlete {
   private armando = false;
   /** Com quantos toques do meu lado a decisao acima foi tomada. */
   private decididoCom = -1;
+  /** E depois de qual toque. Um toque novo e' uma bola nova pra ler. */
+  private tocadorDecidido: unknown = undefined;
+
+  /**
+   * Julguei que esta bola vai cair fora, e por isso NAO vou nela.
+   *
+   * Decidido junto com o resto da jogada, uma vez por bola lida — julgar fora e
+   * mudar de ideia a cada quadro daria o pior dos dois mundos: a IA sairia do
+   * lugar, voltaria, e ainda tocaria na bola no fim.
+   */
+  private deixarSair = false;
 
   /**
    * O erro de leitura desta bola, em metros. Um por bola, nao um por quadro.
@@ -81,6 +93,8 @@ export class AIPlayer extends Athlete {
     this.querCortar = false;
     this.armando = false;
     this.decididoCom = -1;
+    this.tocadorDecidido = undefined;
+    this.deixarSair = false;
   }
 
   override update(dt: number): void {
@@ -145,6 +159,24 @@ export class AIPlayer extends Athlete {
       return;
     }
 
+    /**
+     * Vai cair fora? Entao nao e' minha.
+     *
+     * A LEITURA e' que erra, nao a conta: o julgamento sai do pouso previsto
+     * mais o mesmo erro de leitura que ela ja' usa pra correr, e so' conta como
+     * fora se passar da margem da dificuldade. Julgar pela previsao exata daria
+     * um juiz de linha perfeito, que e' pior que um que salva tudo.
+     *
+     * Bola que EU toquei nao se julga: um levantamento meu que sobra pra fora
+     * ainda e' meu problema, e largar ele seria largar a jogada inteira.
+     */
+    if (this.deixarSair) {
+      this.court.posicaoDeSpawn(this.side, this.alvoDeCorrida);
+      this.querCortar = false;
+      this.esperaDeDecisao = AI.decisionCooldown;
+      return;
+    }
+
     _desejado.set(_pouso.x + this.erroDeLeitura.x, 0, _pouso.z + this.erroDeLeitura.y);
     this.court.limitarArea(_desejado, this.side, this.alvoDeCorrida);
 
@@ -172,15 +204,43 @@ export class AIPlayer extends Athlete {
    * valor novo.
    */
   private decidirAJogada(): void {
+    /**
+     * Uma decisao por TOQUE, e nao por contagem de toques do meu lado.
+     *
+     * A contagem zera quando a bola cruza a rede, entao ela vale 0 durante a
+     * posse inteira do adversario E no comeco da minha. Decidir por ela fazia a
+     * jogada ser resolvida enquanto a bola ainda estava do outro lado — e nunca
+     * mais revista. Pro julgamento de bola fora isso e' fatal: a previsao de
+     * pouso naquele instante apontava pra quadra do adversario, entao a resposta
+     * era sempre "esta' dentro", e a IA ia buscar tudo.
+     *
+     * O toque do adversario e' o instante em que a bola passa a ser legivel: e'
+     * de la' que sai a trajetoria inteira.
+     */
     const toques = this.rally.toquesDoLado(this.side);
-    if (toques === this.decididoCom) return;
+    const tocador = this.ball.ultimoTocador;
+    if (toques === this.decididoCom && tocador === this.tocadorDecidido) return;
 
     this.decididoCom = toques;
+    this.tocadorDecidido = tocador;
     randomInCircle(this.habilidade.positionError, this.erroDeLeitura);
     this.armando = toques === 0
       && this.rally.rallyVivo
       && !this.precisaCruzarARede()
       && Math.random() < this.habilidade.chanceDeArmar;
+
+    // Bola que EU toquei nao se julga: um levantamento meu que sobra pra fora
+    // ainda e' meu problema, e largar ele seria largar a jogada inteira.
+    const minha = this.ball.ultimoTocador?.side === this.side;
+    this.deixarSair = !minha && this.rally.rallyVivo && this.vaiCairFora();
+  }
+
+  /** O pouso previsto, lido COM erro, cai fora das linhas por uma margem? */
+  private vaiCairFora(): boolean {
+    this.ball.preverPouso(this.court.floorY + BALL.radius, _pouso);
+    _julgado.set(_pouso.x + this.erroDeLeitura.x, _pouso.y, _pouso.z + this.erroDeLeitura.y);
+
+    return this.court.distanciaParaFora(_julgado) > this.habilidade.margemDeFora;
   }
 
   private atualizarMovimento(): void {
@@ -207,6 +267,7 @@ export class AIPlayer extends Athlete {
       this.motor.pular();
     }
 
+    if (this.deixarSair) return;
     if (!this.hitter.alcanca(this.ball, this.motor.posicao)) return;
     if (this.esperarPelaBola()) return;
 

@@ -82,14 +82,44 @@ export class CameraRig {
     );
   }
 
+  /**
+   * O zoom de quem joga. Multiplica altura e distancia JUNTAS.
+   *
+   * Sobrevive a sair e voltar pra quadra, como a orbita do passeio: quem
+   * escolheu de que longe quer ver a quadra nao quer o padrao de volta a cada
+   * ponto.
+   */
+  private zoomDeJogo = 1;
+
   /** Aproxima ou afasta, em pixels de roda. Positivo afasta. */
   aproximar(pixels: number): void {
-    if (this.modo !== 'passeio' || pixels === 0) return;
+    if (pixels === 0) return;
 
-    this.raio = clamp(
-      this.raio + pixels * CAMERA.passeioZoomPorPixel,
-      CAMERA.passeioRaioMin,
-      CAMERA.passeioRaioMax,
+    if (this.modo === 'passeio') {
+      this.raio = clamp(
+        this.raio + pixels * CAMERA.passeioZoomPorPixel,
+        CAMERA.passeioRaioMin,
+        CAMERA.passeioRaioMax,
+      );
+      return;
+    }
+
+    /**
+     * Jogando, o zoom mexe nos DOIS: altura e distancia.
+     *
+     * Mexer so' na distancia mudaria a inclinacao, e a inclinacao e' o que
+     * decide se da' pra ver o campo adversario por cima da fita — foi a conta
+     * que ja' custou o enquadramento uma vez. Escalando os dois, o angulo fica.
+     *
+     * Assistindo nao tem zoom: aquele enquadramento existe pra caber a quadra
+     * inteira, e mexer nele so' tiraria pedaco dela.
+     */
+    if (this.modo !== 'jogo') return;
+
+    this.zoomDeJogo = clamp(
+      this.zoomDeJogo + pixels * CAMERA.jogoZoomPorPixel,
+      CAMERA.jogoZoomMin,
+      CAMERA.jogoZoomMax,
     );
   }
 
@@ -241,11 +271,14 @@ export class CameraRig {
      * limite, correr pra rede leva a camera junto e ela acaba DENTRO da quadra,
      * com a rede colada na lente.
      */
-    const cru = _alvoLocal.z + CAMERA.distance * sinal;
+    const cru = _alvoLocal.z + CAMERA.distance * this.zoomDeJogo * sinal;
     const minimo = this.court.halfLength + CAMERA.minDepthMargin;
     const atras = sinal < 0 ? Math.min(cru, -minimo) : Math.max(cru, minimo);
 
-    return this.court.paraMundo(_alvoLocal.set(lateral, CAMERA.height, atras), out);
+    return this.court.paraMundo(
+      _alvoLocal.set(lateral, CAMERA.height * this.zoomDeJogo, atras),
+      out,
+    );
   }
 
   /**

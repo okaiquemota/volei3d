@@ -96,6 +96,21 @@ export class Court {
   }
 
   /**
+   * Quantos metros este ponto esta' FORA das linhas. Zero ou menos: dentro.
+   *
+   * E' a mesma pergunta de `dentroDaQuadra`, com a resposta em metros em vez de
+   * sim/nao — quem julga bola fora precisa saber por QUANTO, porque a margem
+   * de erro de quem julga e' uma distancia.
+   */
+  distanciaParaFora(mundo: THREE.Vector3): number {
+    this.paraLocal(mundo, _local);
+    return Math.max(
+      Math.abs(_local.x) - this.halfWidth,
+      Math.abs(_local.z) - this.halfLength,
+    );
+  }
+
+  /**
    * Ponto no chao de um dos lados.
    * `normalizedX`: -1 (lateral esquerda) a 1 (direita).
    * `depth01`: 0 = colado na rede, 1 = linha de fundo.

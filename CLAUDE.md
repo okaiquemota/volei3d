@@ -550,6 +550,32 @@ provar o valor.
 com o atleta no chão mede um ataque de pé com nome errado — a altura do contato
 vem do pulo. Com `motor.posicao.y = 0.85` a faixa de velocidade aparece.
 
+## `preverPouso` diz ONDE a bola cai, não se aquilo é dentro
+
+A IA salvava tudo. Corria atrás de bola que ia morrer um metro depois da linha
+de fundo, devolvia, e dava de presente um ponto que já era dela — porque
+ninguém nunca perguntou se a queda prevista estava **dentro das linhas**.
+
+O conserto tem duas partes, e a segunda é a que não é óbvia:
+
+- `Court.distanciaParaFora` responde em METROS, e não sim/não. Quem julga
+  precisa saber por quanto, porque a margem de erro de quem julga é uma
+  distância. O julgamento usa a queda prevista **mais o mesmo `erroDeLeitura`**
+  que a IA já usa pra correr — julgar pela previsão exata daria um juiz de linha
+  perfeito, que é pior que um que salva tudo.
+- **A decisão precisava de outro gatilho.** `decidirAJogada` disparava quando a
+  contagem de toques do lado mudava — e essa contagem vale 0 durante a posse
+  inteira do adversário E no começo da minha. A jogada era resolvida com a bola
+  ainda do outro lado, onde a queda prevista aponta pra quadra ADVERSÁRIA: a
+  resposta era sempre "está dentro", e `julgouFora` ficava em **zero** em dez
+  minutos de jogo. O gatilho certo é o toque (`ball.ultimoTocador`), que é o
+  instante em que a bola passa a ser legível.
+
+Medido depois: mirando 1,12 do meio-campo (0,82 m fora) o bot julga e não toca;
+mirando dentro, joga normal. Em jogo de bots o julgamento é raro (3 a 7 vezes em
+dez minutos) porque bot mira dentro — quem faz a bola sair é o humano, e é pra
+ele que a regra existe.
+
 ## O que NÃO foi verificado
 
 O equilíbrio da IA contra um humano de verdade. O que se mediu foi um piloto

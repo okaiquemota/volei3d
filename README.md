@@ -44,16 +44,17 @@ npm run build:single # dist/volei3d.html — joga com duplo clique, offline
 | Sacar | Segure e solte o clique esquerdo — a carga vale aqui também |
 | Sair da quadra e andar pela areia | `Q` |
 | Entrar na quadra em que você está encostado | `E` |
+| Aproximar ou afastar a câmera | Roda do mouse |
 | Girar a câmera (só fora da quadra) | Mover o mouse |
-| Aproximar ou afastar (só fora da quadra) | Roda do mouse |
 | Assistir outra quadra | `[` e `]` |
 | Voltar a câmera pra você | `Tab` |
 | Reiniciar | `R`, na tela de fim de jogo |
 | Pausar / desempenho | `Esc` / `F3` |
 | Esconder o manual de teclas | `H` |
 
-A barra `TOQUE` é o quanto *este* contato sairia limpo se você batesse agora. A
-barra `FORÇA` é um **QTE**: ela varre e tem uma zona perto do fim.
+As duas barras ficam no alto, logo abaixo do placar. `TOQUE` é o quanto *este*
+contato sairia limpo se você batesse agora; `FORÇA` é um **QTE**: ela varre e tem
+uma zona marcada perto do fim.
 
 O manual fica na lateral esquerda da tela — a maior área de areia vazia que a
 câmera enquadra, então ele não cobre nada que se precise ver. `H` esconde, e a
@@ -168,6 +169,13 @@ lendo.
 e joga como se joga vôlei: o primeiro toque **arma** perto da rede, o segundo é
 ataque. Usa exatamente a mesma física de toque que você — erra por ter erro, não
 por ter regra própria, e a dificuldade é um punhado de números em `config.ts`.
+
+**E ele julga bola fora.** Antes salvava tudo: corria atrás de bola que ia morrer
+um metro depois da linha e devolvia, dando de presente um ponto que já era dele.
+Agora lê a queda prevista *com o mesmo erro de leitura que usa pra correr* e
+deixa passar o que cai além de uma margem — 85 cm no fácil, 15 no difícil. Julgar
+bola fora é das coisas mais difíceis do vôlei, então é atributo e não regra: errar
+pro lado errado custa o ponto, como na quadra de verdade.
 
 Ele devolvia tudo de primeira, num balão alto, até se medir o que acontece
 quando dois deles jogam um contra o outro: **0 a 0 depois de dois minutos**. O

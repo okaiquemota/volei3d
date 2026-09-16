@@ -332,36 +332,44 @@ kbd.larga { min-width: auto; }
 
 /* ======================= BARRA DE FORCA ======================= */
 
+/**
+ * As duas barras ficam no ALTO, logo abaixo do placar.
+ *
+ * Estavam no rodape, e ali nao se olha: quem joga acompanha a bola, que vive na
+ * metade de cima da tela. Uma barra de QTE que pede 180 ms de precisao nao pode
+ * morar onde o olho so' vai de proposito.
+ */
 #carga {
   position: absolute;
-  bottom: 8vmin;
+  top: 13vmin;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.35em;
-  font-size: 0.75em;
-  letter-spacing: 0.18em;
-  opacity: 0.75;
+  gap: 0.4em;
+  font-size: 0.85em;
+  letter-spacing: 0.2em;
+  opacity: 0.95;
 }
 
 #carga-trilho {
-  width: 22vmin;
-  min-width: 140px;
-  height: 5px;
+  width: 34vmin;
+  min-width: 260px;
+  height: 11px;
   background: rgba(13, 16, 20, 0.6);
-  border: 1px solid rgba(232, 230, 227, 0.18);
+  border: 1px solid rgba(232, 230, 227, 0.4);
   border-radius: 3px;
   overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 
   /* A ZONA, desenhada na trilha e nao no preenchimento: ela precisa aparecer
      ANTES de a barra chegar la', senao nao ha' o que mirar. Os limites sao
      zonaIdeal/cargaMaxima = 56% e 1/cargaMaxima = 80% — se aqueles numeros
      mudarem no config, estes mudam junto. */
   background-image: linear-gradient(to right,
-    transparent 56%, rgba(255, 240, 192, 0.3) 56%,
-    rgba(255, 240, 192, 0.3) 80%, rgba(190, 80, 60, 0.35) 80%);
+    transparent 56%, rgba(255, 240, 192, 0.55) 56%,
+    rgba(255, 240, 192, 0.55) 80%, rgba(200, 70, 50, 0.55) 80%);
 }
 
 #carga-fill {
@@ -385,7 +393,7 @@ kbd.larga { min-width: auto; }
    estar na tela ao mesmo tempo — carregando um ataque com a bola chegando. */
 #toque {
   position: absolute;
-  bottom: 12.5vmin;
+  top: 18.5vmin;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -394,13 +402,13 @@ kbd.larga { min-width: auto; }
   gap: 0.35em;
   font-size: 0.75em;
   letter-spacing: 0.18em;
-  opacity: 0.75;
+  opacity: 0.85;
 }
 
 #toque-trilho {
-  width: 22vmin;
-  min-width: 140px;
-  height: 5px;
+  width: 28vmin;
+  min-width: 210px;
+  height: 8px;
   background: rgba(13, 16, 20, 0.6);
   border: 1px solid rgba(232, 230, 227, 0.18);
   border-radius: 3px;
@@ -425,7 +433,7 @@ kbd.larga { min-width: auto; }
 
 #toque-aviso {
   position: absolute;
-  bottom: 17vmin;
+  top: 23vmin;
   left: 50%;
   transform: translateX(-50%);
   font-size: 1em;
