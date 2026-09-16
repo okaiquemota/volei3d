@@ -96,6 +96,26 @@ export class Court {
   }
 
   /**
+   * Traz o alvo do JOGADOR pra area em que faz sentido mirar.
+   *
+   * A diferenca pra `limitarMira` e' tudo: aquela prende o alvo DENTRO das
+   * linhas, com recuo, e existe pra IA — um bot que mira em cima da linha erra
+   * pra fora metade das vezes e vira um adversario burro.
+   *
+   * Pro jogador isso era o contrario de dificuldade. Com o alvo preso 40 cm
+   * dentro da quadra, mirar na linha nao era arriscado: era IMPOSSIVEL. Nenhuma
+   * bola saia por escolha, so' por erro — e sem risco na mira, atacar no canto
+   * custa o mesmo que atacar no meio.
+   *
+   * Agora a mira alcanca a zona livre inteira: da' pra mirar em cima da linha,
+   * e da' pra mirar fora. O que a area ainda impede e' o absurdo — o raio do
+   * mouse cruza um plano de 400 m, e mirar no horizonte nao e' uma jogada.
+   */
+  limitarMiraDoJogador(mundo: THREE.Vector3, lado: Side, out = new THREE.Vector3()): THREE.Vector3 {
+    return this.limitarMira(mundo, lado, -COURT.freeZone, out);
+  }
+
+  /**
    * Quantos metros este ponto esta' FORA das linhas. Zero ou menos: dentro.
    *
    * E' a mesma pergunta de `dentroDaQuadra`, com a resposta em metros em vez de

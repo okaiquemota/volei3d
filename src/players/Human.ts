@@ -326,7 +326,7 @@ export class Human extends Athlete {
 
     _planoDoChao.constant = -this.court.floorY;
     if (_raio.ray.intersectPlane(_planoDoChao, _pontoDoChao)) {
-      this.court.limitarMira(_pontoDoChao, oposto(this.side), 0.4, this.pontoDeMira);
+      this.court.limitarMiraDoJogador(_pontoDoChao, oposto(this.side), this.pontoDeMira);
     } else {
       this.alvoPadrao(this.pontoDeMira);
     }

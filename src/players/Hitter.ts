@@ -165,7 +165,12 @@ export class Hitter {
     // Pegou tao mal que nao ha' jogada: a bola sobe fraca e pra qualquer lado.
     if (qualidade < TOQUE.qualidadeMinima) return this.queimar(ball, por, acao);
 
-    this.aplicarRuido(alvoNoChao, _alvo, qualidade, erroDaCarga);
+    // Ataque carrega um espalhamento que nao some nunca: mirar em cima da linha
+    // e' aposta, e nao tiro certo. Passe e levantamento nao — eles armam no
+    // proprio campo, e tremer ali so' estragaria a jogada.
+    const ehAtaque = acao === 'cortada' || acao === 'ataque';
+    const base = ehAtaque ? ATAQUE.espalhamentoDaBatida : 0;
+    this.aplicarRuido(alvoNoChao, _alvo, qualidade, erroDaCarga + base);
 
     const precisaPassar = this.cruzaARede(court, de, _alvo);
 
@@ -174,7 +179,6 @@ export class Hitter {
      * de apice. E' a diferenca entre "chegar rapido" e "subir o bastante pra
      * alguem chegar embaixo" — e e' o que faz um ataque parecer um ataque.
      */
-    const ehAtaque = acao === 'cortada' || acao === 'ataque';
     const ok = ehAtaque
       ? this.resolverCortada(de, _alvo, court, precisaPassar, this.velocidadeDoAtaque(acao, forcaDoAtaque, qualidade))
       : this.resolverArco(de, _alvo, court, precisaPassar, this.apicePara(acao, de.y));
@@ -245,7 +249,8 @@ export class Hitter {
     forca = 0,
     erroDaCarga = 0,
   ): boolean {
-    this.aplicarRuido(alvoNoChao, _alvo, 1, erroDaCarga);
+    // O saque tambem espalha: a linha e' aposta ali igual.
+    this.aplicarRuido(alvoNoChao, _alvo, 1, erroDaCarga + ATAQUE.espalhamentoDaBatida);
 
     const f = Math.max(0, Math.min(1, forca));
     const pedido = HIT.serveApexFraco + (HIT.serveApexForte - HIT.serveApexFraco) * f;

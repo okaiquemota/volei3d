@@ -576,6 +576,30 @@ mirando dentro, joga normal. Em jogo de bots o julgamento é raro (3 a 7 vezes e
 dez minutos) porque bot mira dentro — quem faz a bola sair é o humano, e é pra
 ele que a regra existe.
 
+## A mira do jogador estava grampeada dentro da quadra
+
+`Court.limitarMira` prende o alvo DENTRO das linhas com um recuo, e o `Human`
+usava ela com 40 cm. O efeito era o oposto de dificuldade: mirar na linha não
+era arriscado, era **impossível**. Nenhuma bola saía por escolha — só por erro
+aleatório, e partindo de 40 cm dentro. Sem risco na mira, atacar no canto custa
+o mesmo que atacar no meio, e o jogo inteiro fica morno.
+
+`limitarMiraDoJogador` alcança a zona livre inteira (recuo negativo). A que
+prende dentro continua existindo e continua certa **pra IA**: um bot que mira em
+cima da linha erra pra fora metade das vezes e vira um adversário burro.
+
+E um detalhe que parece pedante e não é: com tempo perfeito e contato perfeito,
+o erro somava **zero** e a bola caía no centímetro mirado. Mirar na linha virava
+tiro certo. `ATAQUE.espalhamentoDaBatida` (35 cm) é o piso que nenhuma batida
+escapa — pequeno demais pra atrapalhar quem mira no meio, grande o bastante pra
+que a linha seja cara-ou-coroa.
+
+**Onde a mira alcança, na tela:** a linha de fundo adversária cai perto de
+y≈118 num quadro de 720, e o além-da-linha vive entre y≈60 e 118. É a mesma
+faixa onde as barras de FORÇA e TOQUE moram agora. Elas não bloqueiam o clique
+(`#hud` é `pointer-events: none`), mas cobrem o anel de mira no tiro mais
+arriscado que existe. Se isso incomodar, é a posição das barras que cede.
+
 ## O que NÃO foi verificado
 
 O equilíbrio da IA contra um humano de verdade. O que se mediu foi um piloto

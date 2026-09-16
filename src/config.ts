@@ -230,6 +230,23 @@ export const ATAQUE = {
   erroApressado: 1.3,
 
   /**
+   * Espalhamento que TODA batida carrega, mesmo a perfeita.
+   *
+   * Sem ele, tempo perfeito e contato perfeito punham a bola no centimetro
+   * mirado, sempre — e mirar em cima da linha virava tiro certo em vez de
+   * aposta. Ninguem acerta o mesmo centimetro duas vezes.
+   *
+   * 35 cm e' pequeno o bastante pra nao atrapalhar quem mira no meio da quadra,
+   * e grande o bastante pra que a linha seja cara-ou-coroa. E' o que transforma
+   * "onde eu miro" numa decisao em vez de uma formalidade.
+   *
+   * Vale so' pra ATAQUE e SAQUE. Passe e levantamento miram no proprio campo,
+   * e tremer ali so' estragaria a armacao — que ja' e' cobrada pela qualidade
+   * do contato.
+   */
+  espalhamentoDaBatida: 0.35,
+
+  /**
    * Carga minima pra o toque virar ATAQUE em vez de passe.
    *
    * E' o que separa os dois usos do mesmo botao: um toque rapido arma a jogada

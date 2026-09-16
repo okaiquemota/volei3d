@@ -159,6 +159,21 @@ Uma consequência: **cortada forte agora machuca de verdade**. Antes, bola a
 24 m/s e balão a 8 se defendiam com a mesma limpeza, e atacar era só uma forma
 mais arriscada de passar a bola.
 
+**A mira alcança fora da quadra.** Ela era grampeada 40 cm dentro das linhas —
+mirar na linha não era arriscado, era *impossível*, e nenhuma bola saía por
+escolha. Agora o anel azul vai até a zona livre inteira: dá pra mirar em cima da
+linha, e dá pra mirar fora. E toda batida espalha um pouco, mesmo a perfeita,
+porque ninguém acerta o mesmo centímetro duas vezes.
+
+O risco, medido em 20 ataques por caso:
+
+| mirando | com o tempo certo | tendo passado da zona |
+|---|---|---|
+| no meio do fundo | 0/20 fora | 2/20 |
+| perto da linha | 2/20 | 8/20 |
+| **em cima da linha** | **3/20** | **8/20** |
+| um passo além | 20/20 | 20/20 |
+
 **Marcadores no chão.** O anel branco mostra onde a bola **vai cair** — e
 aperta conforme ela chega, então diz também *quando*. O anel azul mostra para
 onde o **seu ataque** vai. A previsão do branco é a mesma que a IA usa: não há
