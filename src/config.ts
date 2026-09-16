@@ -188,8 +188,46 @@ export const HIT = {
  * bola rasante do fundo da quadra — a fisica cobra, nao uma regra.
  */
 export const ATAQUE = {
-  /** Segundos segurando ate' a forca cheia. */
+  /** Segundos segurando ate' o TOPO da barra. */
   tempoDeCarga: 0.6,
+
+  /**
+   * A barra de forca e' um QTE, e nao um acumulador.
+   *
+   * Como acumulador ela nao decidia nada: enchia em 0,6 s e SATURAVA. Segurar
+   * mais nao mudava uma linha, e como ataque de pe' e' travado pela geometria
+   * da rede (ver `folgaDaRede`), a barra parecia enfeite mesmo quando nao era.
+   *
+   * Agora ela varre, tem uma ZONA e passa dela:
+   *
+   *   antes da zona   forca proporcional, e um erro de mira que cresce quanto
+   *                   mais apressada foi a batida
+   *   na zona         forca cheia e mira limpa. E' o ponto.
+   *   depois          passou: a forca despenca e a bola sai torta — quanto mais
+   *                   passou, mais torta
+   *
+   * `zonaIdeal` e' onde a zona comeca, em fracao de `tempoDeCarga`; a zona vai
+   * dali ate' o topo. Com 0,7 e 0,6 s isso da' uma janela de 180 ms, que e' a
+   * faixa em que QTE costuma viver.
+   */
+  zonaIdeal: 0.7,
+
+  /**
+   * Ate' onde a barra vai antes do golpe sair SOZINHO.
+   *
+   * Segurar pra sempre nao pode ser estrategia: sem um teto, quem passou da
+   * zona ficaria segurando o botao esperando a proxima bola. Em 1,25 sobra um
+   * quinto da barra depois do topo — o bastante pra ver que passou, pouco pra
+   * dar tempo de consertar.
+   */
+  cargaMaxima: 1.25,
+
+  /** Quanto da forca sobra no maximo do excesso. */
+  perdaAoPassar: 0.45,
+  /** Metros de erro de mira no maximo do excesso. */
+  erroAoPassar: 3.4,
+  /** Metros de erro de mira numa batida sem carga nenhuma. */
+  erroApressado: 1.3,
 
   /**
    * Carga minima pra o toque virar ATAQUE em vez de passe.

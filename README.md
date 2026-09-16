@@ -52,8 +52,8 @@ npm run build:single # dist/volei3d.html — joga com duplo clique, offline
 | Pausar / desempenho | `Esc` / `F3` |
 | Esconder o manual de teclas | `H` |
 
-A barra `FORÇA` é quanto você carregou; a barra `TOQUE`, logo acima, é o quanto
-*este* contato sairia limpo se você batesse agora.
+A barra `TOQUE` é o quanto *este* contato sairia limpo se você batesse agora. A
+barra `FORÇA` é um **QTE**: ela varre e tem uma zona perto do fim.
 
 O manual fica na lateral esquerda da tela — a maior área de areia vazia que a
 câmera enquadra, então ele não cobre nada que se precise ver. `H` esconde, e a
@@ -121,11 +121,27 @@ a regra de verdade. E o sacador tem **5 segundos**: passou disso é ponto do
 adversário. Sem relógio, quem está perdendo simplesmente não saca, e não havia
 nada no jogo que o obrigasse.
 
-**Força vem de altura.** Segurar o botão de ataque carrega a batida. Mas com os
-pés no chão a bola precisa *subir* para passar da fita, e a carga se perde: de
-pé, qualquer carga sai a ~10 m/s. Carregue correndo, **pule**, e solte em cima
-da bola — ali a mesma carga vira 24 m/s, e a bola cruza a quadra em 0,27 s em
-vez de 1 s. Não é uma regra, é a geometria da rede cobrando.
+**A barra de força é um QTE.** Ela varre e tem uma **zona** marcada perto do
+fim. Soltar ali dá a batida mais forte e a mira limpa. Antes dela a batida sai
+fraca e já desviada — quem bate de qualquer jeito não mira. Depois, **passou**: a
+força despenca e a bola sai torta, tanto mais quanto mais passou; e no fim da
+barra o golpe escapa sozinho, porque segurar pra sempre não pode ser estratégia.
+
+Medido, mesma posição e mesmo contato, só mudando quando o dedo solta:
+
+| | de pé | no ar |
+|---|---|---|
+| na zona | 16,6 m/s, erra 0,85 m, 16/16 dentro | 20,1 m/s, erra 0,69 m |
+| passou | 15,9 m/s, erra 3,24 m, **11/16 dentro** | 18,0 m/s, erra 2,58 m |
+
+Antes disso ela era um acumulador que saturava no topo: segurar mais não mudava
+uma linha.
+
+**Força vem de altura.** Acertar a zona não é tudo: com os pés no chão a bola
+precisa *subir* para passar da fita, e a rede trava a batida em ~16 m/s por mais
+perfeito que seja o tempo. Carregue correndo, **pule**, e solte na zona em cima
+da bola — dali a mesma carga sai a 20. Não é uma regra, é a geometria da rede
+cobrando.
 
 **O toque tem qualidade.** Não basta alcançar a bola: conta *onde* ela está em
 relação ao seu corpo e *quão rápido* ela vem. Contato no corpo sai inteiro; na

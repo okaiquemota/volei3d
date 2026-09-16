@@ -154,6 +154,7 @@ export class Hitter {
     alvoNoChao: THREE.Vector3,
     posicaoDoAtleta: THREE.Vector3,
     forcaDoAtaque?: number,
+    erroDaCarga = 0,
   ): boolean {
     if (!this.pronto) return false;
 
@@ -164,7 +165,7 @@ export class Hitter {
     // Pegou tao mal que nao ha' jogada: a bola sobe fraca e pra qualquer lado.
     if (qualidade < TOQUE.qualidadeMinima) return this.queimar(ball, por, acao);
 
-    this.aplicarRuido(alvoNoChao, _alvo, qualidade);
+    this.aplicarRuido(alvoNoChao, _alvo, qualidade, erroDaCarga);
 
     const precisaPassar = this.cruzaARede(court, de, _alvo);
 
@@ -242,8 +243,9 @@ export class Hitter {
     por: Tocador,
     alvoNoChao: THREE.Vector3,
     forca = 0,
+    erroDaCarga = 0,
   ): boolean {
-    this.aplicarRuido(alvoNoChao, _alvo);
+    this.aplicarRuido(alvoNoChao, _alvo, 1, erroDaCarga);
 
     const f = Math.max(0, Math.min(1, forca));
     const pedido = HIT.serveApexFraco + (HIT.serveApexForte - HIT.serveApexFraco) * f;
@@ -314,17 +316,52 @@ export class Hitter {
     _plana.y = 0;
 
     const distancia = Math.max(0.5, _plana.length());
-    let tempo = Math.max(0.18, distancia / Math.max(4, velocidade));
+    const pedido = Math.max(0.18, distancia / Math.max(4, velocidade));
 
-    for (let tentativa = 0; tentativa < HIT.netAttempts; tentativa++) {
-      const ok = corrigirArrasto(de, alvo, _velocidade, (a, b, out) => arcoPorTempo(a, b, tempo, out));
-      if (!ok) return false;
+    const tentar = (t: number): boolean | null => {
+      if (!corrigirArrasto(de, alvo, _velocidade, (a, b, out) => arcoPorTempo(a, b, t, out))) return null;
+      return !precisaPassar || this.passaPorCima(court, de, _velocidade, ATAQUE.folgaDaRede);
+    };
 
-      if (!precisaPassar || this.passaPorCima(court, de, _velocidade, ATAQUE.folgaDaRede)) return true;
-      tempo += HIT.timeStep;
+    const noPedido = tentar(pedido);
+    if (noPedido === null) return false;
+    if (noPedido) return true;
+
+    // Sobe o tempo em passos ate' achar UM que passa: e' o teto da busca.
+    let bate = pedido;
+    let passa = 0;
+    for (let i = 1; i <= HIT.netAttempts; i++) {
+      const t = pedido + i * HIT.timeStep;
+      const r = tentar(t);
+      if (r === null) return false;
+      if (r) { passa = t; break; }
+      bate = t;
     }
 
-    return true;
+    // Esgotou: manda a ultima mesmo assim. Bater na rede e' um erro legivel;
+    // nao tocar na bola que estava ao alcance nao e'.
+    if (passa === 0) return true;
+
+    /**
+     * Agora o MENOR tempo que ainda passa, por bisseccao.
+     *
+     * O laco de passo fixo parava no primeiro multiplo de 0,07 s que passava da
+     * fita, e esse multiplo pode cair bem acima do minimo. Medido: com a carga
+     * cheia a cortada saia a 18,8 m/s e com 0,7 saia a 19,9 — carga MAIOR
+     * chegando mais devagar. Numa barra que promete "aqui e' o ponto mais
+     * forte", isso e' a promessa quebrada por granularidade de busca.
+     */
+    for (let i = 0; i < 6; i++) {
+      const meio = (bate + passa) / 2;
+      const r = tentar(meio);
+      if (r === null) break;
+      if (r) passa = meio;
+      else bate = meio;
+    }
+
+    // A ultima tentativa pode ter sido a que BATE: resolve de novo no tempo bom,
+    // senao `_velocidade` sai com a trajetoria que nao passa.
+    return tentar(passa) !== null;
   }
 
   /** O alvo esta' do outro lado da rede? */
@@ -352,14 +389,22 @@ export class Hitter {
   /**
    * Espalha o alvo: o erro da dificuldade da IA mais o erro do contato.
    *
-   * Os dois somam de proposito. O da IA e' quem ela e'; o do contato e' o que
-   * ela acabou de fazer — e e' o unico que o humano tem, porque o humano nao
-   * tem dificuldade, tem posicionamento.
+   * Os tres somam de proposito, porque sao tres erros diferentes: o da IA e'
+   * quem ela e'; o do contato e' ONDE ela pegou na bola; o da carga e' QUANDO o
+   * jogador soltou o botao. O humano nao tem o primeiro — ele nao tem
+   * dificuldade, tem posicionamento e tempo.
    */
-  private aplicarRuido(alvo: THREE.Vector3, out: THREE.Vector3, qualidade = 1): void {
+  private aplicarRuido(
+    alvo: THREE.Vector3,
+    out: THREE.Vector3,
+    qualidade = 1,
+    erroDaCarga = 0,
+  ): void {
     out.copy(alvo);
 
-    const espalhamento = this.ruidoDeMira + (1 - clamp(qualidade, 0, 1)) * TOQUE.erroMaximo;
+    const espalhamento = this.ruidoDeMira
+      + (1 - clamp(qualidade, 0, 1)) * TOQUE.erroMaximo
+      + Math.max(0, erroDaCarga);
     if (espalhamento <= 0.001) return;
 
     randomInCircle(espalhamento, _ruido);

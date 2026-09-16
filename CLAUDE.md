@@ -511,6 +511,45 @@ propósito: em 0,6 a cortada de 24 m/s custava só 0,22 de qualidade, dois bots
 difíceis defendiam tudo e o rally médio voltou pra 58 s com nove pontos em dez
 minutos — a quadra congelada de novo, por outro caminho.
 
+## A barra de força é um QTE, e o solver precisou ser consertado pra ela valer
+
+A barra era um **acumulador que saturava**: enchia em 0,6 s e parava. Segurar
+mais não mudava uma linha, e a queixa ("sinto que ela não muda nada") estava
+certa. Agora ela varre até `cargaMaxima`, tem uma zona perto do topo, e passar
+dela custa força e mira. No teto o golpe **sai sozinho** — sem isso, segurar
+para sempre viraria estratégia e o castigo de ter passado nunca chegaria.
+
+A leitura é pura e tem teste (`players/carga.ts`): a zona é a única coisa no
+jogo que o jogador controla com o tempo do dedo, e se ela escorregar meio quadro
+ninguém percebe olhando.
+
+**O solver da cortada quebrava a promessa da zona.** `resolverCortada` subia o
+tempo de voo em passos fixos de 0,07 s e parava no primeiro que passava da fita
+— e esse múltiplo pode cair bem acima do mínimo. Medido: carga cheia saía a
+**18,8 m/s** e carga 0,7 saía a **19,9**. Carga maior chegando mais devagar, numa
+barra que promete "aqui é o ponto mais forte". Com bissecção depois do passo
+fixo, a força voltou a ser monótona (16,6 de pé, 20,1 no ar, teto em ambos).
+
+Isso também deixou os ataques da IA mais rasos, e a ladeira melhorou junto:
+`difícil` foi de 14 pra 20 pontos em 10 min, com o rally médio caindo de 36 s
+pra 27.
+
+**Ao medir um golpe, faça só a BOLA avançar.** `g.update(dt)` também move os
+atletas, e o bot devolve o ataque antes de ele cair: a primeira medição deu
+desvio de 8,5 m em todos os casos porque estava medindo onde a devolução caiu,
+não o ataque. `a.ball.update(dt)` num laço mede o que se quis medir. É a mesma
+armadilha do espião que capturava qualquer `ball.bater`, de outra roupa.
+
+**Screenshot de barra que anda sai errado.** O laço de render continua rodando
+entre o `evaluate` que confirma o estado e o `screenshot` que o fotografa — e
+com uma barra que varre em 0,75 s, 150 ms já mudam o que está na tela. Confie na
+asserção do DOM pra provar o estado; a foto serve pra ver o desenho, não pra
+provar o valor.
+
+**E a `cortada` só é cortada se o ATLETA estiver no alto.** Pôr a bola a 2,6 m
+com o atleta no chão mede um ataque de pé com nome errado — a altura do contato
+vem do pulo. Com `motor.posicao.y = 0.85` a faixa de velocidade aparece.
+
 ## O que NÃO foi verificado
 
 O equilíbrio da IA contra um humano de verdade. O que se mediu foi um piloto

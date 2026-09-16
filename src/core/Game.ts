@@ -389,7 +389,12 @@ export class Game {
       this.atualizarPasseio();
     }
 
-    this.hud.carga(this.player?.carregandoAtaque ? this.player.forcaDoAtaque : -1);
+    const carga = this.player?.leituraDaCarga;
+    this.hud.carga(
+      this.player?.carregandoAtaque ? this.player.forcaDoAtaque : -1,
+      carga?.naZona ?? false,
+      carga?.passou ?? false,
+    );
     this.hud.janelaDeToque(this.player?.janelaDeToque ?? -1);
     this.avisarQualidadeDoToque();
     this.hud.relogioDoSaque(this.minhaArena?.match.segundosParaSacar ?? null);
@@ -412,7 +417,20 @@ export class Game {
     if (!hitter || hitter.toques === this.ultimoToqueVisto) return;
 
     this.ultimoToqueVisto = hitter.toques;
-    if (hitter.ultimaAcao !== 'saque') this.hud.qualidadeDoToque(hitter.ultimaQualidade);
+
+    /**
+     * Quando o golpe foi um ATAQUE ou um SAQUE, quem manda no aviso e' a barra.
+     *
+     * Os dois avisos ocupam a mesma linha da tela, e nesses golpes o tempo do
+     * dedo e' o que o jogador acabou de decidir — dizer "NA PONTA" pra quem
+     * passou da zona mandaria consertar a coisa errada.
+     */
+    const cobraACarga = hitter.ultimaAcao === 'saque'
+      || hitter.ultimaAcao === 'ataque'
+      || hitter.ultimaAcao === 'cortada';
+
+    if (cobraACarga) this.hud.avisoDaCarga(this.player!.ultimaLeituraDaCarga.naZona, this.player!.ultimaLeituraDaCarga.passou);
+    else this.hud.qualidadeDoToque(hitter.ultimaQualidade);
   }
 
   /** A arena em que voce esta' jogando. `null` enquanto voce anda pela areia. */

@@ -257,7 +257,7 @@ html, body {
   /* Centrado na vertical, o painel cresce pros DOIS lados: uma secao a mais
      nao corta o rodape, corta o titulo tambem. Numa tela baixa vale um
      rolamento feio dentro do painel — some com H de qualquer jeito. */
-  max-height: calc(100% - 3.6vmin);
+  max-height: calc(100% - 2.2vmin);
   overflow-y: auto;
 }
 
@@ -354,6 +354,14 @@ kbd.larga { min-width: auto; }
   border: 1px solid rgba(232, 230, 227, 0.18);
   border-radius: 3px;
   overflow: hidden;
+
+  /* A ZONA, desenhada na trilha e nao no preenchimento: ela precisa aparecer
+     ANTES de a barra chegar la', senao nao ha' o que mirar. Os limites sao
+     zonaIdeal/cargaMaxima = 56% e 1/cargaMaxima = 80% — se aqueles numeros
+     mudarem no config, estes mudam junto. */
+  background-image: linear-gradient(to right,
+    transparent 56%, rgba(255, 240, 192, 0.3) 56%,
+    rgba(255, 240, 192, 0.3) 80%, rgba(190, 80, 60, 0.35) 80%);
 }
 
 #carga-fill {
@@ -365,9 +373,13 @@ kbd.larga { min-width: auto; }
   transition: background 0.12s;
 }
 
-/* Carga cheia: o branco quente e' o mesmo do anel de mira. */
+/* Na zona: o branco quente e' o mesmo do anel de mira. */
 #carga.cheia #carga-fill { background: #fff0c0; }
 #carga.cheia { opacity: 1; }
+
+/* Passou: a barra vira aviso. */
+#carga.passou #carga-fill { background: #c25a44; }
+#carga.passou { opacity: 1; }
 
 /* A janela do toque fica ACIMA da forca, e nao no lugar dela: as duas podem
    estar na tela ao mesmo tempo — carregando um ataque com a bola chegando. */

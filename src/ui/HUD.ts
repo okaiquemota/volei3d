@@ -124,13 +124,21 @@ export class HUD {
    * barra existe pro caso em que nao ha' anel — bola do outro lado, ou mira
    * fora da quadra — pra carga nunca ser invisivel.
    */
-  carga(fracao: number): void {
+  /**
+   * A barra de forca, que e' um QTE.
+   *
+   * `fracao` e' o percurso inteiro da varredura, de 0 a 1 — zona e excesso
+   * incluidos. A zona em si e' desenhada pelo CSS, que sabe onde ela fica; o
+   * que vem daqui e' so' ONDE a barra esta' e o que isso significou.
+   */
+  carga(fracao: number, naZona = false, passou = false): void {
     const visivel = fracao >= 0;
     this.barraDeCarga.classList.toggle('hidden', !visivel);
     if (!visivel) return;
 
-    this.preenchimentoDaCarga.style.width = `${Math.round(fracao * 100)}%`;
-    this.barraDeCarga.classList.toggle('cheia', fracao >= 0.999);
+    this.preenchimentoDaCarga.style.width = `${Math.round(Math.min(1, fracao) * 100)}%`;
+    this.barraDeCarga.classList.toggle('cheia', naZona);
+    this.barraDeCarga.classList.toggle('passou', passou);
   }
 
   /**
@@ -186,6 +194,15 @@ export class HUD {
    * Sem isto a dificuldade fica muda: a bola vai pro lugar errado e o jogador
    * nao tem como saber se errou a mira ou o tempo.
    */
+  /** Como a barra de forca foi lida no golpe que acabou de sair. */
+  avisoDaCarga(naZona: boolean, passou: boolean): void {
+    if (!passou && !naZona) return;
+
+    this.avisoDoToque.textContent = passou ? 'PASSOU DO PONTO' : 'NO PONTO';
+    this.avisoDoToque.className = `visivel ${passou ? 'ruim' : 'bom'}`;
+    this.tempoDoToque = 0.9;
+  }
+
   qualidadeDoToque(qualidade: number): void {
     const [texto, classe] = qualidade < TOQUE.qualidadeMinima ? ['QUEIMOU', 'ruim']
       : qualidade < 0.4 ? ['NA PONTA', 'ruim']

@@ -5,6 +5,7 @@ import { oposto } from '../world/Court';
 import { Athlete } from './Athlete';
 import type { Acao } from './Hitter';
 import { direcaoDoTeclado } from './controle';
+import { lerCarga, type LeituraDaCarga } from './carga';
 
 const _direcao = new THREE.Vector3();
 const _paraABola = new THREE.Vector3();
@@ -101,10 +102,18 @@ export class Human extends Athlete {
 
     if (segurandoOToque) {
       this.carregando = true;
-      this.carga = Math.min(1, this.carga + dt / ATAQUE.tempoDeCarga);
+      this.carga = Math.min(ATAQUE.cargaMaxima, this.carga + dt / ATAQUE.tempoDeCarga);
     }
 
-    const soltouOToque = this.carregando && !segurandoOToque;
+    /**
+     * No teto, o golpe sai SOZINHO.
+     *
+     * Sem isso, segurar pra sempre viraria estrategia: quem passou da zona
+     * ficaria com o botao preso esperando a proxima bola, e o castigo de ter
+     * passado nunca chegaria. Sair sozinho e' o castigo chegando.
+     */
+    const estourou = segurandoOToque && this.carga >= ATAQUE.cargaMaxima;
+    const soltouOToque = this.carregando && (!segurandoOToque || estourou);
     if (soltouOToque) {
       this.carregando = false;
       /**
@@ -140,7 +149,9 @@ export class Human extends Athlete {
     if (this.bufferDeToque <= 0) return;
 
     if (this.sacando) {
-      if (this.hitter.sacar(this.ball, this.court, this, this.pontoDeMira, this.carga)) {
+      const leitura = lerCarga(this.carga);
+      this.ultimaLeituraDaCarga = leitura;
+      if (this.hitter.sacar(this.ball, this.court, this, this.pontoDeMira, leitura.forca, leitura.erro)) {
         this.bufferDeToque = 0;
         this.esquecerAtaque();
       }
@@ -167,7 +178,20 @@ export class Human extends Athlete {
     const acao = this.escolherAcao();
     this.escolherAlvo(acao, _alvoDoToque);
 
-    if (this.hitter.bater(this.ball, this.court, this, acao, _alvoDoToque, this.motor.posicao, this.carga)) {
+    /**
+     * A barra so' cobra de quem ATACA.
+     *
+     * Um toque rapido de armacao e' carga quase zero, e passar o erro de
+     * "batida apressada" nele puniria justamente o toque que DEVE ser rapido —
+     * o passe e o levantamento nao tem o que carregar.
+     */
+    const leitura = lerCarga(this.carga);
+    this.ultimaLeituraDaCarga = leitura;
+    const erro = this.vaiAtacar(acao) ? leitura.erro : 0;
+
+    if (this.hitter.bater(
+      this.ball, this.court, this, acao, _alvoDoToque, this.motor.posicao, leitura.forca, erro,
+    )) {
       this.bufferDeToque = 0;
       this.esquecerAtaque();
     }
@@ -243,8 +267,28 @@ export class Human extends Athlete {
   }
 
   /** Carga atual, de 0 a 1. O HUD e o marcador de mira leem daqui. */
-  get forcaDoAtaque(): number { return this.carregando ? this.carga : 0; }
+  /**
+   * Onde a barra esta', de 0 a 1 da VARREDURA inteira — nao da zona.
+   *
+   * O HUD desenha a barra toda, zona e excesso incluidos, entao ele precisa da
+   * fracao do percurso e nao da forca resultante. A forca sai de `lerCarga`, e
+   * nos dois tercos finais da barra ela NAO acompanha o preenchimento: e' o
+   * ponto do QTE.
+   */
+  get forcaDoAtaque(): number { return this.carregando ? this.carga / ATAQUE.cargaMaxima : 0; }
   get carregandoAtaque(): boolean { return this.carregando; }
+
+  /** Como a barra seria lida se o golpe saisse agora. O HUD pinta a zona daqui. */
+  get leituraDaCarga(): LeituraDaCarga { return lerCarga(this.carga); }
+
+  /**
+   * A leitura da barra no golpe que ACABOU de sair.
+   *
+   * Guardada porque `esquecerAtaque` zera a carga no mesmo quadro: quem for
+   * contar ao jogador como foi leria uma barra vazia e diria "apressado" depois
+   * de um ataque no ponto.
+   */
+  ultimaLeituraDaCarga: LeituraDaCarga = lerCarga(0);
 
   /**
    * Como sairia o toque se voce batesse AGORA, de 0 a 1. Negativo: nao da' pra
