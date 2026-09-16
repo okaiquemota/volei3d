@@ -469,6 +469,48 @@ da linha ou em `camera.near`. Não é: é uma fita de 6 cm ocupando meio pixel a
 Antes de consertar artefato visual visto em screenshot, leia `SAMPLES` e o
 `UNMASKED_RENDERER_WEBGL`.
 
+## O toque tem qualidade, e o primeiro quadro é o pior
+
+A dificuldade do jogo vem daqui, e a ideia é do Volleyball Unbound: lá o miolo é
+acertar o **tempo** do contato, e bola alta ou rápida é mais difícil de acertar.
+Aqui o tempo vira **geometria** — o quanto o contato foi centrado, e o quanto a
+bola vinha rápido — que é o que este jogo já sabe medir. Mesma função e mesmos
+números pro humano e pra IA (`Hitter.qualidadeDoContato`).
+
+A armadilha está em `alcanca`. Ela responde "dá pra tocar", e o **primeiro
+quadro em que ela diz sim é o pior de todos**: a bola acabou de entrar no
+cilindro de 1,3 m, na ponta do braço. Quem bate ali bate mal, sempre.
+
+Isso queimou as duas pontas de uma vez:
+
+- A IA batia no primeiro quadro. Medido: **metade dos toques queimava**, e o
+  motivo campeão de ponto virou "quatro toques" — porque bola queimada fica em
+  casa e consome os toques do lado.
+- O humano tem o buffer de toque, que existe pra não perder um clique
+  adiantado. Um buffer que dispara no pior quadro da janela não está perdoando
+  nada: está escolhendo o pior momento por você.
+
+Os dois esperam a bola chegar (`Athlete.esperarPelaBola`), e no ar ninguém
+espera — quem pulou pra cortar bate no alto e na frente do corpo.
+
+**Meça a janela antes de escolher o tamanho da zona limpa.** A bola fica ao
+alcance por **0,18 s no total**. Com a zona limpa em 45% do raio sobravam 0,05 s
+— três quadros — e 14% das bolas não tinham quadro limpo nenhum. Isso não é
+habilidade, é sorteio. Em 0,7 a parte limpa vai a 0,07 s e o "sem janela nenhuma"
+cai pra 4%; com o buffer esperando, o jogador clica na janela inteira e o toque
+sai no momento bom.
+
+Onde a ladeira de dificuldade parou, medido em 10 min de bots:
+
+  fácil    45 pontos, rally 10 s, 14% queimados, qualidade mediana 0,77
+  normal   36 pontos, rally 13 s,  4% queimados, mediana 0,84
+  difícil  14 pontos, rally 36 s,  2% queimados, mediana 0,89
+
+O `defesa` da IA desconta a dificuldade da bola que chega, e o teto é baixo de
+propósito: em 0,6 a cortada de 24 m/s custava só 0,22 de qualidade, dois bots
+difíceis defendiam tudo e o rally médio voltou pra 58 s com nove pontos em dez
+minutos — a quadra congelada de novo, por outro caminho.
+
 ## O que NÃO foi verificado
 
 O equilíbrio da IA contra um humano de verdade. O que se mediu foi um piloto

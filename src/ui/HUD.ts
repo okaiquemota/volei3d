@@ -1,4 +1,4 @@
-import { MATCH, STORAGE_KEY } from '../config';
+import { MATCH, STORAGE_KEY, TOQUE } from '../config';
 
 const CHAVE_DO_MANUAL = `${STORAGE_KEY}.manual-escondido`;
 import type { MotivoDoPonto } from '../match/Match';
@@ -34,9 +34,13 @@ export class HUD {
   private quadra = elemento('quadra-atual');
   private dicaDaAreia = elemento('dica-praia');
   private barraDeCarga = elemento('carga');
+  private barraDoToque = elemento('toque');
+  private preenchimentoDoToque = elemento('toque-fill');
+  private avisoDoToque = elemento('toque-aviso');
   private preenchimentoDaCarga = elemento('carga-fill');
 
   private tempoDoAviso = 0;
+  private tempoDoToque = 0;
   private ehMeuSaque = false;
 
   constructor() {
@@ -157,6 +161,42 @@ export class HUD {
     if (texto !== null) this.dicaDaAreia.textContent = texto;
   }
 
+  /**
+   * A janela do toque: o quanto ESTE contato sairia limpo, se fosse agora.
+   *
+   * E' a leitura que o Volleyball Unbound da' com uma barra de tempo, traduzida
+   * pro que este jogo mede: geometria. A barra sobe enquanto a bola vem pro
+   * corpo e cai quando ela passa — o pico e' a hora. Negativo esconde.
+   *
+   * Ao vivo, e nao uma previsao. Previsao diria QUANDO tocar; isto diz o que
+   * sai se tocar agora, que e' a mesma informacao com uma mentira a menos.
+   */
+  janelaDeToque(qualidade: number): void {
+    const visivel = qualidade >= 0;
+    this.barraDoToque.classList.toggle('hidden', !visivel);
+    if (!visivel) return;
+
+    this.preenchimentoDoToque.style.width = `${Math.round(Math.min(1, qualidade) * 100)}%`;
+    this.barraDoToque.classList.toggle('limpo', qualidade >= 0.7);
+  }
+
+  /**
+   * Como saiu o toque que acabou de sair.
+   *
+   * Sem isto a dificuldade fica muda: a bola vai pro lugar errado e o jogador
+   * nao tem como saber se errou a mira ou o tempo.
+   */
+  qualidadeDoToque(qualidade: number): void {
+    const [texto, classe] = qualidade < TOQUE.qualidadeMinima ? ['QUEIMOU', 'ruim']
+      : qualidade < 0.4 ? ['NA PONTA', 'ruim']
+      : qualidade < 0.7 ? ['NO JEITO', '']
+      : ['NO PONTO', 'bom'];
+
+    this.avisoDoToque.textContent = texto;
+    this.avisoDoToque.className = `visivel ${classe}`;
+    this.tempoDoToque = 0.9;
+  }
+
   ponto(lado: Side, motivo: MotivoDoPonto, nome: string): void {
     this.aviso.textContent = `${motivo} — PONTO DE ${nome}`;
     this.aviso.classList.toggle('away', lado === 'away');
@@ -165,6 +205,11 @@ export class HUD {
   }
 
   update(dt: number): void {
+    if (this.tempoDoToque > 0) {
+      this.tempoDoToque -= dt;
+      if (this.tempoDoToque <= 0) this.avisoDoToque.classList.remove('visivel');
+    }
+
     if (this.tempoDoAviso <= 0) return;
 
     this.tempoDoAviso -= dt;

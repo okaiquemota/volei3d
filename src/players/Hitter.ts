@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { ATAQUE, HIT } from '../config';
+import { ATAQUE, HIT, TOQUE } from '../config';
 import { alturaAoCruzarRede, arcoPorApice, arcoPorTempo, corrigirArrasto } from '../core/ballistics';
-import { randomInCircle } from '../core/math';
+import { clamp, randomInCircle } from '../core/math';
 import type { Ball, Tocador } from '../ball/Ball';
 import type { Court } from '../world/Court';
 
@@ -42,6 +42,29 @@ export class Hitter {
   /** Ultima acao executada — o HUD e a depuracao leem daqui. */
   ultimaAcao: Acao | null = null;
 
+  /**
+   * Quao limpo foi o ultimo contato, de 0 a 1. O HUD mostra, a IA ignora.
+   *
+   * Nasce em 1 porque um Hitter que nunca tocou na bola nao errou nada.
+   */
+  ultimaQualidade = 1;
+
+  /**
+   * Quantos toques este atleta ja' deu. So' cresce.
+   *
+   * Existe pra quem esta' de fora perceber que houve um toque NOVO sem ficar
+   * comparando estado: a qualidade sozinha nao serve de gatilho, porque dois
+   * toques seguidos podem sair identicos.
+   */
+  toques = 0;
+
+  /**
+   * Desconto na dificuldade da bola que chega, de 0 a 1. E' o atributo de
+   * DEFESA da IA. Zero no humano: quem defende melhor aqui e' quem se posiciona
+   * melhor, e nao quem tem um numero maior.
+   */
+  defesa = 0;
+
   get pronto(): boolean { return this.espera <= 0; }
 
   update(dt: number): void {
@@ -62,6 +85,43 @@ export class Hitter {
 
     const dy = ball.posicao.y - posicaoDoAtleta.y;
     return dy >= -HIT.lowReach && dy <= HIT.verticalReach;
+  }
+
+  /**
+   * Quao limpo e' o contato, de 0 a 1, AGORA.
+   *
+   * Duas coisas entram, e sao as duas que um jogador de verdade sente:
+   *
+   *   ONDE a bola esta' em relacao ao corpo. Embaixo do peito e' limpo; na
+   *   ponta do braco e' estica-e-reza. E' isto que cobra posicionamento, e e'
+   *   por isso que o erro de leitura da IA finalmente custa alguma coisa.
+   *
+   *   QUAO RAPIDO ela vem. Um balao a 8 m/s nao cobra nada; uma cortada a 24
+   *   cobra quase tudo. E' o que da' sentido a atacar forte — sem isto, bola
+   *   rapida e bola lenta se defendiam com a mesma limpeza, e atacar era so'
+   *   uma forma mais arriscada de passar a bola.
+   */
+  qualidadeDoContato(ball: Ball, posicaoDoAtleta: THREE.Vector3): number {
+    const dx = ball.posicao.x - posicaoDoAtleta.x;
+    const dz = ball.posicao.z - posicaoDoAtleta.z;
+    const distancia = Math.hypot(dx, dz);
+
+    const zonaLimpa = HIT.reachRadius * TOQUE.zonaLimpa;
+    const estica = clamp(
+      (distancia - zonaLimpa) / Math.max(0.01, HIT.reachRadius - zonaLimpa),
+      0,
+      1,
+    );
+
+    const velocidade = ball.velocidade.length();
+    const dureza = clamp(
+      (velocidade - TOQUE.velocidadeFacil) / (TOQUE.velocidadeDificil - TOQUE.velocidadeFacil),
+      0,
+      1,
+    );
+
+    const custoDaVelocidade = dureza * TOQUE.pesoDaVelocidade * (1 - clamp(this.defesa, 0, 1));
+    return clamp(1 - estica - custoDaVelocidade, 0, 1);
   }
 
   /**
@@ -92,12 +152,19 @@ export class Hitter {
     por: Tocador,
     acao: Acao,
     alvoNoChao: THREE.Vector3,
+    posicaoDoAtleta: THREE.Vector3,
     forcaDoAtaque?: number,
   ): boolean {
     if (!this.pronto) return false;
 
     const de = ball.posicao;
-    this.aplicarRuido(alvoNoChao, _alvo);
+    const qualidade = this.qualidadeDoContato(ball, posicaoDoAtleta);
+    this.ultimaQualidade = qualidade;
+
+    // Pegou tao mal que nao ha' jogada: a bola sobe fraca e pra qualquer lado.
+    if (qualidade < TOQUE.qualidadeMinima) return this.queimar(ball, por, acao);
+
+    this.aplicarRuido(alvoNoChao, _alvo, qualidade);
 
     const precisaPassar = this.cruzaARede(court, de, _alvo);
 
@@ -108,7 +175,7 @@ export class Hitter {
      */
     const ehAtaque = acao === 'cortada' || acao === 'ataque';
     const ok = ehAtaque
-      ? this.resolverCortada(de, _alvo, court, precisaPassar, this.velocidadeDoAtaque(acao, forcaDoAtaque))
+      ? this.resolverCortada(de, _alvo, court, precisaPassar, this.velocidadeDoAtaque(acao, forcaDoAtaque, qualidade))
       : this.resolverArco(de, _alvo, court, precisaPassar, this.apicePara(acao, de.y));
 
     if (!ok) return false;
@@ -116,6 +183,31 @@ export class Hitter {
     ball.bater(_velocidade, por);
     this.espera = HIT.cooldown;
     this.ultimaAcao = acao;
+    this.toques++;
+    return true;
+  }
+
+  /**
+   * O toque queimado: a bola sobe fraca, perto, e pra qualquer lado.
+   *
+   * Nao e' perder o ponto — da' pra correr atras e salvar, e e' o que se faz na
+   * quadra depois de pegar mal na bola. E' perder a JOGADA. Se sair pra fora,
+   * saiu: uma bola queimada nao tem pra onde ser mirada, e trazer ela de volta
+   * pra dentro seria a mao do jogo consertando o que o jogador estragou.
+   */
+  private queimar(ball: Ball, por: Tocador, acao: Acao): boolean {
+    randomInCircle(TOQUE.espalhamentoDoQueimado, _ruido);
+    _alvo.set(ball.posicao.x + _ruido.x, 0, ball.posicao.z + _ruido.y);
+
+    const apice = Math.max(TOQUE.apiceDoQueimado, ball.posicao.y + 0.8);
+    if (!corrigirArrasto(ball.posicao, _alvo, _velocidade, (a, b, out) => arcoPorApice(a, b, apice, out))) {
+      return false;
+    }
+
+    ball.bater(_velocidade, por);
+    this.espera = HIT.cooldown;
+    this.ultimaAcao = acao;
+    this.toques++;
     return true;
   }
 
@@ -126,11 +218,15 @@ export class Hitter {
    * cravar e empurrar. Sem forca informada, meia carga: e' o que um toque
    * apressado merece.
    */
-  private velocidadeDoAtaque(acao: Acao, forca = 0.5): number {
+  private velocidadeDoAtaque(acao: Acao, forca = 0.5, qualidade = 1): number {
     const f = Math.max(0, Math.min(1, forca));
-    return acao === 'cortada'
+    const cheia = acao === 'cortada'
       ? ATAQUE.noArMin + (ATAQUE.noArMax - ATAQUE.noArMin) * f
       : ATAQUE.dePeMin + (ATAQUE.dePeMax - ATAQUE.dePeMin) * f;
+
+    // Bola na ponta do braco nao se crava. E' o que separa o ataque ARMADO do
+    // ataque apressado, e e' a razao de armar valer a pena.
+    return cheia * (TOQUE.forcaMinima + (1 - TOQUE.forcaMinima) * clamp(qualidade, 0, 1));
   }
 
   /**
@@ -158,6 +254,9 @@ export class Hitter {
     ball.bater(_velocidade, por);
     this.espera = HIT.cooldown;
     this.ultimaAcao = 'saque';
+    // A bola sai da mao, parada e no eixo do corpo: nao ha' contato pra medir.
+    this.ultimaQualidade = 1;
+    this.toques++;
     return true;
   }
 
@@ -250,11 +349,20 @@ export class Hitter {
     return altura >= court.netTopY + folga;
   }
 
-  private aplicarRuido(alvo: THREE.Vector3, out: THREE.Vector3): void {
+  /**
+   * Espalha o alvo: o erro da dificuldade da IA mais o erro do contato.
+   *
+   * Os dois somam de proposito. O da IA e' quem ela e'; o do contato e' o que
+   * ela acabou de fazer — e e' o unico que o humano tem, porque o humano nao
+   * tem dificuldade, tem posicionamento.
+   */
+  private aplicarRuido(alvo: THREE.Vector3, out: THREE.Vector3, qualidade = 1): void {
     out.copy(alvo);
-    if (this.ruidoDeMira <= 0.001) return;
 
-    randomInCircle(this.ruidoDeMira, _ruido);
+    const espalhamento = this.ruidoDeMira + (1 - clamp(qualidade, 0, 1)) * TOQUE.erroMaximo;
+    if (espalhamento <= 0.001) return;
+
+    randomInCircle(espalhamento, _ruido);
     out.x += _ruido.x;
     out.z += _ruido.y;
   }

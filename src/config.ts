@@ -241,6 +241,72 @@ export const PLAYER = {
   setSetupDepth: 0.16,
 } as const;
 
+/**
+ * A qualidade do toque.
+ *
+ * Ate' aqui, tocar na bola era binario: se ela estava dentro do volume de
+ * alcance, o toque saia PERFEITO — mira exata, forca cheia — estivesse a bola
+ * colada no peito ou na ponta do braco, viesse ela boiando ou a 24 m/s. Era a
+ * razao de o jogo nao ter dificuldade nenhuma: nao havia o que fazer melhor
+ * alem de chegar embaixo da bola.
+ *
+ * A ideia vem do Volleyball Unbound, cujo miolo e' exatamente isto — acertar o
+ * tempo do contato, com bola alta ou rapida sendo mais dificil de acertar. Aqui
+ * o tempo vira GEOMETRIA, que e' o que este jogo ja' sabe medir: o quanto o
+ * contato foi centrado, e o quanto a bola vinha rapido.
+ *
+ * Vale pro humano e pra IA, pela mesma funcao e com os mesmos numeros.
+ */
+export const TOQUE = {
+  /**
+   * Fracao do alcance em que o contato ainda e' limpo.
+   *
+   * Comecou em 0,45 e foi medido: a bola fica ao alcance por 0,18 s no total, e
+   * dentro de 45% do raio sobravam 0,05 s — TRES QUADROS. Isso nao e'
+   * habilidade, e' sorteio, e 14% das bolas nao tinham quadro limpo nenhum.
+   *
+   * Com 0,7 (91 cm dos 1,3 m) a ponta do braco continua custando caro e o resto
+   * do alcance e' jogavel. A dificuldade que sobra e' a que se pediu e a que se
+   * treina: estar no lugar certo, e a velocidade da bola que vem.
+   */
+  zonaLimpa: 0.7,
+
+  /**
+   * De que velocidade em diante a bola comeca a ser dificil, e onde e' o pior.
+   *
+   * Um passe ou levantamento chega a 7-9 m/s: nao cobra nada. Uma cortada chega
+   * a 17-24. E' o que finalmente da' sentido a atacar forte — antes, uma bola a
+   * 24 m/s era defendida com a mesma limpeza de um balao.
+   */
+  velocidadeFacil: 9,
+  velocidadeDificil: 22,
+  /** Quanto de qualidade a bola mais dificil do jogo custa, no contato perfeito. */
+  pesoDaVelocidade: 0.55,
+
+  /** Erro de mira, em metros, que um toque de qualidade ZERO carrega. */
+  erroMaximo: 2.6,
+
+  /**
+   * Quanto da forca do ataque sobrevive a um contato ruim.
+   *
+   * Contato zero sai com 55% da velocidade. Nao e' castigo arbitrario: bola na
+   * ponta do braco nao se crava, e e' o que separa o ataque armado do ataque
+   * apressado.
+   */
+  forcaMinima: 0.55,
+
+  /**
+   * Abaixo disto o toque QUEIMA: a bola sobe fraca e pra qualquer lado.
+   *
+   * Nao e' perder o ponto na hora — da' pra correr atras e salvar. E' perder a
+   * JOGADA, que e' o que acontece de verdade quando se pega mal na bola.
+   */
+  qualidadeMinima: 0.12,
+  /** Altura e espalhamento da bola queimada. */
+  apiceDoQueimado: 3.2,
+  espalhamentoDoQueimado: 3.0,
+} as const;
+
 export const PASSEIO = {
   /**
    * A que distancia da area de jogo da' pra entrar numa quadra.
@@ -275,6 +341,18 @@ export interface AiSkill {
   /** Chance de tentar cortar quando a bola vem alta perto da rede. */
   spikeChance: number;
   /**
+   * Quanto a dificuldade da bola que chega e' descontada, de 0 a 1.
+   *
+   * E' o atributo de DEFESA: quem defende bem sente menos a cortada.
+   *
+   * O teto e' baixo de proposito, e foi medido. Com 0,6 no `dificil` a cortada
+   * de 24 m/s custava so' 0,22 de qualidade: dois bots assim defendiam tudo e
+   * o rally medio voltou pra 58 segundos, com 283 cortadas e nove pontos em dez
+   * minutos — a quadra congelada de novo, so' que por outro caminho. Em 0,4 a
+   * cortada ainda machuca quem a recebe, que e' o ponto de existir cortada.
+   */
+  defesa: number;
+  /**
    * Chance de ARMAR no primeiro toque em vez de devolver de primeira.
    *
    * E' o que separa um jogo de volei de uma partida de frescobol. Sem isto a
@@ -290,9 +368,9 @@ export interface AiSkill {
 }
 
 export const AI_SKILL: Record<'facil' | 'normal' | 'dificil', AiSkill> = {
-  facil: { reactionDelay: 0.34, positionError: 1.15, aimError: 2.0, spikeChance: 0.2, serveDelay: 1.4, attackForce: 0.15, chanceDeArmar: 0.35 },
-  normal: { reactionDelay: 0.18, positionError: 0.55, aimError: 1.1, spikeChance: 0.45, serveDelay: 1.1, attackForce: 0.3, chanceDeArmar: 0.7 },
-  dificil: { reactionDelay: 0.08, positionError: 0.22, aimError: 0.5, spikeChance: 0.7, serveDelay: 0.8, attackForce: 0.55, chanceDeArmar: 0.9 },
+  facil: { reactionDelay: 0.34, positionError: 1.15, aimError: 2.0, spikeChance: 0.2, serveDelay: 1.4, attackForce: 0.15, chanceDeArmar: 0.35, defesa: 0 },
+  normal: { reactionDelay: 0.18, positionError: 0.55, aimError: 1.1, spikeChance: 0.45, serveDelay: 1.1, attackForce: 0.3, chanceDeArmar: 0.7, defesa: 0.2 },
+  dificil: { reactionDelay: 0.08, positionError: 0.22, aimError: 0.5, spikeChance: 0.7, serveDelay: 0.8, attackForce: 0.55, chanceDeArmar: 0.9, defesa: 0.4 },
 };
 
 export const AI = {
@@ -303,6 +381,28 @@ export const AI = {
   attackDepthMax: 0.9,
   /** Intervalo entre recalculos do alvo de perseguicao. */
   decisionCooldown: 0.08,
+
+  /**
+   * Qualidade de contato que vale a pena esperar, pra IA e pro humano.
+   *
+   * Sem isto ela batia no primeiro quadro em que a bola entra no alcance — e
+   * esse quadro e' o PIOR de todos, com a bola a 1,3 m do corpo, na ponta do
+   * braco. Medido: metade dos toques dela queimava, e o motivo campeao de ponto
+   * virou "quatro toques", porque bola queimada fica em casa.
+   *
+   * Quem joga volei nao estoura o braco na primeira bola que passa perto: deixa
+   * ela chegar. Abaixo disto a IA espera, e so' bate mesmo se for a ultima
+   * chance.
+   */
+  qualidadeParaBater: 0.7,
+
+  /**
+   * Altura (a partir dos pes) em que esperar deixa de ser opcao.
+   *
+   * Abaixo disto a bola esta' saindo da faixa alcancavel: ou bate agora, mal,
+   * ou nao bate. Bater mal e' melhor que ver a bola cair.
+   */
+  alturaDaUltimaChance: 0.5,
 } as const;
 
 export const MATCH = {

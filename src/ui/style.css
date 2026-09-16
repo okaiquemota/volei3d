@@ -369,6 +369,63 @@ kbd.larga { min-width: auto; }
 #carga.cheia #carga-fill { background: #fff0c0; }
 #carga.cheia { opacity: 1; }
 
+/* A janela do toque fica ACIMA da forca, e nao no lugar dela: as duas podem
+   estar na tela ao mesmo tempo — carregando um ataque com a bola chegando. */
+#toque {
+  position: absolute;
+  bottom: 12.5vmin;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35em;
+  font-size: 0.75em;
+  letter-spacing: 0.18em;
+  opacity: 0.75;
+}
+
+#toque-trilho {
+  width: 22vmin;
+  min-width: 140px;
+  height: 5px;
+  background: rgba(13, 16, 20, 0.6);
+  border: 1px solid rgba(232, 230, 227, 0.18);
+  border-radius: 3px;
+  overflow: hidden;
+  /* A marca da zona limpa: dali pra direita o toque sai inteiro. O gradiente e'
+     uma linha so', entao nao custa elemento nem desenho. */
+  background-image: linear-gradient(to right,
+    transparent calc(70% - 1px), rgba(232, 230, 227, 0.45) calc(70% - 1px),
+    rgba(232, 230, 227, 0.45) 70%, transparent 70%);
+}
+
+#toque-fill {
+  height: 100%;
+  width: 0;
+  background: #b06a55;
+  transition: background 0.1s;
+}
+
+/* No ponto: o mesmo branco quente da carga cheia e do anel de mira. */
+#toque.limpo #toque-fill { background: #fff0c0; }
+#toque.limpo { opacity: 1; }
+
+#toque-aviso {
+  position: absolute;
+  bottom: 17vmin;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1em;
+  letter-spacing: 0.2em;
+  opacity: 0;
+  transition: opacity 0.18s;
+  pointer-events: none;
+}
+#toque-aviso.visivel { opacity: 0.9; }
+#toque-aviso.bom { color: #fff0c0; }
+#toque-aviso.ruim { color: #ffb4a0; }
+
 /* Os dois ultimos segundos do saque. */
 #action-hint.urgente {
   color: #ffd0c0;

@@ -37,6 +37,15 @@
       <span>FORCA</span>
     </div>
 
+    <!-- janela do toque: sobe enquanto a bola vem pro corpo -->
+    <div id="toque" class="hidden">
+      <div id="toque-trilho"><div id="toque-fill"></div></div>
+      <span>TOQUE</span>
+    </div>
+
+    <!-- como saiu o ultimo toque -->
+    <div id="toque-aviso"></div>
+
     <!-- centro: aviso de acao (so' aparece no saque do jogador) -->
     <div id="action-hint" class="hidden">SEGURE e SOLTE para SACAR</div>
 
@@ -52,14 +61,16 @@
         <li><span class="k"><kbd>DIREITO</kbd></span><span class="o">levantar</span></li>
       </ul>
 
-      <p class="nota nota-topo">Os dois primeiros toques armam no seu campo, o terceiro
-        cruza sozinho. Bola baixa vira manchete, na cabeca levantamento, alta e
-        no ar cortada.</p>
+      <p class="nota nota-topo">Dois toques armam no seu campo, o terceiro cruza
+        sozinho. Bola baixa vira manchete, na cabeca levantamento, no ar cortada.</p>
 
-      <h2>FORCA VEM DE ALTURA</h2>
-      <p class="nota nota-topo">De pe', qualquer carga sai a 10 m/s: a bola tem
-        que subir pra passar da fita. Carregue correndo, <b>pule</b> e solte em
-        cima dela — ali a mesma carga vira 24.</p>
+      <h2>O TOQUE TEM QUALIDADE</h2>
+      <p class="nota nota-topo">A barra <b>TOQUE</b> sobe quando a bola vem pro
+        seu corpo: cheia, o toque sai inteiro. Na ponta do braco a mira espalha,
+        o ataque perde forca, e no fundo a bola <b>queima</b>. Bola rapida cobra
+        sozinha — por isso atacar forte vale a pena.<br><br>
+        E forca vem de ALTURA: de pe' qualquer carga sai a 10 m/s. Carregue
+        correndo, <b>pule</b> e solte em cima da bola — ali a mesma carga vira 24.</p>
 
       <h2>A PRAIA</h2>
       <ul class="teclas">
@@ -70,9 +81,8 @@
         <li><span class="k"><kbd class="larga">MOUSE</kbd></span><span class="o">girar a camera</span></li>
         <li><span class="k"><kbd class="larga">RODA</kbd></span><span class="o">perto ou longe</span></li>
       </ul>
-      <p class="nota">Na areia voce anda com o mesmo WASD e o mouse gira a
-        camera sozinho, sem clicar. <b>ESC</b> solta o cursor; um clique pega de
-        volta. Dentro da quadra a camera volta a ser fixa.</p>
+      <p class="nota">Na areia o mouse gira a camera sem clicar. <b>ESC</b> solta
+        o cursor, um clique pega de volta.</p>
 
       <p class="rodape-manual"><kbd>ESC</kbd> pausa &middot; <kbd>F3</kbd> desempenho
         &middot; <kbd>H</kbd> esconde</p>

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { COURT, PLAYER } from '../config';
+import { AI, COURT, PLAYER } from '../config';
 import type { Ball, Tocador } from '../ball/Ball';
 import { Court, oposto, type Side } from '../world/Court';
 import { construirAtleta, type AtletaVisual } from './buildAthlete';
@@ -113,6 +113,31 @@ export abstract class Athlete implements Tocador {
   /** E' o ultimo toque permitido? Entao a bola TEM que cruzar a rede. */
   protected precisaCruzarARede(): boolean {
     return this.rally.toquesDoLado(this.side) >= this.rally.maxToques - 1;
+  }
+
+  /**
+   * Bate agora, ou deixa a bola chegar mais perto?
+   *
+   * `hitter.alcanca` responde "da' pra tocar", e o PRIMEIRO quadro em que ela
+   * responde sim e' justamente o pior: a bola acabou de entrar no cilindro de
+   * alcance, a 1,3 m do corpo, na ponta do braco.
+   *
+   * Vale igual pros dois lados, por motivos diferentes que dao no mesmo. A IA
+   * batia no primeiro quadro e queimava metade dos toques. O humano tem o
+   * buffer de toque, que existe pra nao perder um clique adiantado — e um
+   * buffer que dispara no pior quadro da janela nao esta' perdoando nada, esta'
+   * escolhendo o pior momento por ele.
+   *
+   * No ar nao se espera: quem pulou pra cortar bate no alto e na frente do
+   * corpo, e esperar significa ver a bola passar.
+   */
+  protected esperarPelaBola(): boolean {
+    if (!this.motor.noChao) return false;
+    if (this.hitter.qualidadeDoContato(this.ball, this.motor.posicao) >= AI.qualidadeParaBater) return false;
+
+    // Ultima chance: a bola esta' saindo da faixa alcancavel pra baixo.
+    const altura = this.ball.posicao.y - this.motor.posicao.y;
+    return !(altura <= AI.alturaDaUltimaChance && this.ball.velocidade.y < 0);
   }
 
   /**

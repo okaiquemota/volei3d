@@ -52,6 +52,9 @@ export class Game {
   /** Em qual arena a camera esta'. Jogando ou assistindo. */
   private arenaFoco = 0;
 
+  /** Ultimo toque do jogador que ja' virou aviso na tela. */
+  private ultimoToqueVisto = 0;
+
   /**
    * Voce, quando esta' numa quadra. Fora dela, `null`.
    *
@@ -387,9 +390,29 @@ export class Game {
     }
 
     this.hud.carga(this.player?.carregandoAtaque ? this.player.forcaDoAtaque : -1);
+    this.hud.janelaDeToque(this.player?.janelaDeToque ?? -1);
+    this.avisarQualidadeDoToque();
     this.hud.relogioDoSaque(this.minhaArena?.match.segundosParaSacar ?? null);
 
     this.rig.update(dt);
+  }
+
+  /**
+   * Conta pro jogador como saiu o toque que ele acabou de dar.
+   *
+   * O gatilho e' o CONTADOR do Hitter, e nao a qualidade: dois toques seguidos
+   * podem sair identicos, e comparar qualidade perderia o segundo.
+   *
+   * Saque nao entra. Ele sai da mao, parado e no eixo do corpo — nao ha'
+   * contato pra medir, e um "NO PONTO" garantido a cada saque so' ensinaria o
+   * jogador a ignorar o aviso.
+   */
+  private avisarQualidadeDoToque(): void {
+    const hitter = this.player?.hitter;
+    if (!hitter || hitter.toques === this.ultimoToqueVisto) return;
+
+    this.ultimoToqueVisto = hitter.toques;
+    if (hitter.ultimaAcao !== 'saque') this.hud.qualidadeDoToque(hitter.ultimaQualidade);
   }
 
   /** A arena em que voce esta' jogando. `null` enquanto voce anda pela areia. */
@@ -423,6 +446,9 @@ export class Game {
     humano.input = this.input;
     arena.ocupar(lado, humano);
     this.player = humano;
+    // Hitter novo, contador novo: sem isto o primeiro toque na quadra nova
+    // passaria despercebido ou dispararia um aviso que nao aconteceu.
+    this.ultimoToqueVisto = 0;
 
     this.banhista.objeto.visible = false;
     this.hud.dicaDaPraia(null);

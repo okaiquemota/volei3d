@@ -61,6 +61,7 @@ export class AIPlayer extends Athlete {
   definirHabilidade(habilidade: AiSkill): void {
     this.habilidade = habilidade;
     this.hitter.ruidoDeMira = habilidade.aimError;
+    this.hitter.defesa = habilidade.defesa;
   }
 
   override prepararSaque(): void {
@@ -207,6 +208,7 @@ export class AIPlayer extends Athlete {
     }
 
     if (!this.hitter.alcanca(this.ball, this.motor.posicao)) return;
+    if (this.esperarPelaBola()) return;
 
     const acao = this.escolherToque();
     if (this.armando) this.alvoDeArmacao(PLAYER.setSetupDepth, _alvo);
@@ -214,7 +216,7 @@ export class AIPlayer extends Athlete {
 
     // A IA nao carrega: bate sempre com a forca da dificuldade. Mesma fisica
     // do humano, mesma funcao — o que muda e' o numero.
-    if (this.hitter.bater(this.ball, this.court, this, acao, _alvo, this.habilidade.attackForce)) {
+    if (this.hitter.bater(this.ball, this.court, this, acao, _alvo, this.motor.posicao, this.habilidade.attackForce)) {
       this.querCortar = false;
       this.armando = false;
       this.decididoCom = -1;

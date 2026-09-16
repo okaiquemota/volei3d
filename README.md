@@ -14,7 +14,7 @@ Abre e joga: não tem instalador, não tem plugin, não tem barra de carregament
 > [RIP.volei3d-unity](https://github.com/okaiquemota/RIP.volei3d-unity) — ela
 > funcionava, mas cada build levava de 20 a 30 minutos num runner de CI, exigia
 > licença Unity e entregava dezenas de MB com tela de carregamento. Esta versão
-> compila em **um segundo** e entrega **149 KB comprimidos**.
+> compila em **um segundo** e entrega **151 KB comprimidos**.
 
 ---
 
@@ -51,6 +51,9 @@ npm run build:single # dist/volei3d.html — joga com duplo clique, offline
 | Reiniciar | `R`, na tela de fim de jogo |
 | Pausar / desempenho | `Esc` / `F3` |
 | Esconder o manual de teclas | `H` |
+
+A barra `FORÇA` é quanto você carregou; a barra `TOQUE`, logo acima, é o quanto
+*este* contato sairia limpo se você batesse agora.
 
 O manual fica na lateral esquerda da tela — a maior área de areia vazia que a
 câmera enquadra, então ele não cobre nada que se precise ver. `H` esconde, e a
@@ -123,6 +126,21 @@ pés no chão a bola precisa *subir* para passar da fita, e a carga se perde: de
 pé, qualquer carga sai a ~10 m/s. Carregue correndo, **pule**, e solte em cima
 da bola — ali a mesma carga vira 24 m/s, e a bola cruza a quadra em 0,27 s em
 vez de 1 s. Não é uma regra, é a geometria da rede cobrando.
+
+**O toque tem qualidade.** Não basta alcançar a bola: conta *onde* ela está em
+relação ao seu corpo e *quão rápido* ela vem. Contato no corpo sai inteiro; na
+ponta do braço a mira espalha, o ataque perde força, e no fundo da escala a bola
+**queima** — sobe fraca e pra qualquer lado, e aí é correr atrás. A barra
+`TOQUE` sobe enquanto a bola chega, e o aviso depois diz como saiu.
+
+A ideia é do [Volleyball Unbound](https://store.steampowered.com/app/518040/Volleyball_Unbound__Pro_Beach_Volleyball/),
+onde o miolo é acertar o tempo do contato e bola alta ou rápida é mais difícil
+de acertar. Aqui o tempo vira **geometria**, que é o que este jogo já sabe medir.
+É a mesma função pro humano e pra CPU, com os mesmos números.
+
+Uma consequência: **cortada forte agora machuca de verdade**. Antes, bola a
+24 m/s e balão a 8 se defendiam com a mesma limpeza, e atacar era só uma forma
+mais arriscada de passar a bola.
 
 **Marcadores no chão.** O anel branco mostra onde a bola **vai cair** — e
 aperta conforme ela chega, então diz também *quando*. O anel azul mostra para

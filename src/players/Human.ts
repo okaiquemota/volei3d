@@ -150,10 +150,24 @@ export class Human extends Athlete {
     if (!this.rally.rallyVivo) return;
     if (!this.hitter.alcanca(this.ball, this.motor.posicao)) return;
 
+    /**
+     * O clique fica armado e o toque sai quando a bola chega no corpo.
+     *
+     * E' o que o buffer sempre prometeu: nao perder um clique adiantado. Sem
+     * isto ele disparava no primeiro quadro em que a bola entra no alcance, que
+     * e' o quadro em que ela esta' MAIS LONGE — o buffer perdoava o clique e
+     * entregava o pior contato possivel.
+     *
+     * A janela inteira dura 0,18 s. Exigir o quadro certo dentro dela seria um
+     * teste de reflexo de tres quadros, e nao a leitura de jogo que o resto do
+     * toque cobra.
+     */
+    if (this.esperarPelaBola()) return;
+
     const acao = this.escolherAcao();
     this.escolherAlvo(acao, _alvoDoToque);
 
-    if (this.hitter.bater(this.ball, this.court, this, acao, _alvoDoToque, this.carga)) {
+    if (this.hitter.bater(this.ball, this.court, this, acao, _alvoDoToque, this.motor.posicao, this.carga)) {
       this.bufferDeToque = 0;
       this.esquecerAtaque();
     }
@@ -231,6 +245,20 @@ export class Human extends Athlete {
   /** Carga atual, de 0 a 1. O HUD e o marcador de mira leem daqui. */
   get forcaDoAtaque(): number { return this.carregando ? this.carga : 0; }
   get carregandoAtaque(): boolean { return this.carregando; }
+
+  /**
+   * Como sairia o toque se voce batesse AGORA, de 0 a 1. Negativo: nao da' pra
+   * bater, entao nao ha' janela pra mostrar.
+   *
+   * E' o mesmo numero que o Hitter vai usar no toque de verdade — nao uma
+   * estimativa parecida. Uma barra que mostra uma conta e o jogo faz outra e'
+   * pior que barra nenhuma.
+   */
+  get janelaDeToque(): number {
+    if (!this.rally.rallyVivo || this.sacando) return -1;
+    if (!this.hitter.pronto || !this.hitter.alcanca(this.ball, this.motor.posicao)) return -1;
+    return this.hitter.qualidadeDoContato(this.ball, this.motor.posicao);
+  }
 
   /**
    * A mira e' um ponto no CHAO, resolvido pela posicao do cursor.
