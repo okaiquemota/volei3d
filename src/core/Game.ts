@@ -343,6 +343,11 @@ export class Game {
     const dt = Math.min(cru, 1 / 20);
     this.lastTime = now;
 
+    // De quem e' o teclado neste quadro. Uma linha so', no laco, porque o
+    // estado muda em cinco lugares e manter cinco copias e' manter quatro
+    // erradas.
+    this.input.menuAberto = this.state !== 'playing';
+
     if (this.input.wasPressed('F3')) this.perf.toggle();
     if (this.input.wasPressed('KeyH')) this.hud.alternarManual();
     // Assistir as outras quadras da praia.

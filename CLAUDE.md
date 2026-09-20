@@ -43,6 +43,9 @@ está ligado, junto com `noUnusedLocals` e `noUnusedParameters`.
   biblioteca de vetores e roda no Node. Confundir os dois leva a reimplementar
   matemática de vetor à mão por nada.
 - HUD: markup em `index.html`, setters em `ui/HUD.ts`, estilo em `ui/style.css`.
+- Menu, pausa e fim de jogo: `ui/Screens.ts`. Ele é o único dono da classe
+  `body.tela-aberta` — é ela que apaga o HUD atrás das telas e que decide
+  quando soltar o foco do botão clicado.
 - Uma partida numa quadra num lugar do mundo: `world/Arena.ts`. Onde ficam as
   quadras da praia: `world/praia.ts` — é só dado, mexer ali não mexe em código.
 - O chão da praia: `world/buildBeach.ts`. Um só, pro mundo inteiro.
@@ -599,6 +602,56 @@ y≈118 num quadro de 720, e o além-da-linha vive entre y≈60 e 118. É a mesm
 faixa onde as barras de FORÇA e TOQUE moram agora. Elas não bloqueiam o clique
 (`#hud` é `pointer-events: none`), mas cobrem o anel de mira no tiro mais
 arriscado que existe. Se isso incomodar, é a posição das barras que cede.
+
+## O HUD é reescrito a cada quadro: forçar estado nele não sobrevive à foto
+
+`Game.loop` chama `hud.carga(...)` e `hud.janelaDeToque(...)` **todo quadro**,
+com o estado real do jogador. Acender uma barra num `page.evaluate` e fotografar
+no `evaluate` seguinte devolve retângulo zero: entre os dois, o rAF rodou e
+escondeu a barra de novo. Dá na mesma armadilha da bola — o laço não para entre
+uma chamada e outra.
+
+Dois jeitos que funcionam:
+
+- **Medir no MESMO `evaluate`** que acende. A geometria sai certa e é síncrona.
+- **Fotografar com o jogo acendendo**: `page.mouse.down()` e esperar. Aí quem
+  mantém a barra viva é o próprio laço, que é o que se queria testar.
+
+## O jogo engolia o teclado do menu inteiro
+
+`Input.onKeyDown` fazia `preventDefault` em `Space`, setas e `Tab` **em qualquer
+estado**. O custo não aparecia enquanto as opções eram um `<select>` (que também
+abre no clique), mas era real: nunca deu pra navegar o menu sem mouse, e na
+pausa não havia como chegar em "CONTINUAR".
+
+A regra agora tem duas metades, e as duas são necessárias:
+
+1. **Foco num controle → a tecla é do controle.** `focoEmControle()` em
+   `Input.ts`, mesmo critério do `onMouseDown` ("só conta clique no canvas").
+2. **Fechou a última tela → solta o foco.** `Screens.sincronizarVeu` dá `blur()`
+   no que estiver focado. Sem isto a primeira metade quebraria o jogo: o botão
+   JOGAR continua focado depois do clique, e todo `Space` de salto viraria um
+   clique nele.
+
+O `Tab` é o único que depende do estado (`input.menuAberto`, escrito uma vez por
+quadro pelo `Game`): do navegador com tela aberta, do jogo em quadra.
+
+## Centralizar corta o topo, e `margin: auto` não
+
+`place-content: center` num container com `overflow` centra pelo container: se o
+conteúdo é mais alto que a tela, ele transborda **pros dois lados** e a rolagem
+só alcança o de baixo. O topo do cartão fica inalcançável.
+
+`display: flex` no `.tela` + `margin: auto` no `.cartao` centra enquanto cabe e
+encosta no topo quando não cabe. A medida que prova: o topo do cartão dá 32px
+(a padding) em 1280×720, 1280×560 e 430×860 — nunca negativo.
+
+E o cartão do menu tem `max-height: 100%` com `grid-template-rows: auto
+minmax(0, 1fr) auto auto`: quem encolhe é o miolo (COMO JOGAR, que rola por
+dentro), nunca o botão JOGAR. Sem isso, numa janela de 1366×768 — metade dos
+notebooks — a ação principal do jogo cai abaixo da dobra. O `minmax(0, 1fr)` é
+obrigatório: um item de grid não encolhe abaixo do próprio conteúdo sem
+`min-height: 0`, e aí o `1fr` não serve pra nada.
 
 ## O que NÃO foi verificado
 

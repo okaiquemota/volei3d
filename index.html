@@ -31,27 +31,43 @@
     <!-- centro: aviso do ponto -->
     <div id="announcement"></div>
 
-    <!-- barra de forca do ataque -->
-    <div id="carga" class="hidden">
-      <div id="carga-trilho"><div id="carga-fill"></div></div>
-      <span>FORCA</span>
-    </div>
+    <!--
+      As duas barras e o aviso do golpe vivem num bloco so'.
 
-    <!-- janela do toque: sobe enquanto a bola vem pro corpo -->
-    <div id="toque" class="hidden">
-      <div id="toque-trilho"><div id="toque-fill"></div></div>
-      <span>TOQUE</span>
-    </div>
+      O pai e' uma caixa transparente que nao posiciona nada: os tres filhos
+      continuam soltos dentro dela, cada um no seu lugar fixo — esconder a
+      FORCA nao pode puxar o TOQUE pra cima. O que o pai da' e' um `top` unico,
+      entao o cluster inteiro sobe ou desce numa variavel so'.
+    -->
+    <div id="medidores">
+      <!-- barra de forca do ataque -->
+      <div id="carga" class="hidden">
+        <div id="carga-trilho"><div id="carga-fill"></div></div>
+        <span>FORCA</span>
+      </div>
 
-    <!-- como saiu o ultimo toque -->
-    <div id="toque-aviso"></div>
+      <!-- janela do toque: sobe enquanto a bola vem pro corpo -->
+      <div id="toque" class="hidden">
+        <div id="toque-trilho"><div id="toque-fill"></div></div>
+        <span>TOQUE</span>
+      </div>
+
+      <!-- como saiu o ultimo toque -->
+      <div id="toque-aviso"></div>
+    </div>
 
     <!-- centro: aviso de acao (so' aparece no saque do jogador) -->
     <div id="action-hint" class="hidden">SEGURE e SOLTE para SACAR</div>
 
-    <!-- lateral: manual de controles -->
+    <!--
+      Lateral: a legenda de teclas.
+
+      So' TECLAS. O que cada barra significa e como o rally funciona esta' no
+      menu, em COMO JOGAR: e' texto que se le' UMA vez, e enquanto morou aqui
+      transformou um canto da tela em parede de texto que ninguem relia.
+    -->
     <aside id="manual">
-      <h2>CONTROLES</h2>
+      <h2>EM QUADRA</h2>
       <ul class="teclas">
         <li><span class="k"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span class="o">correr</span></li>
         <li><span class="k"><kbd class="larga">ESPACO</kbd></span><span class="o">pular</span></li>
@@ -60,25 +76,11 @@
         <li><span class="k"><kbd>SEGURAR</kbd></span><span class="o">carregar e atacar</span></li>
         <li><span class="k"><kbd>DIREITO</kbd></span><span class="o">levantar</span></li>
         <li><span class="k"><kbd class="larga">RODA</kbd></span><span class="o">perto ou longe</span></li>
+        <li><span class="k"><kbd>Q</kbd></span><span class="o">sair da quadra</span></li>
       </ul>
 
-      <p class="nota nota-topo">Dois toques armam em casa, o terceiro cruza. Baixa
-        e' manchete, na cabeca levantamento, no ar cortada.</p>
-
-      <h2>AS DUAS BARRAS</h2>
-      <p class="nota nota-topo"><b>TOQUE</b> sobe quando a bola vem pro seu
-        corpo: cheia, o toque sai inteiro; na ponta do braco a mira espalha e a
-        bola pode <b>queimar</b>. Bola rapida cobra sozinha.<br><br>
-        <b>FORCA</b> varre e tem uma ZONA perto do fim: solte ali e a batida sai
-        forte e reta. Antes sai fraca, depois sai torta, e no fim escapa
-        sozinho.<br><br>
-        De pe' a rede trava a batida em 16 m/s; <b>pulando</b>, 20.<br><br>
-        A mira alcanca <b>alem das linhas</b>: mirar na linha e' aposta, e toda
-        batida espalha um pouco.</p>
-
-      <h2>A PRAIA</h2>
+      <h2>NA PRAIA</h2>
       <ul class="teclas">
-        <li><span class="k"><kbd>Q</kbd></span><span class="o">sair da quadra</span></li>
         <li><span class="k"><kbd>E</kbd></span><span class="o">entrar na quadra</span></li>
         <li><span class="k"><kbd>[</kbd><kbd>]</kbd></span><span class="o">assistir outra</span></li>
         <li><span class="k"><kbd class="larga">TAB</kbd></span><span class="o">voltar pra voce</span></li>
@@ -94,38 +96,85 @@
   <div id="screens">
     <!-- menu inicial -->
     <div id="menu" class="tela">
-      <h1 class="titulo">VOLEI <span class="tres">3D</span></h1>
-      <p class="sub">Volei de praia, tres quadras, 15 pontos.</p>
-      <div class="opcoes">
-        <label class="campo">
-          <span>DIFICULDADE</span>
-          <select id="opt-skill">
-            <option value="facil">FACIL</option>
-            <option value="normal" selected>NORMAL</option>
-            <option value="dificil">DIFICIL</option>
-          </select>
-        </label>
-        <label class="campo">
-          <span>RESOLUCAO <b id="opt-res-valor">100%</b></span>
-          <input id="opt-res" type="range" min="50" max="100" step="10" value="100" />
-        </label>
+      <div class="cartao cartao-largo">
+        <header class="cabeca">
+          <h1 class="titulo">VOLEI <span class="tres">3D</span></h1>
+          <p class="sub">Volei de praia &middot; tres quadras &middot; 15 pontos</p>
+        </header>
+
+        <div class="colunas">
+          <section class="coluna">
+            <h3 class="secao">PARTIDA</h3>
+
+            <div class="campo">
+              <span class="rotulo">DIFICULDADE</span>
+              <!-- Segmentado, e nao um <select>: sao tres opcoes curtas, e ver
+                   as tres de uma vez e' a diferenca entre escolher e adivinhar. -->
+              <div id="opt-skill" class="segmento" role="radiogroup" aria-label="Dificuldade">
+                <label><input type="radio" name="skill" value="facil" /><span>FACIL</span></label>
+                <label><input type="radio" name="skill" value="normal" checked /><span>NORMAL</span></label>
+                <label><input type="radio" name="skill" value="dificil" /><span>DIFICIL</span></label>
+              </div>
+            </div>
+
+            <label class="campo">
+              <span class="rotulo">RESOLUCAO <b id="opt-res-valor">100%</b></span>
+              <input id="opt-res" type="range" min="50" max="100" step="10" value="100" />
+              <span class="ajuda">Menos resolucao, mais quadros por segundo.</span>
+            </label>
+          </section>
+
+          <section class="coluna">
+            <h3 class="secao">COMO JOGAR</h3>
+            <dl class="explica">
+              <dt>OS TRES TOQUES</dt>
+              <dd>Dois toques armam em casa, o terceiro cruza. Bola baixa e'
+                manchete, na cabeca levantamento, no ar cortada.</dd>
+
+              <dt>A BARRA <b>TOQUE</b></dt>
+              <dd>Sobe enquanto a bola vem pro seu corpo. Cheia, o toque sai
+                inteiro; na ponta do braco a mira espalha e a bola pode
+                <b>queimar</b>. Bola rapida cobra sozinha.</dd>
+
+              <dt>A BARRA <b>FORCA</b></dt>
+              <dd>Varre e tem uma <b>zona</b> perto do fim: solte ali e a batida
+                sai forte e reta. Antes sai fraca, depois sai torta, e no fim
+                escapa sozinha.</dd>
+
+              <dt>A REDE E A MIRA</dt>
+              <dd>De pe' a rede trava a batida em 16 m/s; <b>pulando</b>, 20. A
+                mira alcanca <b>alem das linhas</b>: mirar na linha e' aposta, e
+                toda batida espalha um pouco.</dd>
+            </dl>
+          </section>
+        </div>
+
+        <!-- Fora das colunas de proposito: a acao principal atravessa o
+             cartao inteiro, e as duas colunas correm do topo sem um buraco de
+             meia tela embaixo da mais curta. -->
+        <button id="btn-jogar" class="botao">JOGAR</button>
+
+        <p class="rodape"><kbd>ESC</kbd> pausa &middot; <kbd>F3</kbd> desempenho
+          &middot; <kbd>H</kbd> esconde as teclas</p>
       </div>
-      <button id="btn-jogar" class="botao">JOGAR</button>
-      <p class="rodape">ESC pausa &middot; F3 desempenho</p>
     </div>
 
     <!-- pausa -->
     <div id="pause" class="tela hidden">
-      <h2 class="titulo-menor">PAUSADO</h2>
-      <button id="btn-voltar" class="botao">CONTINUAR</button>
-      <button id="btn-sair" class="botao secundario">SAIR PRO MENU</button>
+      <div class="cartao">
+        <h2 class="titulo-menor">PAUSADO</h2>
+        <button id="btn-voltar" class="botao">CONTINUAR</button>
+        <button id="btn-sair" class="botao secundario">SAIR PRO MENU</button>
+      </div>
     </div>
 
     <!-- fim de jogo -->
     <div id="gameover" class="tela hidden">
-      <h2 id="go-titulo" class="titulo-menor">FIM DE JOGO</h2>
-      <p id="go-placar" class="sub">PLACAR FINAL 0 x 0</p>
-      <button id="btn-denovo" class="botao">JOGAR NOVAMENTE (R)</button>
+      <div class="cartao">
+        <h2 id="go-titulo" class="titulo-menor">FIM DE JOGO</h2>
+        <p id="go-placar" class="sub">PLACAR FINAL 0 x 0</p>
+        <button id="btn-denovo" class="botao">JOGAR NOVAMENTE (R)</button>
+      </div>
     </div>
   </div>
 

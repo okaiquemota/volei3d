@@ -18,6 +18,20 @@
  *   apertada deixa o atleta correndo sozinho ate' a volta;
  * - `contextmenu` bloqueado: o botao direito e' o ataque forcado.
  */
+/**
+ * O foco esta' num controle de formulario?
+ *
+ * Botao, campo, radio, slider — qualquer coisa que o navegador ja' saiba
+ * operar pelo teclado. Enquanto o jogo roda nada disso tem foco (o Screens
+ * solta o botao assim que a ultima tela fecha), entao em quadra isto e' sempre
+ * falso e nao custa nada.
+ */
+function focoEmControle(): boolean {
+  const a = document.activeElement;
+  return a instanceof HTMLButtonElement || a instanceof HTMLInputElement
+      || a instanceof HTMLSelectElement || a instanceof HTMLTextAreaElement;
+}
+
 export class Input {
   private keys = new Set<string>();
   private pressedThisFrame = new Set<string>();
@@ -60,6 +74,14 @@ export class Input {
   /** Chamado quando a janela perde o foco — o jogo aproveita pra pausar. */
   onBlur: (() => void) | null = null;
 
+  /**
+   * Ha' uma tela aberta (menu, pausa, fim)?
+   *
+   * O Input nao sabe o que e' partida, e nao devia: quem sabe e' o Game, que
+   * escreve aqui uma vez por quadro. O unico uso e' decidir de quem e' o TAB.
+   */
+  menuAberto = true;
+
   constructor(private canvas: HTMLCanvasElement) {
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
@@ -77,7 +99,29 @@ export class Input {
     // Nao roubar atalho do navegador (Ctrl+R, Cmd+T...).
     if (e.ctrlKey && e.code !== 'ControlLeft' && e.code !== 'ControlRight') return;
     if (e.metaKey) return;
-    if (e.code === 'Space' || e.code.startsWith('Arrow') || e.code === 'Tab') e.preventDefault();
+
+    /**
+     * Com o foco num controle, a tecla e' DO CONTROLE.
+     *
+     * E' o mesmo criterio do `onMouseDown`, que so' conta clique no canvas. Sem
+     * ele o jogo comia as setas antes de o navegador ver, e o grupo de
+     * dificuldade — tres radios — nao andava com o teclado; o ESPACO tambem nao
+     * apertava botao nenhum. Um menu que so' funciona com mouse e' um menu
+     * quebrado pra metade de quem chega nele.
+     */
+    if (focoEmControle()) return;
+
+    /**
+     * Espaco e setas sao sempre do jogo (pular e correr); o TAB depende.
+     *
+     * Aberto um menu, o TAB e' do NAVEGADOR: e' o unico jeito de alcancar
+     * "CONTINUAR" sem mouse, e travar ali foi exatamente o que aconteceu
+     * enquanto o jogo engolia o TAB em qualquer estado. Fechado, ele volta a
+     * ser "voltar pra minha quadra".
+     */
+    if (e.code === 'Space' || e.code.startsWith('Arrow')
+        || (e.code === 'Tab' && !this.menuAberto)) e.preventDefault();
+
     this.keys.add(e.code);
     this.pressedThisFrame.add(e.code);
   };

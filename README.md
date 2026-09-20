@@ -56,9 +56,21 @@ As duas barras ficam no alto, logo abaixo do placar. `TOQUE` é o quanto *este*
 contato sairia limpo se você batesse agora; `FORÇA` é um **QTE**: ela varre e tem
 uma zona marcada perto do fim.
 
-O manual fica na lateral esquerda da tela — a maior área de areia vazia que a
-câmera enquadra, então ele não cobre nada que se precise ver. `H` esconde, e a
-preferência fica guardada.
+A legenda de teclas fica no canto de baixo à esquerda — o único pedaço de areia
+que a câmera nunca precisa mostrar, já que a bola vive na metade de cima e a
+quadra ocupa o centro. Ela lista **só teclas**; o que cada barra significa e como
+o rally funciona está no menu, em **COMO JOGAR**, que é texto pra ler uma vez.
+`H` esconde a legenda, e a preferência fica guardada.
+
+O menu, a pausa e o fim de jogo são cartões sobre a praia, e o HUD apaga atrás
+deles: as telas são translúcidas de propósito, e sem isso o placar e a dica de
+saque atravessavam o véu e apareciam por cima do "VOCÊ VENCEU".
+
+**O teclado é do menu quando há menu.** Com o foco num controle, a tecla é do
+controle — as setas andam pelo grupo de dificuldade e pelo slider, o espaço
+aperta o botão. O `Tab` é do navegador enquanto uma tela está aberta (é o único
+jeito de alcançar "CONTINUAR" sem mouse) e volta a ser "voltar pra minha quadra"
+assim que ela fecha.
 
 **No saque, a carga muda o arco.** Um toque manda um balão de 2 s de voo; a
 carga cheia baixa o arco até o limite que a rede deixa passar e o voo cai para

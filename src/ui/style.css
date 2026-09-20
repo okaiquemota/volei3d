@@ -1,12 +1,24 @@
-/* Base do rpk.fps: reset, fonte monoespacada e o painel do F3.
-   O HUD do volei entra por cima, na Fase 5. */
+/* Reset, tokens, HUD e telas. Todo o 2D do jogo cabe aqui. */
 
 :root {
   --tinta: #e8e6e3;
   --fundo: #0d1014;
   --home: #2970d1;
   --away: #d94d38;
-  --painel: rgba(13, 16, 20, 0.55);
+
+  /* O fundo de todo painel do HUD, e a borda que o separa da areia.
+     Um token so' porque a areia clara come contraste: quando um painel some
+     no fundo, os outros somem junto, e mexer em cinco lugares vira cinco
+     tons diferentes. */
+  --painel: rgba(8, 11, 15, 0.66);
+  --borda: rgba(232, 230, 227, 0.16);
+
+  /* O branco quente: anel de mira, zona da forca, toque no ponto. Tres
+     lugares dizendo "e' AGORA" — tem que ser a mesma cor, ou nao e' sinal. */
+  --areia: #fff0c0;
+  --alerta: #ffb4a0;
+
+  --raio: 6px;
 }
 
 * { box-sizing: border-box; }
@@ -31,13 +43,20 @@ html, body {
   left: 8px;
   padding: 6px 10px;
   background: var(--painel);
-  border: 1px solid rgba(232, 230, 227, 0.15);
+  border: 1px solid var(--borda);
   border-radius: 4px;
   font-size: 12px;
   line-height: 1.5;
   white-space: pre;
   pointer-events: none;
   z-index: 50;
+}
+
+/* Sem aceleracao por hardware o medidor vira aviso: a ultima linha do painel
+   explica o que fazer, e ela passa batida num painel cinza igual aos outros. */
+#perf.alerta {
+  border-color: rgba(217, 77, 56, 0.6);
+  color: #ffd0c0;
 }
 
 /* ======================= HUD ======================= */
@@ -50,7 +69,24 @@ html, body {
   /* A referencia e' 1920x1080; vmin faz o HUD encolher junto com a janela,
      como o CanvasScaler fazia. */
   font-size: clamp(12px, 1.5vmin, 20px);
+
+  /* As faixas horizontais do HUD, de cima pra baixo. Estavam soltas como
+     13vmin aqui, 18.5vmin ali, e mexer numa empurrava outra por cima do
+     placar sem ninguem perceber ate' ver a tela. */
+  --faixa-barras: 13vmin;
+  --faixa-quadra: 11.4vmin;
+
+  transition: opacity 0.2s;
 }
+
+/*
+ * Com o menu, a pausa ou o fim de jogo abertos, o HUD sai da frente.
+ *
+ * As telas tem fundo TRANSLUCIDO — de proposito, pra praia continuar visivel
+ * atras. Sem isto o placar e a dica de saque atravessam o veu e aparecem POR
+ * CIMA do "VOCE VENCEU", competindo com o botao logo abaixo.
+ */
+body.tela-aberta #hud { opacity: 0; }
 
 #hud-top {
   position: absolute;
@@ -66,8 +102,9 @@ html, body {
   gap: 1.2em;
   padding: 0.5em 1.4em;
   background: var(--painel);
-  border: 1px solid rgba(232, 230, 227, 0.12);
-  border-radius: 6px;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
   /* Sem isto o placar balanca a cada ponto: os digitos tem larguras diferentes. */
   font-variant-numeric: tabular-nums;
 }
@@ -111,10 +148,19 @@ html, body {
   transform: translateX(-50%);
   padding: 0.4em 1em;
   background: var(--painel);
+  border: 1px solid var(--borda);
   border-radius: 4px;
   font-size: 1.1em;
   letter-spacing: 0.06em;
   animation: pulsar 1.4s ease-in-out infinite;
+}
+
+/* Os dois ultimos segundos do saque. */
+#action-hint.urgente {
+  color: #ffd0c0;
+  background: rgba(120, 30, 20, 0.7);
+  border-color: rgba(217, 77, 56, 0.5);
+  animation-duration: 0.5s;
 }
 
 @keyframes pulsar { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
@@ -128,225 +174,69 @@ html, body {
   transform: translateX(-50%);
   padding: 0.4em 1.1em;
   background: var(--painel);
-  border: 1px solid rgba(232, 230, 227, 0.15);
+  border: 1px solid var(--borda);
   border-radius: 4px;
   font-size: 1em;
   letter-spacing: 0.08em;
   white-space: nowrap;
 }
 
-#hints {
+/* Aviso de qual quadra a camera mostra. So' aparece assistindo. */
+#quadra-atual {
   position: absolute;
-  bottom: 1.6vmin;
+  top: var(--faixa-quadra);
   left: 50%;
   transform: translateX(-50%);
-  font-size: 0.95em;
-  opacity: 0.5;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
-}
-
-/* ======================= TELAS ======================= */
-
-#screens { position: fixed; inset: 0; z-index: 20; pointer-events: none; }
-
-.tela {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 1.2rem;
-  padding: 2rem;
-  text-align: center;
-  background: rgba(13, 16, 20, 0.82);
-  pointer-events: auto;
-}
-
-.titulo {
-  margin: 0;
-  font-size: clamp(2.5rem, 9vmin, 6rem);
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  line-height: 1;
-}
-.titulo .tres { color: var(--home); }
-
-.titulo-menor {
-  margin: 0;
-  font-size: clamp(1.8rem, 5vmin, 3.2rem);
-  font-weight: 800;
-  letter-spacing: 0.1em;
-}
-.titulo-menor.away { color: var(--away); }
-
-.sub { margin: 0; opacity: 0.6; letter-spacing: 0.05em; }
-.rodape { margin: 0; opacity: 0.35; font-size: 0.85rem; letter-spacing: 0.05em; }
-
-.opcoes { display: grid; gap: 0.8rem; min-width: min(340px, 80vw); }
-
-.campo {
-  display: grid;
-  gap: 0.35rem;
-  font-size: 0.8rem;
-  letter-spacing: 0.1em;
-  opacity: 0.8;
-  text-align: left;
-}
-.campo b { color: var(--home); }
-
-.campo select,
-.campo input {
-  width: 100%;
-  padding: 0.5rem;
-  background: rgba(232, 230, 227, 0.07);
-  border: 1px solid rgba(232, 230, 227, 0.18);
-  border-radius: 4px;
-  color: var(--tinta);
-  font: inherit;
-  font-size: 0.95rem;
-}
-.campo input[type='range'] { padding: 0; accent-color: var(--home); }
-
-.botao {
-  padding: 0.8rem 2.4rem;
-  background: var(--tinta);
-  border: none;
-  border-radius: 4px;
-  color: var(--fundo);
-  font: inherit;
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  cursor: pointer;
-  transition: transform 0.1s, background 0.15s;
-}
-.botao:hover { background: #fff; transform: translateY(-1px); }
-.botao:active { transform: translateY(0); }
-
-.botao.secundario {
-  background: transparent;
-  border: 1px solid rgba(232, 230, 227, 0.3);
-  color: var(--tinta);
-  font-weight: 400;
-}
-.botao.secundario:hover { background: rgba(232, 230, 227, 0.1); }
-
-/* ======================= MANUAL ======================= */
-
-/*
- * Fica na lateral ESQUERDA por um motivo: a quadra ocupa o centro do quadro e
- * a bola vive na metade de cima. A esquerda e' a maior area de areia vazia que
- * a camera enquadra, entao o manual nao cobre nada que se precise ver.
- */
-#manual {
-  position: absolute;
-  top: 50%;
-  left: 1.8vmin;
-  transform: translateY(-50%);
-  width: 19.5em;
-  padding: 1em 1.1em;
+  padding: 0.35em 1em;
   background: var(--painel);
-  border: 1px solid rgba(232, 230, 227, 0.12);
-  border-radius: 6px;
-  backdrop-filter: blur(3px);
-  font-size: 0.92em;
-  line-height: 1.45;
-
-  /* Centrado na vertical, o painel cresce pros DOIS lados: uma secao a mais
-     nao corta o rodape, corta o titulo tambem. Numa tela baixa vale um
-     rolamento feio dentro do painel — some com H de qualquer jeito. */
-  max-height: calc(100% - 2.2vmin);
-  overflow-y: auto;
-}
-
-/* Sem quebra no rotulo da acao: "tocar na bola" em duas linhas desalinha a
-   lista inteira e o painel deixa de ser varrido de relance. */
-.teclas .o { white-space: nowrap; }
-
-#manual h2 {
-  margin: 0 0 0.6em;
-  font-size: 0.82em;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  color: var(--home);
-  opacity: 0.9;
-}
-#manual h2 + * { margin-top: 0; }
-#manual h2:not(:first-child) { margin-top: 1.1em; }
-
-#manual ul { margin: 0; padding: 0; list-style: none; }
-
-.teclas li {
-  display: flex;
-  align-items: center;
-  gap: 0.6em;
-  margin-bottom: 0.45em;
-}
-.teclas .k { display: flex; align-items: center; gap: 0.2em; flex-shrink: 0; }
-.teclas .o { opacity: 0.7; font-size: 0.95em; }
-.teclas i { opacity: 0.35; font-style: normal; font-size: 0.85em; }
-
-kbd {
-  display: inline-block;
-  min-width: 1.75em;
-  padding: 0.15em 0.35em;
-  background: rgba(232, 230, 227, 0.1);
-  border: 1px solid rgba(232, 230, 227, 0.22);
-  /* A sombra de baixo e' o que faz ler como TECLA e nao como caixinha. */
-  border-bottom-width: 2px;
-  border-radius: 3px;
-  font: inherit;
-  font-size: 0.82em;
-  text-align: center;
-  letter-spacing: 0.04em;
-}
-kbd.larga { min-width: auto; }
-
-#manual .nota.nota-topo { padding-top: 0; border-top: none; }
-#manual .nota b { color: var(--tinta); opacity: 0.9; font-weight: 700; }
-
-#manual .nota {
-  margin: 0.7em 0 0;
-  padding-top: 0.7em;
-  border-top: 1px solid rgba(232, 230, 227, 0.1);
-  font-size: 0.85em;
-  opacity: 0.5;
-  line-height: 1.4;
-}
-
-#manual .rodape-manual {
-  margin: 0.9em 0 0;
-  font-size: 0.74em;
-  opacity: 0.4;
-  text-align: center;
+  border: 1px solid var(--borda);
+  border-radius: 4px;
+  font-size: 0.95em;
+  letter-spacing: 0.14em;
+  opacity: 0.85;
   white-space: nowrap;
 }
-#manual .rodape-manual kbd { font-size: 0.9em; min-width: auto; }
 
-/* Telas baixas: o manual competiria com a quadra. Some. */
-@media (max-height: 560px), (max-width: 900px) {
-  #manual { display: none; }
-}
-
-/* ======================= BARRA DE FORCA ======================= */
+/* ======================= AS DUAS BARRAS ======================= */
 
 /**
- * As duas barras ficam no ALTO, logo abaixo do placar.
+ * O cluster fica no ALTO, logo abaixo do placar.
  *
- * Estavam no rodape, e ali nao se olha: quem joga acompanha a bola, que vive na
+ * Estava no rodape, e ali nao se olha: quem joga acompanha a bola, que vive na
  * metade de cima da tela. Uma barra de QTE que pede 180 ms de precisao nao pode
  * morar onde o olho so' vai de proposito.
  */
-#carga {
+#medidores {
   position: absolute;
-  top: 13vmin;
+  top: var(--faixa-barras);
+  left: 0;
+  right: 0;
+  height: 0;
+}
+
+/* Os tres slots, em `em` do HUD: a distancia entre eles escala junto com a
+   fonte, e cada um tem lugar FIXO — esconder a forca nao sobe o toque. */
+#carga { top: 0; }
+#toque { top: 3.9em; }
+#toque-aviso { top: 7em; }
+
+#carga, #toque, #toque-aviso {
+  position: absolute;
   left: 50%;
   transform: translateX(-50%);
+}
+
+#carga, #toque {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+/* Os rotulos flutuam direto sobre a areia, sem painel atras. Sem a sombra o
+   "FORCA" desaparece assim que um corpo claro passa por baixo dele. */
+#carga span, #toque span { text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85); }
+
+#carga {
   gap: 0.4em;
   font-size: 0.85em;
   letter-spacing: 0.2em;
@@ -357,7 +247,7 @@ kbd.larga { min-width: auto; }
   width: 34vmin;
   min-width: 260px;
   height: 11px;
-  background: rgba(13, 16, 20, 0.6);
+  background: rgba(8, 11, 15, 0.72);
   border: 1px solid rgba(232, 230, 227, 0.4);
   border-radius: 3px;
   overflow: hidden;
@@ -376,29 +266,23 @@ kbd.larga { min-width: auto; }
   height: 100%;
   width: 0;
   background: var(--home);
-  /* Sem transicao: a barra e' a leitura do tempo que o dedo esta' segurando,
-     e suavizar isso faria ela mentir sobre a forca no instante da soltada. */
+  /* Sem transicao na largura: a barra e' a leitura do tempo que o dedo esta'
+     segurando, e suavizar isso faria ela mentir sobre a forca no instante da
+     soltada. */
   transition: background 0.12s;
 }
 
 /* Na zona: o branco quente e' o mesmo do anel de mira. */
-#carga.cheia #carga-fill { background: #fff0c0; }
+#carga.cheia #carga-fill { background: var(--areia); }
 #carga.cheia { opacity: 1; }
+#carga.cheia #carga-trilho { border-color: var(--areia); }
 
 /* Passou: a barra vira aviso. */
 #carga.passou #carga-fill { background: #c25a44; }
 #carga.passou { opacity: 1; }
+#carga.passou #carga-trilho { border-color: rgba(217, 77, 56, 0.7); }
 
-/* A janela do toque fica ACIMA da forca, e nao no lugar dela: as duas podem
-   estar na tela ao mesmo tempo — carregando um ataque com a bola chegando. */
 #toque {
-  position: absolute;
-  top: 18.5vmin;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   gap: 0.35em;
   font-size: 0.75em;
   letter-spacing: 0.18em;
@@ -409,8 +293,8 @@ kbd.larga { min-width: auto; }
   width: 28vmin;
   min-width: 210px;
   height: 8px;
-  background: rgba(13, 16, 20, 0.6);
-  border: 1px solid rgba(232, 230, 227, 0.18);
+  background: rgba(8, 11, 15, 0.72);
+  border: 1px solid rgba(232, 230, 227, 0.22);
   border-radius: 3px;
   overflow: hidden;
   /* A marca da zona limpa: dali pra direita o toque sai inteiro. O gradiente e'
@@ -428,43 +312,383 @@ kbd.larga { min-width: auto; }
 }
 
 /* No ponto: o mesmo branco quente da carga cheia e do anel de mira. */
-#toque.limpo #toque-fill { background: #fff0c0; }
+#toque.limpo #toque-fill { background: var(--areia); }
 #toque.limpo { opacity: 1; }
 
 #toque-aviso {
-  position: absolute;
-  top: 23vmin;
-  left: 50%;
-  transform: translateX(-50%);
   font-size: 1em;
   letter-spacing: 0.2em;
   opacity: 0;
   transition: opacity 0.18s;
-  pointer-events: none;
+  white-space: nowrap;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
 }
 #toque-aviso.visivel { opacity: 0.9; }
-#toque-aviso.bom { color: #fff0c0; }
-#toque-aviso.ruim { color: #ffb4a0; }
+#toque-aviso.bom { color: var(--areia); }
+#toque-aviso.ruim { color: var(--alerta); }
 
-/* Os dois ultimos segundos do saque. */
-#action-hint.urgente {
-  color: #ffd0c0;
-  background: rgba(120, 30, 20, 0.65);
-  animation-duration: 0.5s;
+/* ======================= LEGENDA DE TECLAS ======================= */
+
+/*
+ * Canto de BAIXO, a esquerda: a bola vive na metade de cima da tela e a quadra
+ * ocupa o centro, entao o rodape esquerdo e' o unico pedaco de areia que a
+ * camera nunca precisa mostrar.
+ *
+ * Era um painel de altura inteira no meio da lateral, com cinco paragrafos
+ * explicando as barras. Explicacao se le' uma vez — foi pro menu, em COMO
+ * JOGAR. Aqui ficou o que se consulta de relance: tecla e acao, nada mais.
+ */
+#manual {
+  position: absolute;
+  left: 1.6vmin;
+  bottom: 1.6vmin;
+  width: 15.5em;
+  padding: 0.85em 1em;
+  background: var(--painel);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  backdrop-filter: blur(3px);
+  font-size: 0.92em;
+  line-height: 1.4;
+
+  /* Largura pelo CONTEUDO, e nao por um numero: as linhas sao `nowrap`, entao
+     uma largura fixa nao aperta o texto — corta. Com `max-content` o painel
+     mede a linha mais longa que ele tem, e acrescentar uma tecla amanha nao
+     deixa metade de um rotulo pra fora sem ninguem ver. */
+  width: max-content;
+  max-width: min(22em, 30vw);
+  max-height: calc(100% - 3.2vmin);
+  overflow-y: auto;
 }
 
-/* Aviso de qual quadra a camera mostra. So' aparece assistindo. */
-#quadra-atual {
-  position: absolute;
-  top: 12vmin;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 0.35em 1em;
-  background: var(--painel);
-  border: 1px solid rgba(232, 230, 227, 0.15);
-  border-radius: 4px;
-  font-size: 0.95em;
-  letter-spacing: 0.14em;
-  opacity: 0.85;
+#manual h2 {
+  margin: 0 0 0.5em;
+  font-size: 0.8em;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--home);
+  opacity: 0.9;
+}
+#manual h2:not(:first-child) {
+  margin-top: 0.9em;
+  padding-top: 0.8em;
+  border-top: 1px solid rgba(232, 230, 227, 0.1);
+}
+
+#manual ul { margin: 0; padding: 0; list-style: none; }
+
+.teclas li {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  margin-bottom: 0.35em;
+}
+.teclas li:last-child { margin-bottom: 0; }
+.teclas .k { display: flex; align-items: center; gap: 0.2em; flex-shrink: 0; }
+/* Sem quebra no rotulo da acao: "carregar e atacar" em duas linhas desalinha a
+   lista inteira e o painel deixa de ser varrido de relance. */
+.teclas .o { opacity: 0.72; font-size: 0.95em; white-space: nowrap; }
+.teclas i { opacity: 0.35; font-style: normal; font-size: 0.85em; }
+
+kbd {
+  display: inline-block;
+  min-width: 1.75em;
+  padding: 0.15em 0.35em;
+  background: rgba(232, 230, 227, 0.1);
+  border: 1px solid rgba(232, 230, 227, 0.22);
+  /* A sombra de baixo e' o que faz ler como TECLA e nao como caixinha. */
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  font: inherit;
+  font-size: 0.82em;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+kbd.larga { min-width: auto; }
+
+#manual .rodape-manual {
+  margin: 0.8em 0 0;
+  padding-top: 0.7em;
+  border-top: 1px solid rgba(232, 230, 227, 0.1);
+  font-size: 0.74em;
+  opacity: 0.45;
+  text-align: center;
   white-space: nowrap;
 }
+#manual .rodape-manual kbd { font-size: 0.9em; min-width: auto; }
+
+/* Telas baixas: a legenda competiria com a quadra. Some. */
+@media (max-height: 560px), (max-width: 900px) {
+  #manual { display: none; }
+}
+
+/* ======================= TELAS ======================= */
+
+#screens { position: fixed; inset: 0; z-index: 20; pointer-events: none; }
+
+/*
+ * Flex + `margin: auto` no cartao, e nao `place-content: center`.
+ *
+ * Centralizar pelo container corta o TOPO quando o conteudo e' mais alto que a
+ * tela: o overflow so' rola pra baixo, e o que subiu pra fora fica inalcancavel.
+ * Com a margem automatica o cartao centraliza enquanto cabe e encosta no topo
+ * quando nao cabe — que e' o que uma janela baixa precisa.
+ */
+.tela {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  /* Mais leve que antes: o cartao agora carrega o contraste, e escurecer a
+     praia ate' o preto so' escondia o jogo que o menu esta' anunciando. */
+  background: rgba(8, 11, 15, 0.62);
+  pointer-events: auto;
+  overflow-y: auto;
+}
+
+/*
+ * O cartao.
+ *
+ * Antes o menu era texto solto boiando no veu, sem nada segurando titulo,
+ * opcoes e botao juntos. Uma borda e um fundo proprio custam duas linhas e
+ * transformam tres elementos soltos numa coisa so'.
+ */
+.cartao {
+  display: grid;
+  justify-items: center;
+  gap: 1.1rem;
+  margin: auto;
+  width: min(100%, 26rem);
+  padding: clamp(1.4rem, 3.5vmin, 2.4rem);
+  background: rgba(13, 16, 20, 0.88);
+  border: 1px solid rgba(232, 230, 227, 0.14);
+  border-radius: 10px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+/*
+ * O cartao do menu nunca passa da altura da tela: o que sobra e' o COMO JOGAR
+ * que rola DENTRO dele.
+ *
+ * Sem isto, numa janela de 1366x768 — que e' metade dos notebooks — o botao
+ * JOGAR cai abaixo da dobra, e a acao principal do jogo vira uma rolagem que
+ * ninguem sabe que existe. As linhas dizem: cabeca, o miolo elastico, botao,
+ * rodape; so' o miolo encolhe.
+ */
+.cartao-largo {
+  width: min(100%, 52rem);
+  gap: 1.4rem;
+  max-height: 100%;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+}
+
+.cabeca { display: grid; justify-items: center; gap: 0.4rem; }
+
+.titulo {
+  margin: 0;
+  font-size: clamp(2.2rem, 7vmin, 4.4rem);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  line-height: 1;
+}
+.titulo .tres { color: var(--home); }
+
+.titulo-menor {
+  margin: 0;
+  font-size: clamp(1.6rem, 4.5vmin, 2.6rem);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+.titulo-menor.away { color: var(--away); }
+
+.sub { margin: 0; opacity: 0.6; letter-spacing: 0.05em; font-size: 0.9rem; }
+
+.rodape {
+  margin: 0;
+  opacity: 0.4;
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+}
+.rodape kbd { font-size: 0.85em; opacity: 0.9; }
+
+/* As duas colunas do menu: ajustes de um lado, como se joga do outro.
+   Numa tela estreita viram uma so' — e a ordem do HTML ja' poe o botao
+   JOGAR antes do texto explicativo, que e' a ordem certa empilhado. */
+.colunas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: clamp(1.2rem, 3vmin, 2.2rem);
+  width: 100%;
+  text-align: left;
+
+  /* `min-height: 0` e' o que deixa esta faixa encolher: sem ele um item de
+     grid nunca fica menor que o proprio conteudo, e o `1fr` la' de cima nao
+     serve pra nada. */
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* A barra fina e' o unico aviso de que ha' mais texto ali embaixo: a faixa
+   corta no meio de uma frase e, sem ela, parece que o menu e' que esta'
+   quebrado. So' aparece quando ha' mesmo o que rolar. */
+.colunas, #manual {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(232, 230, 227, 0.22) transparent;
+}
+.colunas::-webkit-scrollbar, #manual::-webkit-scrollbar { width: 6px; }
+.colunas::-webkit-scrollbar-thumb, #manual::-webkit-scrollbar-thumb {
+  background: rgba(232, 230, 227, 0.22);
+  border-radius: 3px;
+}
+
+.coluna { display: grid; align-content: start; gap: 0.9rem; }
+
+.secao {
+  margin: 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(232, 230, 227, 0.12);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--home);
+}
+
+.campo {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-align: left;
+}
+.campo .rotulo { opacity: 0.75; }
+.campo b { color: var(--home); }
+.campo .ajuda {
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  opacity: 0.4;
+}
+
+/*
+ * Dificuldade: tres botoes, nao uma lista fechada.
+ *
+ * O <input type=radio> continua ali embaixo — e' ele que guarda o estado, que
+ * responde a teclado e que o Screens le'. O que o CSS faz e' esconder a bolinha
+ * e pintar o rotulo, entao nao ha' estado paralelo pra dessincronizar.
+ */
+.segmento {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  padding: 2px;
+  background: rgba(232, 230, 227, 0.06);
+  border: 1px solid rgba(232, 230, 227, 0.16);
+  border-radius: 5px;
+}
+
+.segmento label { cursor: pointer; }
+.segmento input { position: absolute; opacity: 0; pointer-events: none; }
+
+.segmento span {
+  display: block;
+  padding: 0.5rem 0.3rem;
+  border-radius: 3px;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-align: center;
+  opacity: 0.55;
+  transition: background 0.12s, opacity 0.12s;
+}
+.segmento label:hover span { background: rgba(232, 230, 227, 0.08); opacity: 0.85; }
+.segmento input:checked + span {
+  background: var(--home);
+  color: #fff;
+  opacity: 1;
+  font-weight: 700;
+}
+/* Navegando por teclado a bolinha esta' escondida, entao o foco precisa
+   aparecer no rotulo — senao o Tab anda e nada na tela muda. */
+.segmento input:focus-visible + span { outline: 2px solid var(--tinta); outline-offset: 1px; }
+
+.campo input[type='range'] {
+  width: 100%;
+  height: 1.4rem;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+.campo input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  background: rgba(232, 230, 227, 0.18);
+  border-radius: 2px;
+}
+.campo input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  background: var(--home);
+  border: 2px solid var(--tinta);
+  border-radius: 50%;
+}
+.campo input[type='range']::-moz-range-track {
+  height: 4px;
+  background: rgba(232, 230, 227, 0.18);
+  border-radius: 2px;
+}
+.campo input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: var(--home);
+  border: 2px solid var(--tinta);
+  border-radius: 50%;
+}
+
+/* COMO JOGAR: o texto que morava por cima do jogo. */
+.explica { margin: 0; font-size: 0.8rem; line-height: 1.5; }
+.explica dt {
+  margin-top: 0.85rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  opacity: 0.85;
+}
+.explica dt:first-child { margin-top: 0; }
+.explica dt b { color: var(--home); font-weight: 700; }
+.explica dd { margin: 0.3rem 0 0; opacity: 0.55; }
+.explica dd b { color: var(--tinta); opacity: 0.95; font-weight: 700; }
+
+.botao {
+  width: 100%;
+  padding: 0.75rem 2rem;
+  background: var(--tinta);
+  border: none;
+  border-radius: 5px;
+  color: var(--fundo);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  transition: transform 0.1s, background 0.15s;
+}
+/* Largo, mas nao de ponta a ponta de um cartao de 52rem: um botao dessa
+   largura para de parecer botao. */
+#btn-jogar { max-width: 22rem; }
+
+.botao:hover { background: #fff; transform: translateY(-1px); }
+.botao:active { transform: translateY(0); }
+
+.botao.secundario {
+  background: transparent;
+  border: 1px solid rgba(232, 230, 227, 0.3);
+  color: var(--tinta);
+  font-weight: 400;
+}
+.botao.secundario:hover { background: rgba(232, 230, 227, 0.1); }
