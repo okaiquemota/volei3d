@@ -1040,6 +1040,58 @@ A regra que sai disso: um alfa de HUD ajustado olhando para *um* fundo é um alf
 ajustado para aquele fundo. Se o jogo pode desenhar outra coisa atrás, o painel
 precisa ser quase opaco.
 
+## Cor morre no CLARO, e o culpado era o tone mapping
+
+O padrão do `WebGLRenderer` é `NoToneMapping`: o valor linear vai direto para a
+tela e o que passa de 1 é **cortado**. Com sol em 2.6 e hemisférico em 1.1, tudo
+que é iluminado batia no teto e dois tons diferentes chegavam como a mesma cor —
+a saturação morria exatamente onde há mais luz. É a diferença entre "claro" e
+"sem cor", e era o que fazia a praia parecer papelão.
+
+`ACESFilmicToneMapping` curva os altos em vez de cortá-los. Medido nos pixels do
+framebuffer, a saturação subiu em tudo: céu 0,51 → 0,67, areia 0,57 → 0,67,
+atleta 0,75 → 0,82. ACES escurece os médios, então a exposição sobe junto — **os
+dois números são um ajuste só**, nunca dois.
+
+**E isso reintroduziu o horizonte sujo do cenário QUADRA, por outra porta.**
+`scene.background` **não** passa pela curva; um material passa. O mesmo
+`0xffffff` saiu 255 no fundo e 231 no chão. O chão branco não é uma superfície
+iluminada — ele *é* o fundo continuado para baixo do horizonte — então leva
+`toneMapped = false` e volta a 255. Vale a regra: **se um material tem que casar
+com o `background`, ele precisa da mesma regra de tone mapping que o
+`background`.**
+
+## Luz igual de todo lado é a definição de chapado
+
+O sol era quase branco (`0xfff7e6`) e a luz de céu um cinza-azulado morno, com o
+hemisférico em 1.1. Com as duas quase da mesma cor e o preenchimento forte, a
+face iluminada e a face na sombra saíam do mesmo tom: não faltava luz, faltava
+**diferença** entre as duas.
+
+Agora o sol é âmbar e a luz de céu é azul de verdade, com menos preenchimento
+(1.1 → 0.85) e mais sol (2.6 → 3.4). A sombra deixou de ser "o mesmo, mais
+escuro" e virou outra cor, que é de onde vem o volume.
+
+## Uma cor chapada não é céu, e o teste é a distância
+
+A medida que denunciou tudo: a areia rente aos pés dava 172,133,74 e a vinte
+metros dava 173,134,75 — **idênticas**. Não havia nenhuma pista de profundidade
+no quadro inteiro. A névoa começava a 60 m, ou seja, depois de toda a área de
+jogo.
+
+Duas correções, e as duas são sobre distância:
+
+- **Névoa de 22 m**, não de 60. Ela não existe para simular bruma numa praia ao
+  sol; existe para o chão ter gradiente.
+- **Cúpula de céu** com degradê em três paradas (horizonte, meio, zênite), no
+  lugar de `scene.background` chapado. É uma cúpula e **não** um fundo de tela:
+  fundo de tela não gira com a câmera, então trocar o enquadramento faria o
+  horizonte deslizar com o degradê parado — e o erro apareceria justo quando se
+  mexe na roda.
+
+A cor do horizonte é **a mesma** da névoa. É nela que o chão se dissolve, e
+névoa que destoa do que está atrás recorta a borda do chão como adesivo.
+
 ## O que NÃO foi verificado
 
 O equilíbrio da IA contra um humano de verdade. O que se mediu foi um piloto

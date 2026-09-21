@@ -763,8 +763,18 @@ export const CAMERA = {
  * ideia daqui, entao os valores passaram direto.
  */
 export const COLORS = {
-  sky: 0x73b8eb,
-  sand: 0xe6c995,
+  /**
+   * O ceu, em tres paradas: horizonte, meio e zenite.
+   *
+   * Uma cor so' era o que havia, e uma cor so' nao e' ceu. O olho le' distancia
+   * pelo degrade — e' por ele que a areia longe parece longe. `horizonte` e'
+   * tambem a cor da NEVOA: e' nele que o chao tem que se dissolver, e nevoa que
+   * destoa do que esta' atras recorta a borda do chao como adesivo.
+   */
+  horizonte: 0xc3dff2,
+  sky: 0x4a9ede,
+  zenite: 0x1d64b8,
+  sand: 0xe8bf82,
   /**
    * O branco do cenario QUADRA. UM so' numero, de proposito.
    *
@@ -783,9 +793,24 @@ export const COLORS = {
   post: 0x33383f,
   home: 0x2970d1,
   away: 0xd94d38,
-  sunLight: 0xfff7e6,
-  skyLight: 0x99b8d9,
-  groundLight: 0x6b5f4d,
+  /**
+   * O par QUENTE/FRIO, que e' o que da' volume a uma cena.
+   *
+   * O sol era quase branco (0xfff7e6) e a luz de ceu um cinza-azulado morno:
+   * com os dois quase da mesma cor, a face iluminada e a face na sombra saiam
+   * do mesmo tom e o corpo ficava CHAPADO. Nao e' falta de luz, e' falta de
+   * diferenca entre as duas.
+   *
+   * Agora o sol e' ambar de fim de tarde e a luz de ceu e' azul de verdade. A
+   * mesma superficie ganha lado quente e lado frio, e e' dai que vem o relevo —
+   * a sombra deixa de ser "o mesmo, mais escuro" e passa a ser outra cor.
+   *
+   * `groundLight` e' o que a areia devolve por baixo: dourado, nao marrom, pra
+   * a sombra na areia nao virar um buraco cinza.
+   */
+  sunLight: 0xffe7b8,
+  skyLight: 0x6ba4de,
+  groundLight: 0xc49a63,
 } as const;
 
 export const STORAGE_KEY = 'volei3d.save.v1';

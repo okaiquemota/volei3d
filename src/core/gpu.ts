@@ -60,9 +60,27 @@ export function detectRenderer(): RendererInfo {
  * pela tela inteira: e' dos custos mais caros que existem em software.
  */
 export function createRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer {
-  return new THREE.WebGLRenderer({
+  const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: !detectRenderer().software,
     powerPreference: 'high-performance',
   });
+
+  /**
+   * Tone mapping FILMICO, no lugar do corte seco.
+   *
+   * O padrao do three e' `NoToneMapping`: o valor linear vai direto pra tela e
+   * o que passa de 1 e' CORTADO. Com sol forte isso achata tudo que e' claro no
+   * mesmo teto — dois tons diferentes de areia iluminada chegam na tela como a
+   * mesma cor, e a cor morre justamente onde ha' mais luz. E' a diferenca entre
+   * "claro" e "sem cor", e era o que fazia a praia parecer papelao.
+   *
+   * ACES curva os altos em vez de corta-los: o claro continua claro, mas
+   * guarda a cor. Em troca ela escurece os medios, e por isso a exposicao sobe
+   * junto — os dois numeros sao UM ajuste so', nunca dois.
+   */
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.15;
+
+  return renderer;
 }

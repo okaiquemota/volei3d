@@ -122,6 +122,14 @@ existe com um cursor solto pra apontar.
 
 ## Como o jogo funciona
 
+**Cor.** O renderer usa tone mapping filmico (ACES). Sem ele o que passa de 1 é
+cortado seco, e a saturação morre justamente onde há mais luz — dois tons de
+areia iluminada chegam à tela como a mesma cor. O sol é âmbar e a luz de céu é
+azul: é a diferença entre as duas que desenha volume, não a quantidade de luz.
+E o céu é uma cúpula com degradê, com a névoa começando a 22 m — sem isso a
+areia rente aos pés e a vinte metros davam o mesmo pixel, e nada no quadro dizia
+o que estava longe.
+
 **Quadra.** 16 m × 8 m, medidas oficiais de vôlei de praia, rede a 2,24 m. Zona
 livre de 4 m em volta, que também é o limite de corrida dos atletas.
 

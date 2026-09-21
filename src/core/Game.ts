@@ -12,6 +12,7 @@ import { AIPlayer } from '../players/AI';
 import { descartarGeometriasDeAtleta } from '../players/buildAthlete';
 import { Arena } from '../world/Arena';
 import { construirPraia, type PraiaConstruida } from '../world/buildBeach';
+import { construirCeu, type CeuConstruido } from '../world/buildSky';
 import { carregarQuadraModelo, type ModeloDaQuadra } from '../world/buildQuadraModelo';
 import { PRAIA } from '../world/praia';
 import type { Side } from '../world/Court';
@@ -65,6 +66,9 @@ export class Game {
 
   /** O chao do mundo. Guardado porque o cenario troca a cara dele. */
   private praia!: PraiaConstruida;
+
+  /** A cupula do ceu. Some no cenario QUADRA, onde nao ha' ceu. */
+  private ceu!: CeuConstruido;
 
   /**
    * As quadras que estao VIVAS: desenhadas e simuladas.
@@ -137,15 +141,23 @@ export class Game {
     // nascem em construirQuadra, logo abaixo.
     setMaxAnisotropy(this.renderer.capabilities.getMaxAnisotropy());
 
+    /**
+     * O fundo so' aparece onde a cupula do ceu NAO cobre — hoje, no cenario
+     * QUADRA, onde ela some e sobra o branco.
+     */
     this.scene.background = new THREE.Color(COLORS.sky);
     /**
-     * A nevoa usa a MESMA cor do ceu — se destoar, a borda da areia recorta do
-     * ceu como adesivo (a licao e' do rpk.fps, onde a parede do fundo fazia
-     * isso). Comeca longe: a 60 m nao ha' bruma nenhuma pra ver numa praia ao
-     * sol, ela existe aqui so' pra fazer a areia terminar em vez de ser
-     * cortada.
+     * A nevoa usa a cor do ceu RENTE AO HORIZONTE — se destoar do que esta'
+     * atras, a borda da areia recorta como adesivo (a licao e' do rpk.fps, onde
+     * a parede do fundo fazia isso).
+     *
+     * E ela comeca bem mais perto do que comecava. A 60 m nao havia bruma
+     * nenhuma dentro da area de jogo, e o resultado era uma areia com o MESMO
+     * tom rente aos pes e a vinte metros — medido, 172,133,74 contra
+     * 173,134,75. Isso nao e' "praia ao sol", e' falta de profundidade: e' o
+     * degrade que diz ao olho o que esta' longe.
      */
-    this.scene.fog = new THREE.Fog(COLORS.sky, 60, 175);
+    this.scene.fog = new THREE.Fog(COLORS.horizonte, 22, 150);
 
     this.camera = new THREE.PerspectiveCamera(
       CAMERA.fov,
@@ -169,6 +181,12 @@ export class Game {
     this.scene.add(praia.root);
     this.descartaveis.push(...praia.descartaveis);
     this.praia = praia;
+
+    // A cupula cabe dentro do alcance de visao: maior que o `far`, ela seria
+    // recortada e o ceu viraria preto.
+    this.ceu = construirCeu(CAMERA.far * 0.9);
+    this.scene.add(this.ceu.malha);
+    this.descartaveis.push(...this.ceu.descartaveis);
 
     for (const lugar of PRAIA) {
       const arena = new Arena(lugar.id, lugar.posicao, lugar.rotacao);
@@ -219,10 +237,13 @@ export class Game {
    * precisar apagar alguma, use `intensity = 0`.
    */
   private criarLuzes(): void {
-    const ceu = new THREE.HemisphereLight(COLORS.skyLight, COLORS.groundLight, 1.1);
+    // Menos preenchimento e mais sol: com o hemisferico forte a cena inteira
+    // recebe luz igual de todo lado, e luz igual de todo lado e' a definicao de
+    // chapado. O contraste entre os dois e' o que desenha o volume.
+    const ceu = new THREE.HemisphereLight(COLORS.skyLight, COLORS.groundLight, 0.85);
     this.scene.add(ceu);
 
-    const sol = new THREE.DirectionalLight(COLORS.sunLight, 2.6);
+    const sol = new THREE.DirectionalLight(COLORS.sunLight, 3.4);
     // Mesma direcao do prototipo: Euler(52, -35, 0) apontando pra frente.
     const direcao = new THREE.Vector3(0, 0, 1)
       .applyEuler(new THREE.Euler(THREE.MathUtils.degToRad(52), THREE.MathUtils.degToRad(-35), 0))
@@ -336,7 +357,8 @@ export class Game {
      * borda do chao como adesivo — a licao e' antiga e esta' escrita la' em
      * cima, onde os dois nasceram com a mesma cor.
      */
-    const fundo = naQuadra ? COLORS.brancoDaQuadra : COLORS.sky;
+    this.ceu.malha.visible = !naQuadra;
+    const fundo = naQuadra ? COLORS.brancoDaQuadra : COLORS.horizonte;
     (this.scene.background as THREE.Color).setHex(fundo);
     (this.scene.fog as THREE.Fog).color.setHex(fundo);
 

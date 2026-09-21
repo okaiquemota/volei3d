@@ -100,6 +100,18 @@ export function construirPraia(): PraiaConstruida {
     material.normalScale.setScalar(claro ? 0 : areia.relevo);
     material.color.setHex(claro ? 0x000000 : COLORS.sand);
     material.emissive.setHex(claro ? COLORS.brancoDaQuadra : 0x000000);
+
+    /**
+     * Branco chapado tem que PULAR o tone mapping, como o fundo pula.
+     *
+     * `scene.background` nao passa pela curva; um material passa. Com ACES no
+     * renderer, o mesmo 0xffffff sai 255 no fundo e 231 no chao — e o horizonte
+     * sujo que este cenario existe pra nao ter volta, agora por outra porta.
+     *
+     * Este chao NAO e' uma superficie iluminada: ele E' o fundo, continuado pra
+     * baixo do horizonte. Entao a regra dele e' a do fundo.
+     */
+    material.toneMapped = !claro;
     // Trocar mapa muda o PROGRAMA do shader. Sem isto o three reaproveita o
     // anterior e a troca simplesmente nao aparece.
     material.needsUpdate = true;
