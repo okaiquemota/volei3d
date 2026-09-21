@@ -15,6 +15,7 @@ import { Arena } from '../world/Arena';
 import { construirPraia, type PraiaConstruida } from '../world/buildBeach';
 import { construirCeu, type CeuConstruido } from '../world/buildSky';
 import { carregarQuadraModelo, type ModeloDaQuadra } from '../world/buildQuadraModelo';
+import { carregarEstadio, type ModeloDoEstadio } from '../world/buildEstadio';
 import { PRAIA } from '../world/praia';
 import type { Side } from '../world/Court';
 import { setMaxAnisotropy } from '../world/textures';
@@ -65,6 +66,19 @@ export class Game {
    */
   private modeloDaQuadra: ModeloDaQuadra | null = null;
 
+  /**
+   * O estadio, quando ele chega.
+   *
+   * Diferente dos outros dois: este e' buscado SO' quando o cenario ESTADIO e'
+   * escolhido, e nao no arranque. Sao 1,5 MB, o mesmo peso do corpo dos
+   * atletas, mas o corpo aparece nos tres cenarios e o estadio so' num — puxar
+   * ele de saida seria cobrar de todo mundo por um cenario que a maioria nao
+   * vai abrir.
+   */
+  private modeloDoEstadio: ModeloDoEstadio | null = null;
+  /** Ja' pedimos o estadio? Impede de pedir de novo a cada troca de cenario. */
+  private buscandoEstadio = false;
+
   /** O chao do mundo. Guardado porque o cenario troca a cara dele. */
   private praia!: PraiaConstruida;
 
@@ -91,9 +105,23 @@ export class Game {
    */
   private arenasVivas: Arena[] = [];
 
-  /** O cenario e' de uma quadra so'? */
+  /**
+   * O cenario e' de uma quadra so'?
+   *
+   * QUADRA e ESTADIO sao os dois uma PARTIDA, e nao um lugar: em ambos a praia
+   * com tres jogos acontecendo ao mesmo tempo nao faz sentido nenhum.
+   */
   private get quadraUnica(): boolean {
+    return this.screens.ajustes.cenario !== 'areia';
+  }
+
+  /** O cenario e' o branco do estudio, sem ceu e sem areia? */
+  private get noEstudio(): boolean {
     return this.screens.ajustes.cenario === 'quadra';
+  }
+
+  private get noEstadio(): boolean {
+    return this.screens.ajustes.cenario === 'estadio';
   }
 
   /**
@@ -358,6 +386,24 @@ export class Game {
     }
   }
 
+  /**
+   * Busca o estadio, uma vez, na primeira vez que o cenario for escolhido.
+   *
+   * Falhar aqui nao derruba nada: sem o arquivo, o cenario ESTADIO e' a quadra
+   * de areia de sempre, sem arquibancada em volta. Perde-se a vizinhanca, nao
+   * o jogo.
+   */
+  private async buscarEstadio(): Promise<void> {
+    if (this.buscandoEstadio) return;
+    this.buscandoEstadio = true;
+    try {
+      this.modeloDoEstadio = await carregarEstadio();
+      this.aplicarCenario();
+    } catch (erro) {
+      console.warn('nao deu pra carregar o estadio; seguindo sem arquibancada', erro);
+    }
+  }
+
   private async buscarModeloDaQuadra(): Promise<void> {
     try {
       this.modeloDaQuadra = await carregarQuadraModelo();
@@ -370,22 +416,36 @@ export class Game {
   /** Poe a pele escolhida em todas as quadras da praia, inclusive as que so' se assiste. */
   private aplicarCenario(): void {
     const naQuadra = this.quadraUnica;
-    const molde = naQuadra ? this.modeloDaQuadra?.molde ?? null : null;
-    for (const arena of this.arenas) arena.usarModelo(molde);
-    // O chao acompanha: a quadra de modelo em cima de areia dourada continua
-    // parecendo uma quadra largada na praia, que e' o oposto do que o cenario
-    // esta' tentando ser.
-    this.praia.usarPisoClaro(naQuadra);
 
     /**
-     * O ceu some junto.
+     * A QUADRA de modelo vale nos dois cenarios de partida.
+     *
+     * O estadio e' a vizinhanca dela, nao um substituto: dentro da arquibancada
+     * vai a mesma quadra do cenario QUADRA, e nao areia. Areia ali era a praia
+     * de novo, com arquibancada em volta — que nao e' nem uma coisa nem outra.
+     */
+    const molde = naQuadra ? this.modeloDaQuadra?.molde ?? null : null;
+    for (const arena of this.arenas) arena.usarModelo(molde);
+
+    // O chao acompanha, e sao TRES: areia na praia, branco chapado no estudio,
+    // concreto dentro do estadio. Ver `TipoDePiso`.
+    this.praia.usarPiso(!naQuadra ? 'areia' : this.noEstudio ? 'estudio' : 'arena');
+
+    /**
+     * O ceu some so' no estudio.
+     *
+     * E' aqui que os dois cenarios de partida se separam, e e' o unico lugar:
+     * o QUADRA e' um estudio, sem ceu e sem horizonte; o ESTADIO e' ao ar
+     * livre, com a arquibancada recortada contra o ceu. Ler cenario por um
+     * booleano so' — "uma quadra so'" e "sem ceu" — era a conta que juntava
+     * duas perguntas diferentes.
      *
      * Fundo e nevoa tem que andar juntos: a nevoa que destoa do fundo recorta a
      * borda do chao como adesivo — a licao e' antiga e esta' escrita la' em
      * cima, onde os dois nasceram com a mesma cor.
      */
-    this.ceu.malha.visible = !naQuadra;
-    const fundo = naQuadra ? COLORS.brancoDaQuadra : COLORS.horizonte;
+    this.ceu.malha.visible = !this.noEstudio;
+    const fundo = this.noEstudio ? COLORS.brancoDaQuadra : COLORS.horizonte;
     (this.scene.background as THREE.Color).setHex(fundo);
     (this.scene.fog as THREE.Fog).color.setHex(fundo);
 
@@ -401,6 +461,19 @@ export class Game {
     const unica = naQuadra ? this.minhaArena : null;
     this.arenasVivas = unica ? [unica] : [...this.arenas];
     for (const arena of this.arenas) arena.raiz.visible = this.arenasVivas.includes(arena);
+
+    /**
+     * A arquibancada vai SO' na quadra viva.
+     *
+     * Um estadio por arena seriam tres bowls de 92 m encaixados um no outro —
+     * e as outras duas estao invisiveis de qualquer jeito. Aqui a economia e a
+     * imagem querem a mesma coisa.
+     */
+    const arquibancada = this.noEstadio ? this.modeloDoEstadio?.molde ?? null : null;
+    for (const arena of this.arenas) arena.usarEstadio(arena === unica ? arquibancada : null);
+
+    // Pedir o arquivo so' agora: quem nunca abrir o ESTADIO nunca baixa 1,5 MB.
+    if (this.noEstadio && !this.modeloDoEstadio) void this.buscarEstadio();
 
     // A legenda esconde as teclas da praia: tecla que nao faz nada na tela e'
     // pior do que tecla nenhuma.

@@ -369,6 +369,8 @@ src/
     Physics.ts          o integrador da bola e as colisões
     Markers.ts          os anéis de queda e de mira, no chão
     textures.ts         areia, rede e bola desenhadas em canvas 2D
+    buildQuadraModelo.ts a pele do cenário QUADRA
+    buildEstadio.ts     a arquibancada do cenário ESTÁDIO
   ball/Ball.ts          estado, eventos e previsão de queda
   players/
     Athlete.ts          base comum do humano e da IA
@@ -389,7 +391,10 @@ src/
     Screens.ts          menu, pausa, fim de jogo, opções
     PerfMeter.ts        o painel do F3
     style.css
-tests/                  balística, regras da partida e as poses
+scripts/
+  preparar-estadio.mjs  a receita que transforma o estádio cru em asset
+  asset-report.mjs      quanto pesa cada asset, nos dois builds
+tests/                  balística, regras da partida, as poses e os assets
 ```
 
 `ballistics`, `Match`, `Court` e `Hitter` **não tocam em nada de render** — nem
@@ -515,6 +520,47 @@ longe uns dos outros:
 | `Saque` | 1,80 | 0,31 — um braço |
 | `Ataque` | 1,81 | 0,78 — um braço |
 
+### Um estádio de futebol vira arena de vôlei cortando 73% dele
+
+O cenário **ESTÁDIO** sai de um modelo de estádio de futebol do Sketchfab que
+baixa com **45 MB**. Ele entrou no jogo com **1,5 MB**, e o caminho não foi
+"comprimir": foi *descobrir onde estava o peso*.
+
+O palpite óbvio era textura — "low poly" quer dizer malha barata. Estava errado:
+o `scene.bin` sozinho tinha 36,8 MB contra 8,5 MB de imagem. Medindo peça a
+peça, de 472.208 triângulos:
+
+| peça | triângulos | |
+|---|---|---|
+| 8 gols, com a **rede modelada em geometria** | 262.000 | 55% |
+| 4 alambrados do perímetro, tela em geometria | 83.000 | 18% |
+| escadas de canto | 73.300 | 16% |
+| 4 torres de refletor | 48.800 | 10% |
+| arquibancadas, laje, casca, placa de LED | ~5.000 | 1% |
+
+**As arquibancadas — a única coisa que o jogo queria — custavam 500 triângulos
+cada.** Tudo que pesava era futebol. Jogando fora gol e alambrado, o modelo cai
+para 124 mil triângulos; quantização e meshopt fazem o resto (4,2 MB → 1,5 MB, e
+o decoder já vem com o three, em 29 kB).
+
+Dentro da arquibancada vai a **mesma quadra do cenário QUADRA** — o estádio é a
+vizinhança dela, não um substituto. O chão em volta é concreto: areia ali seria a
+praia de novo, com arquibancada em volta, que não é nem uma coisa nem outra.
+
+Duas outras medidas resolveram o encaixe, e as duas foram surpresas boas:
+
+- **O gramado tem 20,3 × 33,4 m**, e não os 105 × 68 de um campo oficial. A
+  quadra com zona livre é 16 × 24 m. Cabe em **1:1** — não foi preciso escalar
+  nada, e por isso o degrau da arquibancada mantém o tamanho certo.
+- **As três texturas de 2048²** (8,2 MB em disco, 67 MB de VRAM) eram todas do
+  mastro dos refletores. Relevo e brilho numa treliça a 40 m não viram pixel.
+
+A adaptação é um **script versionado**, `scripts/preparar-estadio.mjs`, e não um
+"abri no Blender e exportei": o que sai dali é um binário que ninguém revisa, e
+o arquivo cru de 45 MB não cabe no repositório. O script também **mede o gramado
+antes de apagá-lo** para alinhar o modelo — assim a correção de altura fica
+assada no asset, em vez de virar um número mágico dentro do jogo.
+
 ## Publicando
 
 O repositório traz um workflow de GitHub Pages: `npm ci`, `npm run build`,
@@ -552,6 +598,11 @@ O menu tem um controle de resolução (50% a 100%). O custo do quadro cresce com
 
 O cenário **QUADRA** usa o modelo *[Volleyball court](https://sketchfab.com/3d-models/volleyball-court-1d42899e76374926869d370a222be1c3)*,
 de **Konstantin**, sob [CC Attribution 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+O cenário **ESTÁDIO** usa *[Low Poly Football Stadium](https://sketchfab.com/3d-models/low-poly-football-stadium-c5b5277cebf647fd863f3b37da118c9b)*,
+de **ismeteren07**, sob [CC Attribution 4.0](https://creativecommons.org/licenses/by/4.0/) —
+adaptado: gol, alambrado e gramado removidos, e o resto realinhado sobre a
+quadra. A receita da adaptação está em `scripts/preparar-estadio.mjs`.
 O crédito também aparece no rodapé do menu, que é onde a licença exige que ele
 esteja: visível para quem joga, não só para quem lê o repositório.
 

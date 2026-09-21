@@ -8,7 +8,7 @@ export type Dificuldade = 'facil' | 'normal' | 'dificil';
  * `areia` e' a quadra desenhada por codigo, que o jogo sempre teve. `quadra` e'
  * a pele de modelo por cima do MESMO campo — muda o desenho, nao as medidas.
  */
-export type Cenario = 'areia' | 'quadra';
+export type Cenario = 'areia' | 'quadra' | 'estadio';
 
 export interface Ajustes {
   dificuldade: Dificuldade;

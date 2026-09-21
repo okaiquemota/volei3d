@@ -6,15 +6,30 @@ export interface PraiaConstruida {
   root: THREE.Group;
   descartaveis: Array<{ dispose(): void }>;
   /**
-   * Troca o chao entre a areia e o piso claro do cenario QUADRA.
+   * Troca a cara do chao entre os tres cenarios.
    *
    * O chao e' UM pra praia inteira, entao isto vale pras tres quadras e pra
    * quem anda na areia — o cenario e' do MUNDO, nao de uma arena. Trocar so' o
    * pedaco em volta de uma quadra exigiria recortar a laje, e ela existe
    * justamente pra nao ter recorte nenhum.
    */
-  usarPisoClaro(claro: boolean): void;
+  usarPiso(tipo: TipoDePiso): void;
 }
+
+/**
+ * Os tres chaos, e por que sao tres e nao dois.
+ *
+ * Eram dois enquanto os cenarios eram dois, e o parametro era um booleano
+ * `claro`. O ESTADIO nao cabe em nenhum dos dois: nao e' praia, e tambem nao e'
+ * o branco chapado do estudio — ali dentro o chao e' PISO DE ARENA, iluminado
+ * como qualquer superficie, porque tem arquibancada projetando sombra em volta
+ * e um fundo branco sem luz mataria o volume todo.
+ *
+ *   areia    a praia: textura, relevo, cor quente.
+ *   estudio  o QUADRA: branco chapado que E' o fundo, sem luz nenhuma.
+ *   arena    o ESTADIO: concreto liso, iluminado, sem textura de grao.
+ */
+export type TipoDePiso = 'areia' | 'estudio' | 'arena';
 
 /**
  * O chao do mundo. UM, pra praia inteira.
@@ -74,7 +89,8 @@ export function construirPraia(): PraiaConstruida {
   mesh.receiveShadow = true;
   root.add(mesh);
 
-  const usarPisoClaro = (claro: boolean): void => {
+  const usarPiso = (tipo: TipoDePiso): void => {
+    const claro = tipo === 'estudio';
     /**
      * Pra ser branco de verdade, o chao para de ser ILUMINADO.
      *
@@ -96,9 +112,18 @@ export function construirPraia(): PraiaConstruida {
      * dentro da quadra, e ali a sombra cai na laje do modelo, que continua
      * iluminada.
      */
-    material.map = claro ? null : areia.map;
-    material.normalScale.setScalar(claro ? 0 : areia.relevo);
-    material.color.setHex(claro ? 0x000000 : COLORS.sand);
+    const naAreia = tipo === 'areia';
+    material.map = naAreia ? areia.map : null;
+    material.normalScale.setScalar(naAreia ? areia.relevo : 0);
+    /**
+     * O piso de arena e' o unico dos tres que e' cor LISA E ILUMINADA.
+     *
+     * A areia tira a cor da textura; o estudio desliga a luz pra ser branco de
+     * verdade. A arena quer o meio: cinza de concreto que responde ao sol e a'
+     * sombra, senao o chao em volta da quadra vira um recorte chapado debaixo
+     * de uma arquibancada com volume.
+     */
+    material.color.setHex(claro ? 0x000000 : naAreia ? COLORS.sand : COLORS.pisoDaArena);
     material.emissive.setHex(claro ? COLORS.brancoDaQuadra : 0x000000);
 
     /**
@@ -117,5 +142,5 @@ export function construirPraia(): PraiaConstruida {
     material.needsUpdate = true;
   };
 
-  return { root, descartaveis, usarPisoClaro };
+  return { root, descartaveis, usarPiso };
 }

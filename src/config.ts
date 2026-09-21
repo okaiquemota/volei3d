@@ -786,9 +786,18 @@ export const COLORS = {
    *
    * A luz do ceu aqui e' azulada (`skyLight`), entao QUALQUER cor de material
    * sai puxando pro cinza-azulado. Branco de verdade num chao so' sai desligando
-   * a iluminacao dele — ver `usarPisoClaro`.
+   * a iluminacao dele — ver `usarPiso`.
    */
   brancoDaQuadra: 0xffffff,
+  /**
+   * O chao em volta da quadra dentro do ESTADIO.
+   *
+   * Cinza de concreto, tirado da propria laje do modelo pra nao brigar com ela.
+   * Nao pode ser areia (a quadra de modelo em cima de areia le' como quadra
+   * largada na praia) nem o branco do estudio (chapado, sem sombra, some
+   * debaixo da arquibancada).
+   */
+  pisoDaArena: 0x3c3f45,
   line: 0xf7f7f2,
   post: 0x33383f,
   home: 0x2970d1,

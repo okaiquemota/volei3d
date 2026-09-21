@@ -52,6 +52,8 @@ export class Arena {
    */
   private desenhoDaQuadra!: THREE.Group;
   private peleDeModelo: THREE.Object3D | null = null;
+  /** O estadio em volta, quando o cenario e' ESTADIO. Nao e' pele: e' vizinhanca. */
+  private estadio: THREE.Object3D | null = null;
 
   /** Segundos ate' os bots comecarem a partida seguinte. */
   private descanso = MATCH.descansoEntrePartidas;
@@ -123,6 +125,29 @@ export class Arena {
     }
 
     this.desenhoDaQuadra.visible = molde === null;
+  }
+
+  /**
+   * Poe (ou tira) o estadio em volta desta quadra. `null` tira.
+   *
+   * Separado de `usarModelo` de proposito, porque sao coisas diferentes: a pele
+   * SUBSTITUI o desenho da quadra, o estadio nao substitui nada — ele e' o que
+   * fica em VOLTA, e a quadra desenhada por codigo continua igual embaixo dele.
+   * Juntar os dois num metodo so' obrigaria um `if` pra decidir se o desenho da
+   * quadra some, e seria exatamente o tipo de conta escondida que a troca de
+   * cenario nao pode ter.
+   */
+  usarEstadio(molde: THREE.Object3D | null): void {
+    if (this.estadio) {
+      this.raiz.remove(this.estadio);
+      this.estadio = null;
+    }
+
+    if (molde) {
+      this.estadio = molde.clone();
+      this.estadio.applyMatrix4(this.court.matrix);
+      this.raiz.add(this.estadio);
+    }
   }
 
   /**

@@ -1228,6 +1228,62 @@ isso mede a silhueta (altura da mão, desnível, separação) e exige que os ges
 fiquem **distantes uns dos outros**, porque é isso que o olho usa quando o boneco
 tem 90 pixels de altura.
 
+## O peso de um asset não está onde a intuição diz
+
+Diante de um estádio de 45 MB marcado como "low poly", o palpite foi textura —
+malha barata, imagem cara. Errado: `scene.bin` tinha **36,8 MB** contra 8,5 MB
+de imagem. E medindo peça a peça, o peso não era nem "o modelo é detalhado":
+**73% dos triângulos eram a rede dos gols e a tela dos alambrados, modeladas em
+geometria**, e as arquibancadas — a única coisa que o jogo queria — custavam 500
+triângulos cada.
+
+A lição é de método: **medir antes de otimizar**, e medir *por peça*, não no
+agregado. "Comprimir o modelo" teria rendido talvez 3×; jogar fora o futebol
+rendeu 4× antes de qualquer compressão, e as duas juntas deram 30×.
+
+O segundo achado foi de escala, e mudou o plano inteiro: o gramado tem
+**20,3 × 33,4 m**, não os 105 × 68 de um campo oficial. A quadra com zona livre
+é 16 × 24. Cabe em 1:1 — e todo o plano de "achatar a arquibancada no
+comprimento pra trazer perto", que era a ideia de partida, virou desnecessário.
+Duas medidas mataram um projeto inteiro de cirurgia de geometria.
+
+## Cenário deixou de ser um booleano, e isso quase passou batido
+
+Com dois cenários, "é uma quadra só" e "é piso branco sem céu" eram a mesma
+pergunta, e o código lia os dois de um `quadraUnica` só. O ESTÁDIO quebrou isso:
+ele é **partida de uma quadra só, como o QUADRA, mas ao ar livre e sobre areia,
+como a AREIA**.
+
+Manter o booleano teria feito o estádio nascer dentro do vazio branco do estúdio
+— e o sintoma seria "o cenário está feio", não "o código tem um eixo a menos".
+Hoje são duas perguntas separadas (`quadraUnica` e `noEstudio`), porque eram
+duas desde sempre e só um terceiro caso revelou.
+
+O chão sofreu do mesmo mal, e aí o erro chegou a ir pra tela: `usarPisoClaro`
+recebia um **booleano**, e com três cenários o chão tem três estados — areia,
+branco chapado do estúdio, e concreto de arena. Forçando o estádio a escolher
+entre os dois antigos, ele saiu sobre areia (quadra largada na praia, com
+arquibancada em volta) e depois sobre branco chapado (um vazio claro sob a
+arquibancada). Nenhum dos dois é o que ele é. Hoje é `usarPiso(tipo)`, com os
+três nomeados.
+
+## O asset cozido precisa de teste, e o teste é "nada invade a quadra"
+
+O estádio sai de um script que apaga 73% do original. O arquivo cru não está no
+repositório, então ninguém vai comparar os dois. E ele é **só desenho**: não tem
+colisor, e o `Court` não sabe que existe.
+
+Por isso o teste que importa não é de tamanho nem de contagem — é que **nenhum
+vértice do estádio está dentro da quadra mais a zona livre, até 3 m de altura**.
+Uma arquibancada que invada a zona livre não empurra ninguém: ela engole o
+atleta, que corre por dentro do concreto, e nada quebra.
+
+A conferência é por vértice e não por caixa, e isso é deliberado: a caixa da
+placa de LED é um anel em volta do campo, cobre a quadra inteira e o miolo é
+vazio — daria alarme falso. Vértice basta porque a única peça que era um
+triângulo gigante atravessando o campo, o gramado, é justamente a que a receita
+apaga.
+
 ## O que NÃO foi verificado
 
 As poses foram conferidas em imagem, no enquadramento da câmera de jogo, e
