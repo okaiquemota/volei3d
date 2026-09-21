@@ -3,6 +3,7 @@ import { COLORS, MATCH } from '../config';
 import { Ball } from '../ball/Ball';
 import { LigacaoDoRally, Match, type EventosDaPartida } from '../match/Match';
 import { AIPlayer } from '../players/AI';
+import type { ModeloDoAtleta } from '../players/buildAtletaModelo';
 import type { Athlete } from '../players/Athlete';
 import { Human } from '../players/Human';
 import { Court, sinalDe, type Side } from './Court';
@@ -124,6 +125,21 @@ export class Arena {
     this.desenhoDaQuadra.visible = molde === null;
   }
 
+  /**
+   * A pele dos dois atletas desta arena.
+   *
+   * Guardada, porque `ocupar` e `liberar` DESCARTAM o atleta e criam outro: sem
+   * lembrar qual e' a pele, entrar numa quadra devolveria uma capsula no meio
+   * de dois bonecos.
+   */
+  private modeloDoAtleta: ModeloDoAtleta | null = null;
+
+  usarModeloDeAtleta(modelo: ModeloDoAtleta | null): void {
+    this.modeloDoAtleta = modelo;
+    this.home.usarModelo(modelo);
+    this.away.usarModelo(modelo);
+  }
+
   private criarBot(lado: Side): AIPlayer {
     const bot = new AIPlayer(
       'CPU',
@@ -134,6 +150,7 @@ export class Arena {
       this.rally,
     );
     this.raiz.add(bot.objeto);
+    bot.usarModelo(this.modeloDoAtleta);
     return bot;
   }
 
@@ -165,6 +182,10 @@ export class Arena {
     const antigo = lado === 'home' ? this.home : this.away;
     this.raiz.remove(antigo.objeto);
     antigo.dispose();
+
+    // O atleta que entra herda a pele da arena. O bot recem-criado ja' vem
+    // vestido pelo `criarBot`; o humano chega de fora e nao sabe de nada.
+    quem.usarModelo(this.modeloDoAtleta);
 
     if (lado === 'home') this.home = quem;
     else this.away = quem;

@@ -3,12 +3,18 @@ import { AI, COURT, PLAYER } from '../config';
 import type { Ball, Tocador } from '../ball/Ball';
 import { Court, oposto, type Side } from '../world/Court';
 import { construirAtleta, type AtletaVisual } from './buildAthlete';
+import { copiarModelo, type ModeloDoAtleta } from './buildAtletaModelo';
+import { Animador, estadoDoMotor } from './Animador';
+import type { EstadoDoCorpo } from './animacoes';
 import { Hitter } from './Hitter';
 import { Motor } from './Motor';
 
 const _direcao = new THREE.Vector3();
 const _ponto = new THREE.Vector3();
 const _local = new THREE.Vector3();
+const _estado: EstadoDoCorpo = {
+  noChao: true, mergulhando: false, levantando: false, velocidade: 0, anguloDoAndar: 0,
+};
 
 /** O que o atleta precisa saber sobre o rally, sem conhecer o Match inteiro. */
 export interface EstadoDoRally {
@@ -34,10 +40,14 @@ export abstract class Athlete implements Tocador {
   /** Esta' esperando pra sacar? */
   sacando = false;
 
+  /** O corpo de modelo, quando ha' um. Null enquanto o atleta e' capsula. */
+  private corpo: THREE.Object3D | null = null;
+  private animador: Animador | null = null;
+
   constructor(
     readonly nome: string,
     readonly side: Side,
-    cor: number,
+    private readonly cor: number,
     protected court: Court,
     protected ball: Ball,
     protected rally: EstadoDoRally,
@@ -94,10 +104,42 @@ export abstract class Athlete implements Tocador {
     this.sincronizarVisual();
   }
 
+  /**
+   * Troca a capsula por um corpo de modelo. `null` volta pra capsula.
+   *
+   * A raiz do visual NAO muda: ela e' o que o `Motor` posiciona e gira, e a
+   * pele entra dentro dela. Por isso o tombo do mergulho, o giro do corpo e o
+   * limite de area continuam funcionando sem saber que o desenho mudou.
+   */
+  usarModelo(modelo: ModeloDoAtleta | null): void {
+    if (this.corpo) {
+      this.visual.root.remove(this.corpo);
+      this.corpo = null;
+    }
+    this.animador?.dispose();
+    this.animador = null;
+
+    if (modelo) {
+      this.corpo = copiarModelo(modelo.molde, this.cor);
+      this.visual.root.add(this.corpo);
+      this.animador = new Animador(this.corpo, modelo.animacoes);
+    }
+
+    this.visual.capsulas.visible = modelo === null;
+  }
+
   /** Leva a posicao do motor pro objeto da cena. Chamar no fim do update. */
   protected sincronizarVisual(dt = 0): void {
     this.visual.root.position.copy(this.motor.posicao);
-    if (dt > 0) this.motor.aplicarRotacao(this.visual.root, dt);
+    if (dt > 0) {
+      this.motor.aplicarRotacao(this.visual.root, dt);
+      this.animar(dt);
+    }
+  }
+
+  private animar(dt: number): void {
+    if (!this.animador) return;
+    this.animador.update(estadoDoMotor(this.motor, _estado), dt);
   }
 
   /** Direcao horizontal, em mundo, que aponta deste atleta pra rede. */
@@ -159,6 +201,7 @@ export abstract class Athlete implements Tocador {
   }
 
   dispose(): void {
+    this.animador?.dispose();
     this.visual.dispose();
   }
 }

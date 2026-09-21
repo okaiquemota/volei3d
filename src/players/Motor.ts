@@ -87,6 +87,16 @@ export class Motor {
   get inclinacaoDoCorpo(): number { return this.deitado; }
 
   /**
+   * Pra onde o corpo esta' virado, em mundo. So' leitura.
+   *
+   * Quem anima precisa disto: o atleta encara a bola enquanto anda relativo a'
+   * camera, entao "pra onde ele anda" e "pra onde ele olha" sao coisas
+   * diferentes quase o tempo todo, e e' a diferenca entre as duas que decide se
+   * o passo e' pra frente ou de lado.
+   */
+  get frente(): THREE.Vector3 { return this.direcaoDeFrente; }
+
+  /**
    * Joga o corpo na direcao pedida.
    *
    * `direcao` zerada mergulha pra FRENTE: quem aperta sem andar quer o peixinho

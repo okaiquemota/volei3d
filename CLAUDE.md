@@ -1114,6 +1114,47 @@ Duas correções, e as duas são sobre distância:
 A cor do horizonte é **a mesma** da névoa. É nela que o chão se dissolve, e
 névoa que destoa do que está atrás recorta a borda do chão como adesivo.
 
+## O atleta é uma pele, e `Object3D.clone` NÃO serve para ele
+
+`Athlete.usarModelo` e `Banhista.usarModelo` trocam a cápsula por um corpo de
+modelo dentro da **mesma raiz** — a raiz é o que o `Motor` posiciona e gira, e é
+por isso que o tombo do mergulho, o giro do corpo e o limite de área continuam
+funcionando sem saber que o desenho mudou.
+
+**A cópia tem que ser `SkeletonUtils.clone`.** O `Object3D.clone` copia a árvore
+mas deixa as malhas apontando para o esqueleto **original**: dois atletas
+passariam a compartilhar um esqueleto e fariam exatamente a mesma pose, o tempo
+todo. O sintoma não parece um bug de clone — parece a IA copiando o jogador.
+
+Os materiais também são copiados por atleta, senão pintar um time pinta os dois.
+O material do time é `Worker_Vest`, o colete.
+
+`Arena` guarda qual é a pele porque `ocupar`/`liberar` **descartam** o atleta e
+criam outro: sem lembrar, entrar numa quadra devolveria uma cápsula no meio de
+dois bonecos.
+
+## O sinal do passo lateral errou, e o teste que existia não pegava
+
+`clipeDoCorpo` é pura e tinha teste, com ângulos escritos à mão. Passava. E
+mesmo assim apertar `D` tocava `Run_Left`: o contrato estava certo e quem
+traduzia o `Motor` para ele é que estava invertido.
+
+O produto vetorial em Y de dois vetores horizontais (`f.z*v.x - f.x*v.z`) dá
+positivo para a **esquerda** de quem olha, não para a direita. Confere: com o
+corpo virado para +Z, a direita dele é -X (a mesma conta do `controle.ts`), e a
+fórmula devolve -1 nesse caso.
+
+A lição é sobre onde o teste começa: **um teste que parte do tipo intermediário
+não cobre o adaptador.** O de agora parte de um `Motor` de verdade, manda ele
+andar para a direita e exige `Run_Right` — e é o único que pegaria isso.
+Sintoma de passo cruzado lê como "meio estranho", nunca como "errado".
+
+## O corpo anda no tempo do JOGO, não no do relógio
+
+`Animador.update` recebe o `dt` que já passou pelo `Tempo`. Em câmera lenta o
+mundo anda a 35% e o boneco tem que andar junto — com o `dt` do relógio ele
+correria no lugar enquanto tudo em volta arrasta.
+
 ## O que NÃO foi verificado
 
 O equilíbrio da IA contra um humano de verdade. O que se mediu foi um piloto

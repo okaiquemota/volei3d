@@ -122,6 +122,25 @@ existe com um cursor solto pra apontar.
 
 ## Como o jogo funciona
 
+**Os atletas são um modelo.** *Ultimate Modular Men Pack*, de Quaternius (CC0),
+com as 24 animações que vêm nele. É uma **pele**, como a quadra: o `Motor`
+continua dizendo onde o corpo está e para onde ele olha, e o `Hitter` continua
+medindo alcance a partir dos pés — nenhuma regra sabe que o desenho mudou.
+
+A escala não precisou de encaixe nenhum: o modelo mede 1,86 m com os pés em
+`y = 0`, que é exatamente o `ATHLETE.height`. Sem Z-up, sem escala 0,01, sem
+transform na raiz — as três armadilhas que a quadra de modelo teve.
+
+A locomoção usa as **quatro direções** (`Run`, `Run_Back`, `Run_Left`,
+`Run_Right`), e isso não é enfeite: o atleta encara a bola enquanto anda relativo
+à câmera, ou seja, anda de lado quase o tempo todo. Com um `Run` frontal só,
+metade da partida seria o boneco deslizando de lado com as pernas correndo para
+a frente.
+
+Ainda faltam pulo e mergulho — o pack não tem. No ar e no mergulho o corpo vai
+rígido, que é exatamente o que a cápsula fazia, e quem deita o corpo continua
+sendo o `Motor`.
+
 **Cor.** O renderer usa tone mapping filmico (ACES). Sem ele o que passa de 1 é
 cortado seco, e a saturação morre justamente onde há mais luz — dois tons de
 areia iluminada chegam à tela como a mesma cor. O sol é âmbar e a luz de céu é
@@ -482,3 +501,7 @@ O crédito também aparece no rodapé do menu, que é onde a licença exige que 
 esteja: visível para quem joga, não só para quem lê o repositório.
 
 Todo o resto — quadra, atletas, bola, areia, rede — é gerado por código.
+
+O corpo dos atletas é o *[Ultimate Modular Men Pack](https://quaternius.com/packs/ultimatemodularcharacters.html)*,
+de **Quaternius**, sob **CC0** — domínio público, sem exigência de crédito. Está
+aqui porque é justo, não porque é obrigatório.

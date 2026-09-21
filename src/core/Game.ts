@@ -8,6 +8,7 @@ import { HUD } from '../ui/HUD';
 import { Screens } from '../ui/Screens';
 import { Human } from '../players/Human';
 import { Banhista } from '../players/Banhista';
+import { carregarAtletaModelo, type ModeloDoAtleta } from '../players/buildAtletaModelo';
 import { AIPlayer } from '../players/AI';
 import { descartarGeometriasDeAtleta } from '../players/buildAthlete';
 import { Arena } from '../world/Arena';
@@ -69,6 +70,15 @@ export class Game {
 
   /** A cupula do ceu. Some no cenario QUADRA, onde nao ha' ceu. */
   private ceu!: CeuConstruido;
+
+  /**
+   * O corpo de modelo dos atletas, quando ele chega.
+   *
+   * Mesmo desenho da quadra de modelo: carrega em segundo plano, e ate' chegar
+   * todo mundo joga de capsula. Sao 1,5 MB — travar a primeira pintura por
+   * causa disso seria pagar caro pelo que e' so' aparencia.
+   */
+  private modeloDoAtleta: ModeloDoAtleta | null = null;
 
   /**
    * As quadras que estao VIVAS: desenhadas e simuladas.
@@ -322,6 +332,7 @@ export class Game {
     this.screens.mostrarMenu(true);
     this.hud.definirNomes(MEU_NOME, 'CPU');
     void this.buscarModeloDaQuadra();
+    void this.buscarModeloDoAtleta();
   }
 
   /**
@@ -331,6 +342,22 @@ export class Game {
    * glTF quebrado, o que se perde e' um cenario — e o outro continua sendo o
    * que o jogo sempre foi.
    */
+  /**
+   * Busca o corpo dos atletas e veste todo mundo.
+   *
+   * Falhar aqui nao derruba o jogo: sem rede ou com o arquivo quebrado, o que
+   * se perde e' a aparencia, e a capsula continua jogando o mesmo jogo.
+   */
+  private async buscarModeloDoAtleta(): Promise<void> {
+    try {
+      this.modeloDoAtleta = await carregarAtletaModelo();
+      for (const arena of this.arenas) arena.usarModeloDeAtleta(this.modeloDoAtleta);
+      this.banhista.usarModelo(this.modeloDoAtleta);
+    } catch (erro) {
+      console.warn('nao deu pra carregar o corpo dos atletas; seguindo de capsula', erro);
+    }
+  }
+
   private async buscarModeloDaQuadra(): Promise<void> {
     try {
       this.modeloDaQuadra = await carregarQuadraModelo();
@@ -886,6 +913,7 @@ export class Game {
     // O modelo e' UM: as arenas so' tem clones, que compartilham geometria e
     // material. Quem descarta e' o molde, e uma vez so'.
     this.modeloDaQuadra?.dispose();
+    this.modeloDoAtleta?.dispose();
     descartarGeometriasDeAtleta();
     this.renderer.dispose();
   }

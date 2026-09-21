@@ -13,6 +13,14 @@ import * as THREE from 'three';
 
 export interface AtletaVisual {
   root: THREE.Group;
+  /**
+   * So' as capsulas.
+   *
+   * Separadas da raiz porque a raiz e' o que o `Motor` posiciona e gira, e ela
+   * tem que continuar existindo quando o corpo vira um modelo. O que some e'
+   * este grupo.
+   */
+  capsulas: THREE.Group;
   /** Ancora onde a bola fica presa no saque. Acompanha o corpo. */
   ancoraDeSaque: THREE.Object3D;
   dispose(): void;
@@ -49,6 +57,8 @@ export function descartarGeometriasDeAtleta(): void {
 export function construirAtleta(cor: number, alturaDaBolaNoSaque: number): AtletaVisual {
   const g = garantirGeometrias();
   const root = new THREE.Group();
+  const capsulas = new THREE.Group();
+  root.add(capsulas);
 
   const material = new THREE.MeshStandardMaterial({ color: cor, roughness: 0.85, metalness: 0 });
   const materialClaro = new THREE.MeshStandardMaterial({ color: 0xf7f7f2, roughness: 0.9, metalness: 0 });
@@ -57,7 +67,7 @@ export function construirAtleta(cor: number, alturaDaBolaNoSaque: number): Atlet
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(x, y, z);
     mesh.castShadow = true;
-    root.add(mesh);
+    capsulas.add(mesh);
     return mesh;
   };
 
@@ -85,6 +95,7 @@ export function construirAtleta(cor: number, alturaDaBolaNoSaque: number): Atlet
 
   return {
     root,
+    capsulas,
     ancoraDeSaque,
     dispose: () => {
       material.dispose();
