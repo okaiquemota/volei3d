@@ -653,6 +653,72 @@ notebooks — a ação principal do jogo cai abaixo da dobra. O `minmax(0, 1fr)`
 obrigatório: um item de grid não encolhe abaixo do próprio conteúdo sem
 `min-height: 0`, e aí o `1fr` não serve pra nada.
 
+## A câmera de jogo tem DOIS enquadramentos, e não um zoom
+
+A roda mexia num multiplicador que escalava altura e distância **juntas**, de
+propósito: assim o ângulo não mudava. Isso mantinha a conta da fita válida em
+todo o alcance, e mantinha também a única coisa que a câmera sabia fazer.
+
+Agora `CAMERA.jogoPerto` e `CAMERA.jogoLonge` são dois enquadramentos inteiros e
+a roda interpola entre eles (`CameraRig.enquadramento`, 0 a 1) — altura,
+distância, quanto o foco puxa pra bola e quanto ela acompanha de lado. O ângulo
+muda junto, que é o que separa uma câmera de ombro de uma tática: a de ombro não
+é a tática de perto, é outra coisa.
+
+Medido em 1280×720, o jogador na linha de fundo, com `camera.project`:
+
+| | corpo do atleta | campo adversário |
+|---|---|---|
+| ombro (3,8 m / 6,5 m) | 27% da altura do quadro | 78 px |
+| tática (10,5 m / 13 m) | 12% | 101 px |
+
+O número que importa é o segundo: a mira é um ponto no chão resolvido por
+raycast do cursor, então a altura em pixels do campo adversário **é** a
+resolução da mira. O ombro custa um quarto dela — não é de graça, e não é
+proibitivo.
+
+Ao medir isto: o `home` fica em **z negativo** no espaço local da quadra. Projetar
+`(0, 0, -8)` achando que é a linha de fundo adversária devolve a sua própria, e o
+resultado parece dizer que o campo de lá está *abaixo* da rede na tela. O sinal
+sai de `sinalDe(side)`.
+
+## O tempo do jogo e o tempo do relógio se separam num lugar só
+
+`Game.update` calcula `dtJogo = dt * tempo.passo(dt, ...)` e passa `dtJogo` pra
+tudo que é mundo: arenas, banhista, `rig.update`. O que continua no relógio é o
+que é leitura do jogador — o aviso do ponto (`hud.update`, lá no laço) e a
+própria barra do poder, que senão demoraria a recarregar dentro da sua própria
+câmera lenta.
+
+`Tempo` gasta em segundos de **relógio**, e isso é a decisão inteira: em tempo
+de jogo, 2,5 segundos a 35% seriam sete segundos vividos — três vezes o que a
+barra promete, e ninguém descobre isso olhando. Tem teste justamente por isso.
+
+Duas armadilhas que o teste protege e a tela não mostra:
+
+- **O mínimo vale pra LIGAR, não pra manter.** Os dois no mesmo teste fazem o
+  poder desligar sozinho a um quinto da barra, no meio de um toque.
+- **Esvaziou, só volta depois de soltar.** Sem essa trava, segurar o botão
+  depois do fim faz a barra recarregar, cruzar o mínimo e religar sozinha por
+  meio segundo, em ciclos.
+
+## Um `top: Nvmin` por elemento é uma bomba-relógio no HUD
+
+Placar, barras e avisos tinham cada um o seu `top` em vmin. No dia em que a
+barra do poder entrou **entre** o placar e as barras, todas as de baixo ficaram
+erradas de uma vez — em 1024×640 a barra de FORÇA nascia 17 px *dentro* da
+barra do poder. O número mágico não sabia que o bloco acima tinha crescido.
+
+Agora tudo que mora no alto está dentro de `#hud-top`, empilhado em **fluxo**:
+cada um começa onde o anterior acaba e some sem deixar buraco (`.hidden` é
+`display: none`). O cluster das barras é o último filho, com `height: 0` — ele
+marca onde começa, e os três filhos continuam pendurados nele em posições fixas,
+porque esconder a FORÇA não pode puxar o TOQUE pra cima.
+
+Efeito colateral do enquadramento novo: as barras agora caem na altura da REDE
+na tela. Os trilhos passaram a ser quase opacos (0,92) — com 0,72 a malha preta
+aparecia por dentro da barra.
+
 ## O que NÃO foi verificado
 
 O equilíbrio da IA contra um humano de verdade. O que se mediu foi um piloto

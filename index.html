@@ -12,6 +12,16 @@
 
   <!-- ================= HUD ================= -->
   <div id="hud" class="hidden">
+    <!--
+      O mundo lento tem que SE VER, e nao so' se sentir: sem isto o jogador nao
+      sabe se o poder pegou ou se o jogo engasgou.
+
+      PRIMEIRO filho do HUD de proposito: assim o veu tinge o que esta' atras —
+      a praia — e passa por baixo de placar, barras e legenda, que precisam ler
+      igual com ele ligado ou desligado.
+    -->
+    <div id="lento"></div>
+
     <!-- topo: placar e quem saca -->
     <div id="hud-top">
       <div id="scoreboard">
@@ -22,39 +32,52 @@
         <span class="lado away" id="away-name">CPU</span>
       </div>
       <div id="serve-line">SAQUE: VOCE</div>
+
+      <!-- A barra do poder de camera lenta. Mora com o placar, e nao com as
+           barras de toque: aquelas sao leitura DESTE contato e vivem meio
+           segundo; esta e' um recurso que atravessa o set, como o placar. -->
+      <div id="tempo" class="hidden">
+        <kbd>F</kbd>
+        <div id="tempo-trilho"><div id="tempo-fill"></div></div>
+      </div>
+
+      <!-- qual quadra a camera mostra (so' ao assistir) -->
+      <div id="quadra-atual" class="hidden"></div>
+
+      <!--
+        As duas barras e o aviso do golpe, empilhados aqui EM FLUXO.
+
+        Ficavam soltos num `top: 13vmin` proprio, e por isso a barra do poder,
+        que nasceu depois, caiu em cima deles: o topo do HUD cresceu e o numero
+        magico nao sabia disso. Como ultimo filho do bloco do placar, o cluster
+        comeca onde o de cima acabar, seja la' quantas linhas ele tenha.
+
+        Os tres filhos continuam soltos DENTRO daqui, cada um no seu lugar fixo:
+        esconder a FORCA nao pode puxar o TOQUE pra cima.
+      -->
+      <div id="medidores">
+        <!-- barra de forca do ataque -->
+        <div id="carga" class="hidden">
+          <div id="carga-trilho"><div id="carga-fill"></div></div>
+          <span>FORCA</span>
+        </div>
+
+        <!-- janela do toque: sobe enquanto a bola vem pro corpo -->
+        <div id="toque" class="hidden">
+          <div id="toque-trilho"><div id="toque-fill"></div></div>
+          <span>TOQUE</span>
+        </div>
+
+        <!-- como saiu o ultimo toque -->
+        <div id="toque-aviso"></div>
+      </div>
     </div>
 
-    <!-- topo: qual quadra a camera mostra (so' ao assistir) -->
-    <div id="quadra-atual" class="hidden"></div>
+
     <div id="dica-praia" class="hidden"></div>
 
     <!-- centro: aviso do ponto -->
     <div id="announcement"></div>
-
-    <!--
-      As duas barras e o aviso do golpe vivem num bloco so'.
-
-      O pai e' uma caixa transparente que nao posiciona nada: os tres filhos
-      continuam soltos dentro dela, cada um no seu lugar fixo — esconder a
-      FORCA nao pode puxar o TOQUE pra cima. O que o pai da' e' um `top` unico,
-      entao o cluster inteiro sobe ou desce numa variavel so'.
-    -->
-    <div id="medidores">
-      <!-- barra de forca do ataque -->
-      <div id="carga" class="hidden">
-        <div id="carga-trilho"><div id="carga-fill"></div></div>
-        <span>FORCA</span>
-      </div>
-
-      <!-- janela do toque: sobe enquanto a bola vem pro corpo -->
-      <div id="toque" class="hidden">
-        <div id="toque-trilho"><div id="toque-fill"></div></div>
-        <span>TOQUE</span>
-      </div>
-
-      <!-- como saiu o ultimo toque -->
-      <div id="toque-aviso"></div>
-    </div>
 
     <!-- centro: aviso de acao (so' aparece no saque do jogador) -->
     <div id="action-hint" class="hidden">SEGURE e SOLTE para SACAR</div>
@@ -75,7 +98,8 @@
         <li><span class="k"><kbd>CLIQUE</kbd><i>/</i><kbd>E</kbd></span><span class="o">passar</span></li>
         <li><span class="k"><kbd>SEGURAR</kbd></span><span class="o">carregar e atacar</span></li>
         <li><span class="k"><kbd>DIREITO</kbd></span><span class="o">levantar</span></li>
-        <li><span class="k"><kbd class="larga">RODA</kbd></span><span class="o">perto ou longe</span></li>
+        <li><span class="k"><kbd>F</kbd></span><span class="o">camera lenta</span></li>
+        <li><span class="k"><kbd class="larga">RODA</kbd></span><span class="o">ombro ou tatica</span></li>
         <li><span class="k"><kbd>Q</kbd></span><span class="o">sair da quadra</span></li>
       </ul>
 
@@ -141,10 +165,22 @@
                 sai forte e reta. Antes sai fraca, depois sai torta, e no fim
                 escapa sozinha.</dd>
 
+              <dt>A <b>CAMERA LENTA</b></dt>
+              <dd>Segure <b>F</b> e o mundo anda a 35% — a barra de FORCA
+                junto, que e' o ponto: e' tempo comprado pra acertar a zona ou
+                salvar uma bola que ja' passou. A carga dura 2,5 segundos e
+                demora 9 pra voltar, entao e' pra <b>um</b> toque.</dd>
+
               <dt>A REDE E A MIRA</dt>
               <dd>De pe' a rede trava a batida em 16 m/s; <b>pulando</b>, 20. A
                 mira alcanca <b>alem das linhas</b>: mirar na linha e' aposta, e
                 toda batida espalha um pouco.</dd>
+
+              <dt>OS DOIS ENQUADRAMENTOS</dt>
+              <dd>A roda anda entre a camera de <b>ombro</b>, colada atras de
+                voce, e a <b>tatica</b>, alta e atras — a unica que mostra o
+                campo adversario por cima da fita. Ombro le' melhor a bola;
+                tatica le' melhor o campo.</dd>
             </dl>
           </section>
         </div>

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { AI_SKILL, CAMERA, COLORS, PASSEIO } from '../config';
 import { Input } from './Input';
+import { Tempo } from './Tempo';
 import { CameraRig } from './CameraRig';
 import { PerfMeter } from '../ui/PerfMeter';
 import { HUD } from '../ui/HUD';
@@ -40,6 +41,16 @@ export class Game {
 
   private input: Input;
   private perf = new PerfMeter(document.getElementById('perf')!);
+
+  /**
+   * O poder de camera lenta.
+   *
+   * Mora no Game e nao na Arena porque a escala vale pro MUNDO: parar so' a sua
+   * quadra enquanto as outras tres seguem em velocidade cheia faria a praia
+   * inteira desmentir o efeito, e a camera, que segue voce, estaria acompanhando
+   * um tempo e enquadrando outro.
+   */
+  private tempo = new Tempo();
 
   /**
    * As quadras da praia. Todas rodam ao mesmo tempo.
@@ -276,6 +287,9 @@ export class Game {
     this.screens.mostrarMenu(false);
     this.screens.esconderFim();
     this.hud.mostrar(true);
+    // Partida nova comeca com o poder cheio: herdar a barra gasta do set
+    // anterior e' punir por uma partida que ja' acabou.
+    this.tempo.zerar();
 
     this.aplicarAjustes();
 
@@ -382,15 +396,28 @@ export class Game {
   /** Um passo de jogo. Publico: e' a porta de entrada dos testes. */
   /** Um passo de jogo. Publico: e' a porta de entrada dos testes. */
   update(dt: number): void {
+    /**
+     * O tempo do JOGO e o tempo do RELOGIO se separam aqui, e so' aqui.
+     *
+     * Tudo que e' mundo — bolas, atletas, relogio de saque, a camera que os
+     * segue — anda em `dtJogo`. O que e' leitura do jogador continua no relogio:
+     * a propria barra deste poder (que senao demoraria a recarregar na sua
+     * propria camera lenta) e o aviso do ponto, la' no laco.
+     *
+     * A barra de FORCA fica de propósito do lado do mundo: ela e' um QTE de
+     * 180 ms, e comprar tempo pra acertar a zona e' o poder inteiro.
+     */
+    const dtJogo = dt * this.tempo.passo(dt, this.player !== null && this.input.isDown('KeyF'));
+
     // Todas as arenas avancam, inclusive as que ninguem esta' olhando. E' o
     // que faz a praia ter jogo acontecendo em vez de quadras congeladas.
-    for (const arena of this.arenas) arena.update(dt);
+    for (const arena of this.arenas) arena.update(dtJogo);
 
     // O banhista so' anda quando existe: dentro da quadra quem se mexe e' o
     // atleta, e o corpo na areia esta' guardado.
     if (!this.player) {
       this.girarACamera();
-      this.banhista.update(dt);
+      this.banhista.update(dtJogo);
       this.atualizarPasseio();
     }
 
@@ -407,8 +434,11 @@ export class Game {
     this.hud.janelaDeToque(this.player?.janelaDeToque ?? -1);
     this.avisarQualidadeDoToque();
     this.hud.relogioDoSaque(this.minhaArena?.match.segundosParaSacar ?? null);
+    // A barra do poder so' existe pra quem esta' em quadra: na areia nao ha'
+    // toque pra salvar, e um recurso na tela sem uso e' so' ruido.
+    this.hud.tempo(this.player ? this.tempo.fracao : -1, this.tempo.ativo);
 
-    this.rig.update(dt);
+    this.rig.update(dtJogo);
   }
 
   /**

@@ -44,7 +44,8 @@ npm run build:single # dist/volei3d.html — joga com duplo clique, offline
 | Sacar | Segure e solte o clique esquerdo — a carga vale aqui também |
 | Sair da quadra e andar pela areia | `Q` |
 | Entrar na quadra em que você está encostado | `E` |
-| Aproximar ou afastar a câmera | Roda do mouse |
+| Câmera lenta | Segurar `F` |
+| Trocar o enquadramento (ombro ↔ tática) | Roda do mouse |
 | Girar a câmera (só fora da quadra) | Mover o mouse |
 | Assistir outra quadra | `[` e `]` |
 | Voltar a câmera pra você | `Tab` |
@@ -133,6 +134,34 @@ encolhe para a faixa atrás da linha, com a zona livre inteira na lateral, que �
 a regra de verdade. E o sacador tem **5 segundos**: passou disso é ponto do
 adversário. Sem relógio, quem está perdendo simplesmente não saca, e não havia
 nada no jogo que o obrigasse.
+
+**Dois enquadramentos, e a roda anda entre eles.** O padrão é a câmera de
+**ombro**: baixa, 6,5 m atrás de você, com o seu corpo ocupando um quarto do
+quadro e o horizonte visível por cima da rede. A roda leva até a **tática**, alta
+e 13 m atrás, que é a única que mostra o campo adversário *por cima* da fita.
+
+Não é a mesma câmera de perto e de longe — o ângulo muda junto, e é ele que faz a
+diferença. A conta: a linha de visão que raspa o topo da rede (2,24 m) a partir
+de uma câmera a altura `h` e distância `D` da rede toca o chão do outro lado a
+`2,24·D/(h−2,24)` metros dela. Na tática isso dá 5,7 m e sobram 2,3 m de campo
+adversário acima da fita; no ombro dá 32 m, e todo o campo de lá se lê **através
+da malha**, que é vazada. O que se perde em leitura de campo se ganha em leitura
+de bola — e é uma roda de distância.
+
+Medido em 1280×720, com você na linha de fundo: o campo adversário ocupa 78 px de
+altura no ombro e 101 px na tática. A mira é um ponto no chão resolvido pelo
+cursor, então essa altura **é** a precisão de mira: o ombro custa um quarto dela.
+
+**A câmera lenta é o poder.** Segurar `F` põe o mundo a 35% da velocidade — a
+bola, os atletas, as outras quadras da praia e, principalmente, **a barra de
+força**. É esse o ponto: a barra é um QTE de 180 ms, e o poder compra tempo pra
+acertar a zona ou pra alcançar uma bola que já tinha passado. Se ele não mexesse
+na barra, seria enfeite.
+
+O gasto é em segundos de **relógio**, não de jogo: a barra cheia dá 2,5 segundos
+vividos, que viram menos de um segundo de jogo, e demora 9 para voltar. É para
+**um** toque decisivo, não para um rally. Esvaziou, só volta depois de soltar —
+senão o poder piscaria sozinho ao cruzar o mínimo de recarga.
 
 **A barra de força é um QTE.** Ela varre e tem uma **zona** marcada perto do
 fim. Soltar ali dá a batida mais forte e a mira limpa. Antes dela a batida sai

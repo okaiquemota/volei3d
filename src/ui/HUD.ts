@@ -1,4 +1,5 @@
-import { MATCH, STORAGE_KEY, TOQUE } from '../config';
+import { MATCH, STORAGE_KEY, TEMPO, TOQUE } from '../config';
+import { clamp01 } from '../core/math';
 
 const CHAVE_DO_MANUAL = `${STORAGE_KEY}.manual-escondido`;
 import type { MotivoDoPonto } from '../match/Match';
@@ -38,6 +39,9 @@ export class HUD {
   private preenchimentoDoToque = elemento('toque-fill');
   private avisoDoToque = elemento('toque-aviso');
   private preenchimentoDaCarga = elemento('carga-fill');
+  private barraDoTempo = elemento('tempo');
+  private preenchimentoDoTempo = elemento('tempo-fill');
+  private veuDoLento = elemento('lento');
 
   private tempoDoAviso = 0;
   private tempoDoToque = 0;
@@ -139,6 +143,26 @@ export class HUD {
     this.preenchimentoDaCarga.style.width = `${Math.round(Math.min(1, fracao) * 100)}%`;
     this.barraDeCarga.classList.toggle('cheia', naZona);
     this.barraDeCarga.classList.toggle('passou', passou);
+  }
+
+  /**
+   * A barra do poder de camera lenta, e o veu que mostra que ele pegou.
+   *
+   * `fracao` negativa esconde — e' o caso de quem esta' na areia, onde nao ha'
+   * toque pra salvar. O veu sai junto: um mundo lento sem aviso na tela e' um
+   * jogo que parece ter travado.
+   */
+  tempo(fracao: number, ativo: boolean): void {
+    const visivel = fracao >= 0;
+    this.barraDoTempo.classList.toggle('hidden', !visivel);
+    this.veuDoLento.classList.toggle('visivel', visivel && ativo);
+    if (!visivel) return;
+
+    this.preenchimentoDoTempo.style.width = `${Math.round(clamp01(fracao) * 100)}%`;
+    this.barraDoTempo.classList.toggle('ativo', ativo);
+    // "Vazia" e' nao dar pra LIGAR, e nao estar em zero: e' o mesmo degrau que
+    // o `Tempo` usa, e os dois tem que contar a mesma historia.
+    this.barraDoTempo.classList.toggle('vazia', !ativo && fracao < TEMPO.minimoParaLigar);
   }
 
   /**

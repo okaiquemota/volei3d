@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CAMERA } from '../config';
 import { Court, sinalDe, type Side } from '../world/Court';
-import { clamp, dampFactor } from './math';
+import { clamp, clamp01, dampFactor, lerp } from './math';
 
 const _alvoLocal = new THREE.Vector3();
 const _desejada = new THREE.Vector3();
@@ -83,13 +83,30 @@ export class CameraRig {
   }
 
   /**
-   * O zoom de quem joga. Multiplica altura e distancia JUNTAS.
+   * Onde a camera de jogo esta' entre os dois enquadramentos.
+   *
+   * 0 e' `jogoPerto` (a camera de ombro), 1 e' `jogoLonge` (a tatica). Nao e'
+   * um multiplicador: interpolar os DOIS extremos muda o angulo junto com a
+   * distancia, e o angulo e' o que separa um enquadramento do outro.
    *
    * Sobrevive a sair e voltar pra quadra, como a orbita do passeio: quem
-   * escolheu de que longe quer ver a quadra nao quer o padrao de volta a cada
-   * ponto.
+   * escolheu de onde quer ver a quadra nao quer o padrao de volta a cada ponto.
    */
-  private zoomDeJogo = 1;
+  private enquadramento: number = CAMERA.jogoEnquadramentoPadrao;
+
+  /** Quanto vale, agora, cada numero que muda entre os dois enquadramentos. */
+  private get altura(): number {
+    return lerp(CAMERA.jogoPerto.altura, CAMERA.jogoLonge.altura, this.enquadramento);
+  }
+  private get distancia(): number {
+    return lerp(CAMERA.jogoPerto.distancia, CAMERA.jogoLonge.distancia, this.enquadramento);
+  }
+  private get puxaoDaBola(): number {
+    return lerp(CAMERA.jogoPerto.foco, CAMERA.jogoLonge.foco, this.enquadramento);
+  }
+  private get acompanhamento(): number {
+    return lerp(CAMERA.jogoPerto.lateral, CAMERA.jogoLonge.lateral, this.enquadramento);
+  }
 
   /** Aproxima ou afasta, em pixels de roda. Positivo afasta. */
   aproximar(pixels: number): void {
@@ -105,22 +122,18 @@ export class CameraRig {
     }
 
     /**
-     * Jogando, o zoom mexe nos DOIS: altura e distancia.
+     * Jogando, a roda anda entre os dois enquadramentos.
      *
-     * Mexer so' na distancia mudaria a inclinacao, e a inclinacao e' o que
-     * decide se da' pra ver o campo adversario por cima da fita — foi a conta
-     * que ja' custou o enquadramento uma vez. Escalando os dois, o angulo fica.
+     * Positivo AFASTA, que aqui quer dizer "vai pro tatico": sobe, recua e
+     * abre o angulo, tudo junto. Nao ha' meio-termo artificial — os pontos
+     * intermediarios sao camera de verdade, so' que a meio caminho.
      *
      * Assistindo nao tem zoom: aquele enquadramento existe pra caber a quadra
      * inteira, e mexer nele so' tiraria pedaco dela.
      */
     if (this.modo !== 'jogo') return;
 
-    this.zoomDeJogo = clamp(
-      this.zoomDeJogo + pixels * CAMERA.jogoZoomPorPixel,
-      CAMERA.jogoZoomMin,
-      CAMERA.jogoZoomMax,
-    );
+    this.enquadramento = clamp01(this.enquadramento + pixels * CAMERA.jogoZoomPorPixel);
   }
 
   constructor(
@@ -263,7 +276,7 @@ export class CameraRig {
     this.court.paraLocal(this.alvo!.position, _alvoLocal);
 
     const sinal = sinalDe(this.side);
-    const lateral = _alvoLocal.x * CAMERA.lateralFollow;
+    const lateral = _alvoLocal.x * this.acompanhamento;
 
     /**
      * "Atras" e' sempre o lado de fora da quadra do jogador. A camera acompanha
@@ -271,12 +284,12 @@ export class CameraRig {
      * limite, correr pra rede leva a camera junto e ela acaba DENTRO da quadra,
      * com a rede colada na lente.
      */
-    const cru = _alvoLocal.z + CAMERA.distance * this.zoomDeJogo * sinal;
+    const cru = _alvoLocal.z + this.distancia * sinal;
     const minimo = this.court.halfLength + CAMERA.minDepthMargin;
     const atras = sinal < 0 ? Math.min(cru, -minimo) : Math.max(cru, minimo);
 
     return this.court.paraMundo(
-      _alvoLocal.set(lateral, CAMERA.height * this.zoomDeJogo, atras),
+      _alvoLocal.set(lateral, this.altura, atras),
       out,
     );
   }
@@ -313,9 +326,8 @@ export class CameraRig {
     }
 
     out.y += 1.2;
-    if (this.bola && CAMERA.ballFocus > 0) {
-      out.lerp(this.bola.position, clamp(CAMERA.ballFocus, 0, 1));
-    }
+    const puxao = this.puxaoDaBola;
+    if (this.bola && puxao > 0) out.lerp(this.bola.position, clamp01(puxao));
     return out;
   }
 }

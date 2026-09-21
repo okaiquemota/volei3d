@@ -501,6 +501,37 @@ export const MATCH = {
   descansoEntrePartidas: 6,
 } as const;
 
+/**
+ * O poder de camera lenta.
+ *
+ * O mundo inteiro desacelera, inclusive a barra de FORCA — e' esse o ponto: a
+ * barra e' um QTE de 180 ms, e o poder compra tempo pra acertar a zona e pra
+ * ler uma bola que ja' estava em cima. Se ele nao mexesse na barra, seria
+ * enfeite.
+ *
+ * Por isso o gasto e' em segundos de RELOGIO, nao de jogo: a barra cheia da'
+ * `duracao` segundos vividos, que a `escala` transforma em
+ * duracao*escala segundos de jogo — menos de um segundo. E' pra UM toque
+ * decisivo, nao pra um rally inteiro, e a recarga lenta garante que seja uma
+ * escolha e nao um modo de jogo.
+ */
+export const TEMPO = {
+  /** A que velocidade o mundo anda com o poder ligado. */
+  escala: 0.35,
+  /** Segundos de RELOGIO que a barra cheia dura. */
+  duracao: 2.5,
+  /** Segundos de relogio pra encher do zero. */
+  recarga: 9,
+  /**
+   * Carga minima pra LIGAR. Manter ligado nao pede minimo.
+   *
+   * Sem esse degrau a barra tremeria no fim: esvazia, desliga, recarrega um
+   * fio, liga de novo por um quadro. Com ele, quem gastou tem que esperar
+   * chegar a um quinto pra valer a pena de novo.
+   */
+  minimoParaLigar: 0.2,
+} as const;
+
 export const CAMERA = {
   /**
    * Lente. O prototipo usava 62, com a camera a 6 m — perto e aberta.
@@ -527,12 +558,31 @@ export const CAMERA = {
    * fatal. Com 10,5 e 13 a conta da' 4,8 m, e sobram 3,2 m de campo adversario
    * visiveis por cima da fita — o resto se ve' pela malha, que e' vazada.
    */
-  height: 10.5,
-  distance: 13,
-  /** Quanto a camera acompanha o jogador lateralmente (0 = trava no centro). */
-  lateralFollow: 0.55,
-  /** Quanto o foco puxa pra bola (0 = so' o jogador). */
-  ballFocus: 0.35,
+  /**
+   * Os DOIS enquadramentos de quem joga, e a roda anda entre eles.
+   *
+   * `perto` e' a camera de ombro: baixa, colada atras do atleta, com o corpo
+   * dele ocupando um pedaco do quadro. E' o enquadramento de jogo de volei que
+   * se ve' por ai', e e' o padrao.
+   *
+   * `longe` e' o enquadramento tatico que este jogo sempre teve — o unico que
+   * mostra o campo adversario POR CIMA da fita, e por isso ele nao sumiu: uma
+   * roda de mouse traz ele de volta.
+   *
+   * A conta que separa os dois: a linha de visao que raspa o topo da rede
+   * (2,24 m) a partir de uma camera a altura h e distancia D da rede toca o
+   * chao do outro lado a 2,24*D/(h-2,24) metros dela. Em `longe`, com a camera
+   * ~21 m da rede a 10,5 m de altura, isso da' 5,7 m — sobram 2,3 m de campo
+   * adversario visiveis por cima da fita. Em `perto`, a 14 m e 3,2 m de altura,
+   * da' 32 m: TODO o campo adversario fica atras da rede, e so' se ve' ele
+   * pela malha, que e' vazada. E' o preco do enquadramento, e e' por isso que
+   * ele nao e' o unico.
+   *
+   * `foco` e' quanto a mira puxa pra bola em cada ponta. De perto ela puxa
+   * menos: o mesmo puxao que de longe desloca o quadro tres vezes mais.
+   */
+  jogoPerto: { altura: 3.8, distancia: 6.5, foco: 0.14, lateral: 0.8 },
+  jogoLonge: { altura: 10.5, distancia: 13, foco: 0.35, lateral: 0.55 },
   /** Altura do ponto de mira de quem assiste: a cabeca de um jogador. */
   alturaDoOlhar: 1.6,
 
@@ -619,21 +669,19 @@ export const CAMERA = {
   minDepthMargin: 2,
 
   /**
-   * O zoom de quem JOGA, na roda do mouse.
+   * A roda de quem JOGA anda entre `jogoPerto` (0) e `jogoLonge` (1).
    *
-   * Multiplica altura e distancia juntas, entao o angulo nao muda — e' o mesmo
-   * enquadramento mais perto ou mais longe. Mexer so' na distancia mudaria a
-   * inclinacao, e aquela conta (a linha de visao que raspa a fita) e' o que
-   * decide se da' pra ver o campo adversario.
+   * Antes ela multiplicava altura e distancia JUNTAS, e por isso o angulo nunca
+   * mudava: era o mesmo enquadramento mais perto ou mais longe. Interpolando os
+   * dois extremos o angulo muda junto, que e' o que separa uma camera de ombro
+   * de uma camera tatica — a de ombro nao e' a tatica de perto, e' outra coisa.
    *
-   * Os limites saem da mesma conta: a 0,7 a linha que raspa a fita toca o chao
-   * a 4,0 m da rede, e a 1,6 a 3,2 m — dentro dos 8 m do campo adversario nos
-   * dois extremos, entao nenhum zoom esconde a quadra.
+   * Comeca em 0. Sobrevive a sair e voltar pra quadra: quem escolheu de onde
+   * quer ver nao quer o padrao de volta a cada ponto.
    */
-  jogoZoomMin: 0.7,
-  jogoZoomMax: 1.6,
-  /** Quanto o zoom anda por pixel de roda. Um entalhe de mouse da' ~0,11. */
-  jogoZoomPorPixel: 0.0011,
+  jogoEnquadramentoPadrao: 0,
+  /** Quanto a roda anda por pixel. Um entalhe de mouse (~100 px) da' 0,22. */
+  jogoZoomPorPixel: 0.0022,
   positionSmoothing: 7,
   rotationSmoothing: 9,
 } as const;
