@@ -379,13 +379,17 @@ src/
     controle.ts         a direção que o teclado pede, relativa à câmera
     AI.ts               prevê, persegue, arma e ataca
     buildAthlete.ts     o corpo low-poly
+    buildAtletaModelo.ts carrega o modelo e monta as animações
+    animacoes.ts        qual clipe tocar, dado o estado do corpo
+    Animador.ts         o AnimationMixer e as transições
+    poses.ts            pulo, mergulho e os toques, escritos à mão
   match/Match.ts        placar, saque, toques, fim de jogo — lógica pura
   ui/
     HUD.ts              placar, saque e avisos, em DOM
     Screens.ts          menu, pausa, fim de jogo, opções
     PerfMeter.ts        o painel do F3
     style.css
-tests/                  balística e regras da partida
+tests/                  balística, regras da partida e as poses
 ```
 
 `ballistics`, `Match`, `Court` e `Hitter` **não tocam em nada de render** — nem
@@ -459,6 +463,42 @@ for (let t = 0; t < 10; t += 1 / 60) __VOLEI.update(1 / 60);
 ```
 
 ---
+
+### As animações que o pack não tinha são escritas à mão
+
+O pack de personagens traz `Idle`, `Walk`, `Run` nas quatro direções — e nada de
+vôlei. Faltavam pulo, mergulho, manchete, levantamento, ataque e saque.
+
+Elas estão em **`poses.ts`**, como número e comentário, do mesmo jeito que o
+resto do projeto é escrito. O que torna isso viável é o formato: a pose **não**
+diz "gire o ombro 40 graus em X", diz **para onde o osso aponta**, e o
+quaternion sai de uma conta contra o esqueleto de verdade.
+
+```ts
+UpperArmR: mix([C, 3], [F, 1.4]),   // braço direito no alto, puxando à frente
+LowerArmR: mix([C, 3], [F, 1.5]),   // e ESTICADO: é o que separa cortada de tapa
+```
+
+O motivo é que o rig é feito à mão e os eixos locais do braço esquerdo e do
+direito **não são espelhados**. Escrever ângulo por eixo exigiria decorar cada
+osso, e erraria calado na hora de espelhar uma pose.
+
+Três fatos do rig que a conta esconde, e que o teste protege:
+
+- **Todo osso guarda o filho em +Y local.** É o que dá eixo para os ossos folha —
+  o joelho é folha, porque `FootL`/`FootR` são alvos de IK pendurados na raiz e
+  não fazem parte da perna.
+- **As pernas penduram no `Body`.** Dobrar o joelho *levanta o pé*, não abaixa o
+  quadril. Quem agacha é o `Body` descendo, e o joelho dobra o tanto exato para a
+  sola continuar na areia — os dois juntos, ou o atleta joga flutuando.
+- **O `Body` vem com 27° de giro que o `Torso` desfaz com -27,7°.** Mexer em um
+  sem o outro torce o tronco inteiro, e o sintoma é uma mão 12 cm mais funda que
+  a outra numa pose simétrica.
+
+Todo gesto começa na pose **do contato**, e não numa armada. O atleta só sabe que
+tocou a bola depois de tocar — o `Hitter` resolve e a bola sai no mesmo quadro,
+sem aviso prévio. Quem faz o papel da armada é a própria mistura entre clipes,
+curta de propósito: uma armada de 0,2 s faria a bola sair antes da mão chegar.
 
 ## Publicando
 

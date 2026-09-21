@@ -1155,7 +1155,51 @@ Sintoma de passo cruzado lê como "meio estranho", nunca como "errado".
 mundo anda a 35% e o boneco tem que andar junto — com o `dt` do relógio ele
 correria no lugar enquanto tudo em volta arrasta.
 
+## As poses escritas à mão: medir o rig antes, não depois
+
+O pack não tinha nenhuma animação de vôlei. As seis que faltavam (`Pulo`,
+`Mergulho`, `Ataque`, `Manchete`, `Levantamento`, `Saque`) estão em `poses.ts`,
+escritas como direção — "para onde o osso aponta" — e resolvidas **contra o
+esqueleto carregado**, em `montarClipes`.
+
+O formato foi escolhido depois de sondar o rig, e por causa do que a sonda
+achou: **os eixos locais do braço esquerdo e do direito não são espelhados.**
+Ângulo por eixo exigiria decorar osso por osso e erraria calado ao espelhar.
+
+Quatro fatos que só a sonda revelou, e que nenhum deles quebra alto:
+
+- **O filho de todo osso fica em +Y local.** É o que dá eixo às folhas. O joelho
+  é folha: `FootL`/`FootR` e `PTL`/`PTR` são alvos de IK pendurados no `Root`,
+  fora da corrente da perna. Sem esse padrão o joelho ficaria sem pose.
+- **As pernas penduram no `Body`, não sustentam ele.** Dobrar joelho levanta o
+  pé. Quem agacha é o `Body` descendo, e o joelho tem que dobrar o tanto exato
+  (`pernasDe`) para a sola continuar na areia. Foi o primeiro defeito a aparecer:
+  uma manchete sem agachamento lê como zumbi, e agachar sem a conta enterra o pé.
+- **O `Body` vem com +27° em Y e o `Torso` desfaz com -27,7°.** Fixar o `Body` na
+  identidade parecia mais limpo e torcia o tronco inteiro. Tem que ser fixado no
+  **repouso** — e a pose tem que ser resolvida contra o mesmo valor que a trilha
+  escreve, senão a conta sai medida num corpo torto e tocada num corpo reto.
+- **`LoopRepeat` esconde o último quadro.** Amostrar em `t == duração` volta para
+  o zero. Por isso todo clipe escrito à mão é `LoopOnce` + `clampWhenFinished` —
+  e em `Pulo`/`Mergulho` isso não é detalhe: o último quadro **é** a pose de
+  manter, e voltar ao início no meio do voo seria o corpo se recolhendo sozinho.
+
+O gesto começa na pose do **contato**, não numa armada, porque não há aviso
+prévio: o `Hitter` resolve o toque num quadro só e a bola sai nele. A armada é a
+mistura entre clipes, e ela é curta (0,06 s contra os 0,18 s normais)
+justamente porque é o atraso entre a bola sair e a mão chegar.
+
+E o gesto precisa de um relógio no `Athlete`: o `Hitter` some depois do toque, e
+sem esse relógio a pose apareceria por 1/60 de segundo. A contagem `hitter.toques`
+serve de marca para reiniciar o clipe em dois toques **iguais** seguidos —
+sem ela a segunda manchete do rally sairia de um corpo imóvel, porque o nome do
+clipe não mudou.
+
 ## O que NÃO foi verificado
+
+As poses foram conferidas em imagem, quadro a quadro, e medidas por sonda — não
+por olho de animador. Elas **lêem** como o gesto certo à distância da câmera de
+jogo; não são referência anatômica, e a transição entre elas só se julga jogando.
 
 O equilíbrio da IA contra um humano de verdade. O que se mediu foi um piloto
 automático dos dois lados — e ele é mais preciso que qualquer pessoa: não tem

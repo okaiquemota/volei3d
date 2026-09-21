@@ -22,7 +22,7 @@ import { Motor } from '../src/players/Motor';
 
 const corpo = (p: Partial<EstadoDoCorpo> = {}): EstadoDoCorpo => ({
   noChao: true, mergulhando: false, levantando: false,
-  velocidade: 0, anguloDoAndar: 0, ...p,
+  velocidade: 0, anguloDoAndar: 0, gesto: null, marcaDoGesto: 0, ...p,
 });
 
 test('parado e parado, e quase parado tambem', () => {
@@ -56,15 +56,39 @@ test('as fronteiras caem pro lado certo', () => {
   assert.equal(rapido((Math.PI * 3) / 4 - 0.01), 'Run_Right');
 });
 
-test('no ar e no mergulho o corpo fica rigido: quem deita e o Motor', () => {
-  assert.equal(clipeDoCorpo(corpo({ noChao: false, velocidade: 6.5 })), 'Idle_Neutral');
-  assert.equal(clipeDoCorpo(corpo({ mergulhando: true, noChao: false, velocidade: 7.5 })), 'Idle_Neutral');
-  assert.equal(clipeDoCorpo(corpo({ levantando: true, velocidade: 2 })), 'Idle_Neutral');
+test('no ar toca Pulo, deitado toca Mergulho', () => {
+  assert.equal(clipeDoCorpo(corpo({ noChao: false, velocidade: 6.5 })), 'Pulo');
+  assert.equal(clipeDoCorpo(corpo({ mergulhando: true, noChao: false, velocidade: 7.5 })), 'Mergulho');
+  assert.equal(clipeDoCorpo(corpo({ levantando: true, velocidade: 2 })), 'Mergulho');
 });
 
 test('caido ganha do andar: o corpo no chao nao corre', () => {
   // A velocidade ainda esta alta no primeiro quadro depois de aterrissar.
-  assert.equal(clipeDoCorpo(corpo({ levantando: true, velocidade: 6.5, anguloDoAndar: 1 })), 'Idle_Neutral');
+  assert.equal(clipeDoCorpo(corpo({ levantando: true, velocidade: 6.5, anguloDoAndar: 1 })), 'Mergulho');
+});
+
+/**
+ * A ORDEM entre mergulho, gesto, pulo e andar.
+ *
+ * E' onde a escolha deixa de ser obvia, e cada linha aqui e' um caso que
+ * acontece de verdade num rally — os quatro podem valer no mesmo quadro.
+ */
+test('o gesto de toque ganha do pulo e do andar', () => {
+  assert.equal(clipeDoCorpo(corpo({ gesto: 'cortada', noChao: false })), 'Ataque');
+  assert.equal(clipeDoCorpo(corpo({ gesto: 'manchete', velocidade: 6.5 })), 'Manchete');
+  assert.equal(clipeDoCorpo(corpo({ gesto: 'levantamento' })), 'Levantamento');
+  assert.equal(clipeDoCorpo(corpo({ gesto: 'saque' })), 'Saque');
+});
+
+test('mergulhando, o mergulho ganha ate do gesto', () => {
+  // Salvar de peixinho toca a bola no meio do voo: os dois gestos brigariam
+  // pelo mesmo braco, e uma manchete de pe num corpo deitado enfia o braco na
+  // areia.
+  assert.equal(clipeDoCorpo(corpo({ gesto: 'manchete', mergulhando: true, noChao: false })), 'Mergulho');
+});
+
+test('a batida de pe e a cortada sao a mesma pose', () => {
+  assert.equal(clipeDoCorpo(corpo({ gesto: 'ataque' })), clipeDoCorpo(corpo({ gesto: 'cortada' })));
 });
 
 /**
@@ -83,10 +107,7 @@ function angulo(frente: THREE.Vector3, andar: THREE.Vector3): number {
   m.moverPara(andar);
   // Um quadro basta pra velocidade sair do zero e o leitor ter o que medir.
   m.update(1 / 60);
-  const out: EstadoDoCorpo = {
-    noChao: true, mergulhando: false, levantando: false, velocidade: 0, anguloDoAndar: 0,
-  };
-  return estadoDoMotor(m, out).anguloDoAndar;
+  return estadoDoMotor(m, corpo()).anguloDoAndar;
 }
 
 const PRA_FRENTE = new THREE.Vector3(0, 0, 1);
@@ -109,8 +130,5 @@ test('e a ponta a ponta: andar pra direita toca Run_Right', () => {
   m.moverPara(new THREE.Vector3(-1, 0, 0));
   for (let i = 0; i < 30; i++) m.update(1 / 60);   // chega na velocidade de corrida
 
-  const out: EstadoDoCorpo = {
-    noChao: true, mergulhando: false, levantando: false, velocidade: 0, anguloDoAndar: 0,
-  };
-  assert.equal(clipeDoCorpo(estadoDoMotor(m, out)), 'Run_Right');
+  assert.equal(clipeDoCorpo(estadoDoMotor(m, corpo())), 'Run_Right');
 });

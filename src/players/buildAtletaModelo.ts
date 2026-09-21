@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as clonarEsqueleto } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { ATHLETE } from '../config';
+import { montarClipes } from './poses';
 import urlDoAtleta from '../assets/atleta.glb?url';
 
 /**
@@ -77,9 +78,17 @@ export async function carregarAtletaModelo(): Promise<ModeloDoAtleta> {
     for (const m of Array.isArray(malha.material) ? malha.material : [malha.material]) materiais.add(m);
   });
 
+  /**
+   * As animacoes do pack MAIS as escritas a mao.
+   *
+   * Tem que ser aqui, depois de carregar e antes de qualquer copia: as poses
+   * sao resolvidas contra o esqueleto de verdade — eixo de osso e rotacao de
+   * pai saem do modelo. Uma tabela fixa de angulos teria que ser reescrita a
+   * cada troca de pack, e erraria calada.
+   */
   return {
     molde: gltf.scene,
-    animacoes: gltf.animations,
+    animacoes: [...gltf.animations, ...montarClipes(gltf.scene)],
     dispose(): void {
       for (const g of geometrias) g.dispose();
       for (const m of materiais) m.dispose();

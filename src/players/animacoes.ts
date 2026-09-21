@@ -1,3 +1,5 @@
+import type { Acao } from './Hitter';
+
 /**
  * Qual animacao o corpo esta' fazendo, dado o que o `Motor` diz.
  *
@@ -11,11 +13,33 @@
  * existe pra usar.
  */
 
-/** O que o corpo esta' fazendo agora. Tudo sai do `Motor`. */
+/** Qual gesto cada toque vira. `cortada` e `ataque` sao a mesma batida por cima. */
+export const CLIPE_DO_TOQUE: Readonly<Record<Acao, string>> = {
+  manchete: 'Manchete',
+  levantamento: 'Levantamento',
+  cortada: 'Ataque',
+  ataque: 'Ataque',
+  saque: 'Saque',
+};
+
+/** O que o corpo esta' fazendo agora. Tudo sai do `Motor` e do `Hitter`. */
 export interface EstadoDoCorpo {
   noChao: boolean;
   mergulhando: boolean;
   levantando: boolean;
+  /**
+   * O toque que o corpo esta' acompanhando agora, ou null.
+   *
+   * Quem liga e desliga isto e' o atleta, com um relogio: o `Hitter` resolve o
+   * toque num quadro so', e o gesto tem que durar o clipe inteiro depois dele.
+   */
+  gesto: Acao | null;
+  /**
+   * Qual toque e' este. E' a contagem do `Hitter`, e serve pra um caso so':
+   * dois toques iguais seguidos. Sem ele o segundo nao reiniciaria o clipe,
+   * porque o NOME do clipe nao mudou, e a manchete sairia so' na primeira bola.
+   */
+  marcaDoGesto: number;
   /** Modulo da velocidade horizontal, em m/s. */
   velocidade: number;
   /**
@@ -52,18 +76,20 @@ const TRES_QUARTOS = (Math.PI * 3) / 4;
  */
 export function clipeDoCorpo(estado: EstadoDoCorpo): string {
   /**
-   * Mergulhando ou caido, o corpo ja' esta' deitado pelo `Motor`.
+   * Mergulho na frente de tudo, ate' do gesto.
    *
-   * Ele gira o corpo inteiro 1,35 rad, e uma animacao de pernas por cima disso
-   * briga com o tombo em vez de somar. Ate' existir um clipe de peixinho de
-   * verdade, o corpo vai deitado e RIGIDO — que e' exatamente o que a capsula
-   * fazia, e ela lia bem.
+   * Quem mergulha quase sempre esta' salvando a bola, entao o toque chega no
+   * meio do voo. Os dois gestos brigariam pelo mesmo braco, e o do mergulho
+   * vence porque o `Motor` ja' deitou o corpo pra ele: uma manchete de pe' num
+   * corpo deitado sai com os bracos enfiados na areia.
    */
-  if (estado.mergulhando || estado.levantando) return 'Idle_Neutral';
+  if (estado.mergulhando || estado.levantando) return 'Mergulho';
 
-  // No ar tambem nao ha' clipe proprio ainda. O salto se le' pela altura, que e'
-  // do Motor, nao pela pose.
-  if (!estado.noChao) return 'Idle_Neutral';
+  // O gesto vence o pulo: quase toda cortada e' no ar, e o `Ataque` ja' vem com
+  // as pernas recolhidas justamente pra poder substituir o `Pulo` la' em cima.
+  if (estado.gesto) return CLIPE_DO_TOQUE[estado.gesto];
+
+  if (!estado.noChao) return 'Pulo';
 
   if (estado.velocidade < PARADO) return 'Idle';
 

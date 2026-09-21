@@ -6,7 +6,8 @@ import { construirAtleta, type AtletaVisual } from './buildAthlete';
 import { copiarModelo, type ModeloDoAtleta } from './buildAtletaModelo';
 import { Animador, estadoDoMotor } from './Animador';
 import type { EstadoDoCorpo } from './animacoes';
-import { Hitter } from './Hitter';
+import { Hitter, type Acao } from './Hitter';
+import { duracaoDoToque } from './poses';
 import { Motor } from './Motor';
 
 const _direcao = new THREE.Vector3();
@@ -14,6 +15,7 @@ const _ponto = new THREE.Vector3();
 const _local = new THREE.Vector3();
 const _estado: EstadoDoCorpo = {
   noChao: true, mergulhando: false, levantando: false, velocidade: 0, anguloDoAndar: 0,
+  gesto: null, marcaDoGesto: 0,
 };
 
 /** O que o atleta precisa saber sobre o rally, sem conhecer o Match inteiro. */
@@ -43,6 +45,17 @@ export abstract class Athlete implements Tocador {
   /** O corpo de modelo, quando ha' um. Null enquanto o atleta e' capsula. */
   private corpo: THREE.Object3D | null = null;
   private animador: Animador | null = null;
+
+  /**
+   * O gesto de toque tocando agora, e quanto falta dele.
+   *
+   * Existe porque o `Hitter` resolve o toque num quadro so' e some: a bola sai
+   * e nada no estado do atleta lembra que houve uma batida. Sem este relogio o
+   * gesto apareceria por 1/60 de segundo e nunca seria visto.
+   */
+  private gesto: Acao | null = null;
+  private tempoDoGesto = 0;
+  private toquesVistos = 0;
 
   constructor(
     readonly nome: string,
@@ -139,7 +152,20 @@ export abstract class Athlete implements Tocador {
 
   private animar(dt: number): void {
     if (!this.animador) return;
-    this.animador.update(estadoDoMotor(this.motor, _estado), dt);
+
+    if (this.hitter.toques !== this.toquesVistos) {
+      this.toquesVistos = this.hitter.toques;
+      this.gesto = this.hitter.ultimaAcao;
+      this.tempoDoGesto = this.gesto ? duracaoDoToque(this.gesto) : 0;
+    } else if (this.tempoDoGesto > 0) {
+      this.tempoDoGesto -= dt;
+      if (this.tempoDoGesto <= 0) this.gesto = null;
+    }
+
+    const estado = estadoDoMotor(this.motor, _estado);
+    estado.gesto = this.gesto;
+    estado.marcaDoGesto = this.toquesVistos;
+    this.animador.update(estado, dt);
   }
 
   /** Direcao horizontal, em mundo, que aponta deste atleta pra rede. */
