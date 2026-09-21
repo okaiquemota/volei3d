@@ -548,12 +548,29 @@ vizinhança dela, não um substituto. O chão em volta é concreto: areia ali se
 praia de novo, com arquibancada em volta, que não é nem uma coisa nem outra. Dá
 para **sair da quadra com `Q`** e andar pelo piso da arena, até o anel de LED.
 
-**O quanto o estádio encolhe tem um piso medido, não escolhido.** A peça mais
-próxima da quadra é o anel de placas de LED, a 13,37 m do centro; os atletas
-correm até 8 m (meia largura mais a zona livre). Então `13,37 × escala > 8`, ou
-seja `escala > 0,60`. Hoje está em **0,65**, que deixa 69 cm entre o atleta no
-limite e a propaganda. Encolher mais exige tirar o anel de LED ou as escadas de
-canto — não mexer no número.
+**O quanto o estádio encolhe tem um piso medido, não escolhido** — e quem define
+esse piso mudou de dono no meio do caminho. Era o anel de placas do próprio
+modelo, a 13,37 m do centro, e por isso o estádio não descia de `0,60`. Com o
+anel **refeito em código** (`buildPlacas.ts`, medido a partir da quadra e não do
+estádio), quem chega primeiro na área de jogo passou a ser a arquibancada, cuja
+borda interna está a 16,25 m: `16,25 × escala > 8`, ou seja `escala > 0,49`. O
+teste de vértices confirma — 0,55 passa, 0,50 reprova. Hoje está em **0,55**.
+
+**As placas de propaganda são desenhadas em canvas**, como a areia, a rede e a
+bola. As do modelo não davam: as UVs do anel são inconsistentes na volta — num
+trecho a textura sai espelhada (o texto lê de trás pra frente) e noutro sai
+esticada até virar cor chapada. Não há textura que conserte um mapeamento. Os
+anunciantes são inventados e são o vocabulário do próprio jogo: `PEIXINHO` e
+`MANCHETE` são os nomes que o código usa pro mergulho e pro passe.
+
+E há uma **ordem** entre os quatro raios em volta da quadra, cada um morando num
+arquivo diferente, que tem teste porque nada no código obriga os quatro a
+concordarem:
+
+```
+zona livre  <  passeio  <  placas  <  arquibancada
+   8 x 12      8,3 x 12,3   8,5 x 12,5      8,94
+```
 
 E a paleta é do jogo, não do modelo. Duas coisas deixavam o estádio morto ao
 lado de personagens e quadra de cor viva:

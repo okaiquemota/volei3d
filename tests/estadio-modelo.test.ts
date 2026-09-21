@@ -11,6 +11,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 
 import { COURT, ESTADIO } from '../src/config';
+import { RAIO_DAS_PLACAS } from '../src/world/buildPlacas';
 
 /**
  * O que estes testes protegem:
@@ -186,4 +187,50 @@ test('o passeio do estadio e maior que a propria quadra', () => {
     'o passeio para dentro da zona livre: nao da pra sair');
   assert.ok(ESTADIO.passeio.z > COURT.length / 2 + COURT.freeZone,
     'o passeio para dentro da zona livre: nao da pra sair');
+});
+
+/**
+ * Os tres raios em volta da quadra tem uma ORDEM, e ela nao e' obvia.
+ *
+ *   zona livre  <  passeio  <  placas  <  arquibancada
+ *
+ * Cada um mora num lugar diferente — regra do volei, config do estadio, modulo
+ * das placas, e o .glb — e nada no codigo obriga os quatro a concordarem. Fora
+ * de ordem, o sintoma nao e' um erro: e' o jogador atravessando a propaganda,
+ * ou a propaganda plantada dentro da quadra.
+ */
+test('zona livre, passeio, placas e arquibancada ficam nessa ordem', () => {
+  const zonaX = COURT.width / 2 + COURT.freeZone;
+  const zonaZ = COURT.length / 2 + COURT.freeZone;
+
+  assert.ok(RAIO_DAS_PLACAS.x > zonaX, 'placa dentro da zona livre em x');
+  assert.ok(RAIO_DAS_PLACAS.z > zonaZ, 'placa dentro da zona livre em z');
+
+  assert.ok(ESTADIO.passeio.x < RAIO_DAS_PLACAS.x,
+    `passeio (${ESTADIO.passeio.x}) passa da placa (${RAIO_DAS_PLACAS.x}): da pra atravessar a propaganda`);
+  assert.ok(ESTADIO.passeio.z < RAIO_DAS_PLACAS.z,
+    `passeio (${ESTADIO.passeio.z}) passa da placa (${RAIO_DAS_PLACAS.z}): da pra atravessar a propaganda`);
+});
+
+/** E o estadio tem que ficar por FORA das placas, nao em cima delas. */
+test('a arquibancada nao pisa nas placas', async () => {
+  const cena = await carregar();
+
+  const v = new THREE.Vector3();
+  const invasores: string[] = [];
+  cena.traverse((o) => {
+    const malha = o as THREE.Mesh;
+    if (!malha.isMesh) return;
+    const pos = malha.geometry.getAttribute('position');
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(malha.matrixWorld);
+      if (v.y > 0.05 && v.y < 1.2
+        && Math.abs(v.x) < RAIO_DAS_PLACAS.x && Math.abs(v.z) < RAIO_DAS_PLACAS.z) {
+        invasores.push(`${malha.name} em (${v.x.toFixed(1)}, ${v.z.toFixed(1)})`);
+        return;
+      }
+    }
+  });
+
+  assert.equal(invasores.length, 0, `estadio por cima das placas: ${invasores.slice(0, 3).join('; ')}`);
 });

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { COLORS } from '../config';
 
 /**
  * Texturas desenhadas em canvas — nada de baixar imagem.
@@ -175,6 +176,85 @@ export function criarBola(): THREE.Texture {
   }
 
   return texturaDe(canvas, true);
+}
+
+/**
+ * As placas de propaganda que dao a volta na quadra, no cenario ESTADIO.
+ *
+ * Desenhadas aqui, e nao na textura que veio com o modelo, por duas razoes. A
+ * do modelo era um painel escuro com marcas genericas — um buraco preto exatamente
+ * na altura dos olhos, em volta de uma quadra de cor viva. E ela era um arquivo:
+ * mudar uma cor pedia abrir um editor de imagem, enquanto a areia, a rede e a
+ * bola deste jogo sao todas codigo que alguem consegue ler e mexer.
+ *
+ * Os anunciantes sao inventados, e de propósito sao o vocabulario do proprio
+ * jogo: `PEIXINHO` e `MANCHETE` sao os nomes que o codigo usa pro mergulho e
+ * pro passe. E' a piada que uma quadra de bairro faria.
+ *
+ * A textura tambem vira `emissiveMap`: placa de LED emite luz, e e' isso que
+ * poe cor no fundo da quadra sem acender mais nenhuma lampada na cena.
+ */
+export function criarPlacas(): THREE.Texture {
+  const LARGURA = 1024;
+  const ALTURA = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = LARGURA;
+  canvas.height = ALTURA;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('canvas 2d indisponivel');
+
+  /** Nome, fundo e tinta. Seis cabem na volta sem espremer a letra. */
+  const css = (n: number): string => `#${n.toString(16).padStart(6, '0')}`;
+  const PLACAS: Array<[string, string, string]> = [
+    ['PEIXINHO', css(COLORS.placas.azul), '#ffffff'],
+    ['MARE ALTA', css(COLORS.placas.branco), css(COLORS.placas.marinho)],
+    ['COCO GELADO', css(COLORS.placas.verde), '#04302c'],
+    ['MANCHETE', css(COLORS.placas.laranja), '#ffffff'],
+    ['SOL E SAL', css(COLORS.placas.amarelo), '#5a3c04'],
+    ['VOLEI 3D', css(COLORS.placas.marinho), '#7fd4ff'],
+  ];
+
+  const largura = LARGURA / PLACAS.length;
+  PLACAS.forEach(([nome, fundo, tinta], i) => {
+    const x = i * largura;
+
+    ctx.fillStyle = fundo;
+    // +1 de sobreposicao, pela mesma razao das faixas da bola: sem isso aparece
+    // uma costura entre as placas.
+    ctx.fillRect(Math.floor(x), 0, Math.ceil(largura) + 1, ALTURA);
+
+    // Um vinco escuro em cima e em baixo: e' o que faz a fita parecer montada
+    // numa estrutura, e nao pintada no chao.
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.fillRect(Math.floor(x), 0, Math.ceil(largura) + 1, 8);
+    ctx.fillRect(Math.floor(x), ALTURA - 8, Math.ceil(largura) + 1, 8);
+
+    ctx.fillStyle = tinta;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    /**
+     * A letra e' ajustada pra CABER, e nao escolhida num tamanho so'.
+     *
+     * "COCO GELADO" tem 11 caracteres e "VOLEI 3D" tem 8; com um corpo fixo, a
+     * maior vazaria pra placa do lado. A camera de jogo fica a uns quinze
+     * metros e a fita tem 85 cm de altura — o que se le' ali e' a mancha de
+     * cor, entao a letra so' precisa nao estourar.
+     */
+    let corpo = 58;
+    do {
+      ctx.font = `900 ${corpo}px system-ui, sans-serif`;
+      corpo -= 2;
+    } while (corpo > 20 && ctx.measureText(nome).width > largura * 0.86);
+
+    ctx.fillText(nome, x + largura / 2, ALTURA / 2 + 2);
+  });
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = Math.min(4, anisotropiaMax);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  return tex;
 }
 
 /**

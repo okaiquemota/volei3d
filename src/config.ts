@@ -130,32 +130,33 @@ export const ATHLETE = {
 /**
  * O ESTADIO, em cima da quadra.
  *
- * `escala` e' o unico numero que muda o enquadramento, e ele tem um PISO
- * medido, nao escolhido: a peca do modelo mais proxima da quadra e' o anel de
- * placas de LED, a 13,37 m do centro. Os atletas correm ate' 8 m (meia largura
- * mais a zona livre). Logo o anel so' fica fora da area de jogo enquanto
+ * `escala` tem um piso MEDIDO, e quem o define mudou de dono. Era o anel de
+ * placas do proprio modelo, a 13,37 m do centro — e por isso o estadio nao
+ * descia de 0,60. Com o anel refeito em codigo (`buildPlacas`), medido a partir
+ * da quadra e nao do estadio, quem passou a chegar primeiro na area de jogo e'
+ * a ARQUIBANCADA, cuja borda interna esta' a 16,25 m. Logo
  *
- *   13,37 * escala > 8   ou seja   escala > 0,60
+ *   16,25 * escala > 8   ou seja   escala > 0,49
  *
- * e 0,65 deixa 69 cm de folga entre o atleta no limite e a propaganda — que e'
- * mais ou menos a folga de uma quadra central de verdade. Abaixo disso o
- * jogador passa a correr por DENTRO do painel, e o teste de vertices reprova.
+ * e o teste de vertices confirma: 0,55 passa, 0,50 reprova. Em 0,55 a borda da
+ * arquibancada fica a 8,94 m, noventa centimetros depois de onde o atleta pode
+ * chegar correndo.
  *
- * Encolher mais exigiria tirar o anel de LED ou as escadas de canto, e nao
- * mexer neste numero.
+ * O que se paga por essa proximidade: a arena fica APERTADA. Entre a linha da
+ * zona livre e a arquibancada cabem menos de dois metros, e por isso sair da
+ * quadra ali serve pra andar a volta e olhar, nao pra passear. Querendo espaco
+ * de sobra, o caminho e' subir este numero de volta.
  */
 export const ESTADIO = {
   /** Quanto o estadio encolhe em volta da quadra. 1 e' o tamanho do modelo. */
-  escala: 0.65,
+  escala: 0.55,
   /**
    * Ate' onde da' pra andar depois de sair da quadra, dentro do estadio.
    *
-   * Fica ENTRE a zona livre (8 x 12) e o anel de LED (8,69 x 14,4 nesta
-   * escala): sair da quadra tem que levar a algum lugar, e atravessar a
-   * propaganda nao e' esse lugar. A faixa atras da linha de fundo e' onde
-   * sobra espaco de verdade.
+   * Fica logo DENTRO do anel de placas (8,5 x 12,5): a propaganda e' a parede
+   * de verdade, e atravessar ela e' o unico jeito errado de sair da quadra.
    */
-  passeio: { x: 8.5, z: 14 },
+  passeio: { x: 8.3, z: 12.3 },
 } as const;
 
 export const MERGULHO = {
@@ -857,6 +858,22 @@ export const COLORS = {
   cascaDoEstadio: 0x6e7789,
   /** As escadas de trelica, que eram branco puro e gritavam na tela. */
   escadaDoEstadio: 0x7f8798,
+
+  /**
+   * A paleta das placas de propaganda — e o piso da quadra sai daqui junto.
+   *
+   * Mora no mesmo lugar de proposito: o piso e a placa `MANCHETE` tem que ser
+   * o MESMO laranja, e "o mesmo" escrito duas vezes em dois arquivos vira dois
+   * tons diferentes na primeira vez que alguem mexe num deles.
+   */
+  placas: {
+    azul: 0x1b62c8,
+    branco: 0xf2f2ef,
+    verde: 0x18a89b,
+    laranja: 0xe2542f,
+    amarelo: 0xf7c23a,
+    marinho: 0x123a7a,
+  },
   line: 0xf7f7f2,
   post: 0x33383f,
   home: 0x2970d1,

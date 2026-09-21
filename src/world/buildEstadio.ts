@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { COLORS } from '../config';
+import { criarPlacas } from './textures';
 import urlDoEstadio from '../assets/estadio.glb?url';
 
 /**
@@ -57,6 +58,8 @@ export async function carregarEstadio(): Promise<ModeloDoEstadio> {
   const gltf = await loader.loadAsync(urlDoEstadio);
   const molde = gltf.scene;
 
+  const placas = criarPlacas();
+
   const geometrias = new Set<THREE.BufferGeometry>();
   const materiais = new Set<THREE.Material>();
   molde.traverse((o) => {
@@ -77,7 +80,7 @@ export async function carregarEstadio(): Promise<ModeloDoEstadio> {
     malha.receiveShadow = false;
 
     for (const m of Array.isArray(malha.material) ? malha.material : [malha.material]) {
-      pintar(m as THREE.MeshStandardMaterial);
+      pintar(m as THREE.MeshStandardMaterial, placas);
     }
 
     // Sem isto a arquibancada some quando a camera chega perto da rede: a caixa
@@ -88,6 +91,7 @@ export async function carregarEstadio(): Promise<ModeloDoEstadio> {
   return {
     molde,
     dispose(): void {
+      placas.dispose();
       for (const g of geometrias) g.dispose();
       for (const m of materiais) m.dispose();
     },
@@ -106,11 +110,31 @@ export async function carregarEstadio(): Promise<ModeloDoEstadio> {
  * A emissiva fica: e' o painel de LED, a unica peca do modelo que emite luz, e
  * e' ela que da' vida ao fundo da quadra.
  */
-function pintar(m: THREE.MeshStandardMaterial): void {
+function pintar(m: THREE.MeshStandardMaterial, placas: THREE.Texture): void {
   if (m.userData.pintado) return;
   m.userData.pintado = true;
 
   if (m.metalness !== undefined) m.metalness = 0;
+
+  /**
+   * A fita de propaganda troca de textura, e nao so' de cor.
+   *
+   * E' o unico material do modelo que EMITE luz, e o unico cuja aparencia mora
+   * numa imagem em vez de num numero. Pintar por cima dela so' escureceria a
+   * imagem que veio — `color` multiplica a textura, entao nao ha' como clarear.
+   * Trocar a imagem inteira e' o unico caminho, e de quebra tira o painel
+   * escuro que era o ultimo buraco preto na altura dos olhos.
+   */
+  if (m.emissiveMap || m.emissive?.getHex() !== 0) {
+    m.map = placas;
+    m.emissiveMap = placas;
+    m.color.setHex(0xffffff);
+    m.emissive.setHex(0xffffff);
+    m.emissiveIntensity = BRILHO_DA_PLACA;
+    m.toneMapped = true;
+    m.needsUpdate = true;
+    return;
+  }
 
   const cor = PALETA[m.name];
   if (cor !== undefined) {
@@ -155,6 +179,15 @@ function levantarDoPreto(m: THREE.MeshStandardMaterial): void {
 
 /** Quanto da propria cor entra no emissivo. Acima de ~0,3 o material chapa. */
 const PISO_DE_LUZ = 0.22;
+
+/**
+ * Quanto a fita de LED brilha por cima da propria cor.
+ *
+ * Abaixo de 1 ela vira uma faixa pintada; muito acima, estoura em branco e as
+ * letras somem. Em 1,35 a placa continua legivel e ainda le' como acesa,
+ * inclusive nas partes da volta que ficam de costas pro sol.
+ */
+const BRILHO_DA_PLACA = 1.35;
 
 /** Quanto o campo do modelo mede, pro teste conferir que a quadra cabe. */
 export const CAMPO_DO_MODELO = { x: 20.3, z: 33.4 };

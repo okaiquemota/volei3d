@@ -171,9 +171,20 @@ export class Game {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = true;
-    // PCFSoftShadowMap e' deprecado no r185 e cai em PCFShadowMap sozinho,
-    // avisando no console a cada atualizacao de sombra. Usar o real.
-    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    /**
+     * VSM, e nao PCF, por causa da BORDA.
+     *
+     * O PCF deste projeto desenhava uma sombra de recorte, com a borda tao dura
+     * quanto a silhueta do atleta — e sombra dura le' como adesivo colado na
+     * areia, nao como corpo no sol. PCFSoftShadowMap nao resolve: no r185 ele
+     * esta' deprecado e cai em PCFShadowMap sozinho, avisando no console.
+     *
+     * O VSM guarda profundidade e profundidade ao quadrado e BORRA o mapa de
+     * verdade, entao `radius` e `blurSamples` fazem efeito. O preco e'
+     * vazamento de luz em geometria fina, que aqui nao existe: quem projeta
+     * sombra sao corpos, postes e a fita da rede.
+     */
+    this.renderer.shadowMap.type = THREE.VSMShadowMap;
 
     // A anisotropia precisa estar definida ANTES de criar as texturas — elas
     // nascem em construirQuadra, logo abaixo.
@@ -311,7 +322,21 @@ export class Game {
     sol.shadow.camera.near = 1;
     sol.shadow.camera.far = 80;
     sol.shadow.mapSize.set(2048, 2048);
-    sol.shadow.bias = -0.0008;
+
+    /**
+     * O quanto a borda borra, e o quanto a sombra escurece.
+     *
+     * `bias` volta a ZERO: o -0,0008 existia pra tapar o acne do PCF, e no VSM
+     * ele so' descola a sombra do pe' de quem a projeta.
+     *
+     * `intensity` e' a outra metade do "sombra dura": ela nao era so' de borda
+     * afiada, era tambem preta demais. Sol de praia tem ceu inteiro fazendo
+     * preenchimento, e nenhuma sombra ao ar livre chega a 100%.
+     */
+    sol.shadow.bias = 0;
+    sol.shadow.radius = 6;
+    sol.shadow.blurSamples = 16;
+    sol.shadow.intensity = 0.72;
 
     this.scene.add(sol);
     this.scene.add(sol.target);

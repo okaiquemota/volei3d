@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { COLORS } from '../config';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { encaixarNoCampo, tirarEnfeites } from './encaixarQuadra';
 import { EMPURRAO_DA_PELE, empurrarParaFrente } from './chao';
@@ -16,6 +17,14 @@ import urlDaQuadra from '../assets/quadra.glb?url';
  * vem todos, e e' de proposito: o que sobra decide o proximo passo melhor do
  * que uma lista de exclusoes decidida antes de ver.
  */
+
+/**
+ * A malha do piso de jogo dentro do modelo.
+ *
+ * O `Plane088` e' o piso inteiro e vem partido por material: `_white_0` sao as
+ * linhas e `_brown_0` e' a superficie. E' esta ultima que muda de cor.
+ */
+const PISO_DE_JOGO = 'Plane088_brown_0';
 
 /** Um modelo carregado, pronto pra ser clonado por quadra. */
 export interface ModeloDaQuadra {
@@ -46,6 +55,25 @@ export async function carregarQuadraModelo(): Promise<ModeloDaQuadra> {
     // A quadra recebe sombra dos atletas, como a areia recebe.
     malha.receiveShadow = true;
   });
+
+  /**
+   * O piso de jogo troca o marrom por LARANJA — o mesmo das placas.
+   *
+   * O modelo vem com um marrom-mostarda (#b0823d) que, ao lado do turquesa da
+   * borda e do laranja da propaganda, le' como terra batida. Quadra de verdade
+   * e' laranja contra azul, e a cor sai de `COLORS.placas.laranja` pra nao
+   * existirem dois laranjas quase iguais no jogo.
+   *
+   * So' a PECA do piso, e nao o material `brown` inteiro: ele e' compartilhado
+   * com a madeira dos bancos, que continua madeira.
+   */
+  const piso = molde.getObjectByName(PISO_DE_JOGO) as THREE.Mesh | undefined;
+  if (piso) {
+    const proprio = (piso.material as THREE.MeshStandardMaterial).clone();
+    proprio.color.setHex(COLORS.placas.laranja);
+    piso.material = proprio;
+    materiais.add(proprio);
+  }
 
   /**
    * A laje do modelo e a areia do mundo sao coplanares, e quem ganha muda com a

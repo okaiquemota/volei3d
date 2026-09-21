@@ -1267,6 +1267,40 @@ arquibancada em volta) e depois sobre branco chapado (um vazio claro sob a
 arquibancada). Nenhum dos dois é o que ele é. Hoje é `usarPiso(tipo)`, com os
 três nomeados.
 
+## Sombra "dura" são duas coisas, e só uma é a borda
+
+O veredito foi "a sombra está muito dura". Eram dois defeitos somados, e
+consertar um só não resolveria:
+
+- **A borda.** O projeto usava `PCFShadowMap`, que não borra — `shadow.radius`
+  é ignorado nele. `PCFSoftShadowMap` não é saída: no r185 está depreciado e cai
+  em PCF sozinho, avisando no console. Quem borra de verdade é **`VSMShadowMap`**,
+  que guarda profundidade e profundidade ao quadrado e aceita `radius` e
+  `blurSamples`. O preço é vazamento de luz em geometria fina, que aqui não
+  existe: quem projeta sombra são corpos, postes e a fita da rede.
+- **A escuridão.** A sombra também era preta demais. Sol de praia tem o céu
+  inteiro fazendo preenchimento, e nenhuma sombra ao ar livre chega a 100%.
+  `shadow.intensity = 0.72` é a outra metade do conserto.
+
+E o `bias` de `-0,0008` teve que voltar a zero: ele existia para tapar o acne do
+PCF, e no VSM só descola a sombra do pé de quem a projeta.
+
+## Textura não conserta UV
+
+As placas de propaganda do estádio vinham com o modelo, e a primeira tentativa
+foi só trocar a imagem por uma desenhada em canvas. O resultado: num trecho da
+volta o texto saía **espelhado**, e noutro **esticado até virar cor chapada**.
+
+O defeito não era da imagem. As UVs daquele anel são inconsistentes de face para
+face, e nenhuma textura corrige mapeamento — só o mapeamento corrige mapeamento.
+A saída foi apagar o anel do asset e **construir o próprio em código**, quatro
+planos em volta da quadra, com as UVs escritas à mão.
+
+O ganho que não estava no pedido: o anel do modelo encolhia junto com o estádio,
+e por isso era ele quem limitava o quanto o estádio podia diminuir. O anel novo
+é medido a partir da QUADRA e não encolhe junto — o piso da escala caiu de 0,60
+para 0,49, e o estádio pôde chegar bem mais perto.
+
 ## O preto não era cor, era luz
 
 Depois de repintar o estádio inteiro, as faces laterais dos degraus continuavam

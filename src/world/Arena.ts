@@ -8,6 +8,7 @@ import type { Athlete } from '../players/Athlete';
 import { Human } from '../players/Human';
 import { Court, sinalDe, type Side } from './Court';
 import { construirQuadra, type Colisores } from './buildCourt';
+import { construirPlacas, type PlacasConstruidas } from './buildPlacas';
 import { Markers } from './Markers';
 
 /**
@@ -54,6 +55,8 @@ export class Arena {
   private peleDeModelo: THREE.Object3D | null = null;
   /** O estadio em volta, quando o cenario e' ESTADIO. Nao e' pele: e' vizinhanca. */
   private estadio: THREE.Object3D | null = null;
+  /** O anel de propaganda. Anda com o estadio, mas e' medido pela quadra. */
+  private placas: PlacasConstruidas | null = null;
 
   /** Segundos ate' os bots comecarem a partida seguinte. */
   private descanso = MATCH.descansoEntrePartidas;
@@ -142,8 +145,24 @@ export class Arena {
       this.raiz.remove(this.estadio);
       this.estadio = null;
     }
+    if (this.placas) {
+      this.raiz.remove(this.placas.root);
+      this.placas.dispose();
+      this.placas = null;
+    }
 
     if (molde) {
+      /**
+       * As placas nascem com o estadio e medem a partir da QUADRA.
+       *
+       * Por isso nao entram no clone do modelo: elas nao encolhem junto com a
+       * arquibancada. E' o que permite o estadio chegar mais perto sem a
+       * propaganda invadir a zona livre.
+       */
+      this.placas = construirPlacas();
+      this.placas.root.applyMatrix4(this.court.matrix);
+      this.raiz.add(this.placas.root);
+
       this.estadio = molde.clone();
       // Encolhe ANTES de ir pro lugar da quadra: `applyMatrix4` multiplica por
       // cima do que ja' esta' na matriz, entao a ordem e' escala e depois posto.

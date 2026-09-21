@@ -63,6 +63,22 @@ const FUTEBOL_FORA = new Set([
    * Sai o plano e sai a textura junto, que e' o unico uso dela.
    */
   'saha_Material.001_0',
+
+  /**
+   * O anel de placas de propaganda. Sai, e e' substituido por um feito em
+   * codigo (`construirPlacas`), por dois motivos que so' aparecem na tela:
+   *
+   * As UVs dele sao INCONSISTENTES na volta — num trecho a textura sai
+   * espelhada (o texto le' de tras pra frente), noutro sai esticada ate' virar
+   * cor chapada. Nao ha' textura que conserte isso, porque o defeito e' do
+   * mapeamento.
+   *
+   * E, sendo a peca do modelo mais proxima da quadra, era ELE quem definia o
+   * quanto o estadio podia encolher. Fora daqui, o anel passa a ser medido a
+   * partir da quadra e nao encolhe junto — e o estadio fica livre pra chegar
+   * mais perto.
+   */
+  'Pano_Material.017_0',
 ]);
 
 const [, , entrada, saida] = process.argv;
