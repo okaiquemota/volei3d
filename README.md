@@ -133,7 +133,7 @@ pontos com dois de vantagem e teto em 25.
 
 **Saque.** Só de trás da linha de fundo — durante o saque a área de corrida
 encolhe para a faixa atrás da linha, com a zona livre inteira na lateral, que é
-a regra de verdade. E o sacador tem **6 segundos**: passou disso é ponto do
+a regra de verdade. E o sacador tem **8 segundos**, como no vôlei de verdade: passou disso é ponto do
 adversário. Sem relógio, quem está perdendo simplesmente não saca, e não havia
 nada no jogo que o obrigasse.
 
