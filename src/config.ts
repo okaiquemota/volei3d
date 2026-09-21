@@ -543,12 +543,12 @@ export const MATCH = {
   /**
    * Segundos pra sacar depois que a bola vai pra mao.
    *
-   * No volei de verdade o arbitro apita e o sacador tem 8 segundos. Aqui sao 5:
+   * No volei de verdade o arbitro apita e o sacador tem 8 segundos. Aqui sao 6:
    * sem arbitro e sem cerimonia, 8 e' tempo de sobra e o rally demora a
    * comecar. A regra existe pelo mesmo motivo que existe no jogo real — sem
    * ela, quem esta' perdendo simplesmente nao saca.
    */
-  tempoLimiteDeSaque: 5,
+  tempoLimiteDeSaque: 6,
   /** Tempo que o aviso de ponto fica na tela. */
   announcement: 2.0,
   /** Pausa de uma quadra de bots entre uma partida e a proxima. */
