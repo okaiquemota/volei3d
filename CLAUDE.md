@@ -938,6 +938,40 @@ Uma armadilha dentro da cura: os bits de `MouseEvent.buttons` **não** seguem a
 numeração de `MouseEvent.button`. Primário é bit 1, secundário é 2, do meio é 4;
 `button` numera 0, 2 e 1. Trocar os dois faz o botão direito "soltar" o esquerdo.
 
+## O `SHIFT + botão direito` do Firefox não tem como ser bloqueado
+
+O botão direito é uma ação do jogo (levantar), e o `contextmenu` é bloqueado —
+agora na **janela**, em captura, e não só no canvas: a faixa de teclas e o placar
+também são alvos válidos.
+
+Mas o Firefox trata `SHIFT + botão direito` como **escotilha do usuário** e
+ignora o `preventDefault` da página de propósito. Não há API para desligar isso,
+e não deveria haver. O problema aqui é que o SHIFT é a câmera lenta: a combinação
+acontece sozinha no meio de um lance, sem o jogador pedir nada.
+
+A saída não foi lutar com o navegador, foi **dar um segundo caminho**: `R`
+também levanta. Nada foi removido, e a combinação que o Firefox sequestra deixou
+de ser a única forma de fazer aquela jogada.
+
+## Trocar o `map` de um material exige `needsUpdate`
+
+O chão troca entre areia e piso claro (`praia.usarPisoClaro`). Duas coisas que
+custam um sintoma cada:
+
+- **A cor da areia está na TEXTURA, não no `color`.** Tintar de branco por cima
+  do mapa devolve areia lavada, não um piso claro. O mapa tem que sair para a
+  cor do material valer.
+- **Tirar ou pôr um mapa muda o PROGRAMA do shader.** Sem `material.needsUpdate
+  = true` o three reaproveita o programa anterior e a troca simplesmente não
+  aparece — nada quebra, nada avisa, o chão só não muda.
+
+O relevo (`normalMap`) fica, com força reduzida: sem ele a laje de 400 m vira um
+plano sem nenhuma informação de superfície e o olho perde a referência de onde o
+chão está.
+
+E o branco não é `0xffffff`: puro, sob sol mais luz de céu, estoura e leva
+junto a sombra dos atletas — justamente o que diz ao olho onde o plano está.
+
 ## O que NÃO foi verificado
 
 O equilíbrio da IA contra um humano de verdade. O que se mediu foi um piloto

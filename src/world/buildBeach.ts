@@ -5,6 +5,15 @@ import { criarAreia, escalarUVsDaCaixa } from './textures';
 export interface PraiaConstruida {
   root: THREE.Group;
   descartaveis: Array<{ dispose(): void }>;
+  /**
+   * Troca o chao entre a areia e o piso claro do cenario QUADRA.
+   *
+   * O chao e' UM pra praia inteira, entao isto vale pras tres quadras e pra
+   * quem anda na areia — o cenario e' do MUNDO, nao de uma arena. Trocar so' o
+   * pedaco em volta de uma quadra exigiria recortar a laje, e ela existe
+   * justamente pra nao ter recorte nenhum.
+   */
+  usarPisoClaro(claro: boolean): void;
 }
 
 /**
@@ -65,5 +74,25 @@ export function construirPraia(): PraiaConstruida {
   mesh.receiveShadow = true;
   root.add(mesh);
 
-  return { root, descartaveis };
+  const usarPisoClaro = (claro: boolean): void => {
+    /**
+     * O mapa de COR sai; o de RELEVO fica.
+     *
+     * A cor da areia esta' na textura, nao no `color` — tintar de branco por
+     * cima dela devolveria areia lavada, nao um piso claro. Tirar o mapa e' o
+     * unico jeito de a cor do material valer.
+     *
+     * O relevo continua, mais fraco: sem ele a laje de 400 m vira um plano sem
+     * nenhuma informacao de superficie, e o olho perde a referencia de onde o
+     * chao esta'. Com ele, o piso claro ainda tem textura.
+     */
+    material.map = claro ? null : areia.map;
+    material.normalScale.setScalar(claro ? areia.relevo * 0.35 : areia.relevo);
+    material.color.setHex(claro ? COLORS.pisoClaro : COLORS.sand);
+    // Trocar mapa muda o PROGRAMA do shader. Sem isto o three reaproveita o
+    // anterior e a troca simplesmente nao aparece.
+    material.needsUpdate = true;
+  };
+
+  return { root, descartaveis, usarPisoClaro };
 }

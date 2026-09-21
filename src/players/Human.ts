@@ -23,7 +23,7 @@ const _alvoDoToque = new THREE.Vector3();
  *   Espaco ............... pular
  *   Mouse ................ mirar (um ponto no CHAO, nao uma direcao)
  *   Clique esq. / E ...... tocar na bola
- *   Clique dir. .......... levantar no proprio campo
+ *   Clique dir. / R ...... levantar no proprio campo
  *   C .................... mergulhar: joga o corpo pra alcancar o que os pes nao alcancam
  *   F .................... forcar o ataque por cima da rede
  *   Shift ................ camera lenta (quem le' e' o Game: e' do mundo, nao do atleta)
@@ -152,8 +152,17 @@ export class Human extends Athlete {
       this.ataquePendente = this.carga >= ATAQUE.cargaMinimaParaAtacar || this.segurandoModificador;
     }
 
-    // O levantamento nao carrega: e' um toque de armacao, sai na hora.
-    const pediuLevantar = input.wasMousePressed(2);
+    /**
+     * O levantamento nao carrega: e' um toque de armacao, sai na hora.
+     *
+     * Tem tecla alem do botao direito, e nao por comodidade: o Firefox trata
+     * `SHIFT + botao direito` como escotilha do usuario e abre o menu de
+     * contexto ignorando o `preventDefault` da pagina. Como o SHIFT aqui e' a
+     * camera lenta, essa combinacao acontece sozinha no meio de um lance — e
+     * nao ha' do lado da pagina como impedir. O `R` e' o caminho que nao passa
+     * por ali.
+     */
+    const pediuLevantar = input.wasMousePressed(2) || input.wasPressed('KeyR');
     if (pediuLevantar) this.levantarPendente = true;
 
     /**

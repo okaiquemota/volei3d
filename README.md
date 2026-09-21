@@ -40,7 +40,7 @@ npm run build:single # dist/volei3d.html — joga com duplo clique, offline
 | Mirar | Mouse — a mira é um **ponto no chão**, não uma direção |
 | Passar | Toque rápido no clique esquerdo (ou `E`) |
 | Atacar por cima da rede | **Segurar** o clique esquerdo e soltar |
-| Levantar no próprio campo | **Clique direito** |
+| Levantar no próprio campo | **Clique direito** ou `R` |
 | Sacar | Segure e solte o clique esquerdo — a carga vale aqui também |
 | Sair da quadra e andar pela areia | `Q` |
 | Entrar na quadra em que você está encostado | `E` |
@@ -152,6 +152,11 @@ põe as linhas do desenho exatamente em cima das linhas que valem. A altura vai
 por outra conta, porque a fita do modelo termina a 2,10 m e o colisor que para a
 bola está a 2,24: escalando tudo junto, a bola passaria por cima do desenho e
 bateria no nada.
+
+O chão acompanha: no cenário QUADRA a areia dourada vira um piso claro, porque
+uma quadra de modelo em cima de areia continua parecendo uma quadra largada na
+praia. O chão é **um** para a praia inteira, então isso vale para as três quadras
+e para quem anda por fora — o cenário é do mundo, não de uma arena.
 
 Do modelo sai só o que compete com o jogo: a bola de enfeite, porque duas bolas
 em campo não são decoração, são o jogador procurando qual das duas está em jogo.

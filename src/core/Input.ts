@@ -16,7 +16,7 @@
  *   teclado ABNT ou AZERTY o WASD iria parar em outro lugar;
  * - `blur` e `visibilitychange` zeram TUDO. Sem isso, trocar de aba com a tecla
  *   apertada deixa o atleta correndo sozinho ate' a volta;
- * - `contextmenu` bloqueado: o botao direito e' o ataque forcado.
+ * - `contextmenu` bloqueado: o botao direito e' uma acao do jogo (levantar).
  */
 /**
  * O foco esta' num controle de formulario?
@@ -90,7 +90,16 @@ export class Input {
     window.addEventListener('mouseup', this.onMouseUp);
     window.addEventListener('blur', this.onWindowBlur);
     document.addEventListener('visibilitychange', this.onVisibility);
-    this.canvas.addEventListener('contextmenu', this.onContextMenu);
+    /**
+     * O menu de contexto morre na JANELA, em captura, e nao so' no canvas.
+     *
+     * No canvas ele cobria o caso comum e deixava passar o resto: a faixa de
+     * teclas, o placar e qualquer outro pedaco do HUD sao alvos validos, e um
+     * menu do navegador aberto no meio de um rally tira o foco do jogo.
+     *
+     * `capture: true` pra chegar antes de qualquer outro tratador.
+     */
+    window.addEventListener('contextmenu', this.onContextMenu, { capture: true });
     this.canvas.addEventListener('wheel', this.onWheel, { passive: false });
   }
 
@@ -228,6 +237,18 @@ export class Input {
     this.roda += e.deltaY * porUnidade;
   };
 
+  /**
+   * Mata o menu de contexto.
+   *
+   * O botao direito e' uma ACAO do jogo (levantar), e o menu do navegador em
+   * cima dela custa o rally inteiro.
+   *
+   * Um caso escapa e nao ha' o que fazer: o Firefox trata `SHIFT + botao
+   * direito` como escotilha do USUARIO e ignora o `preventDefault` da pagina de
+   * proposito. Como o SHIFT aqui e' a camera lenta, a combinacao acontece
+   * sozinha no meio de um lance — por isso levantar tambem tem tecla (`R`), que
+   * nao passa perto disso.
+   */
   private onContextMenu = (e: Event): void => { e.preventDefault(); };
 
   private onWindowBlur = (): void => {
@@ -298,6 +319,7 @@ export class Input {
   }
 
   dispose(): void {
+    window.removeEventListener('contextmenu', this.onContextMenu, { capture: true });
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
     window.removeEventListener('mousemove', this.onMouseMove);
@@ -305,7 +327,6 @@ export class Input {
     window.removeEventListener('mouseup', this.onMouseUp);
     window.removeEventListener('blur', this.onWindowBlur);
     document.removeEventListener('visibilitychange', this.onVisibility);
-    this.canvas.removeEventListener('contextmenu', this.onContextMenu);
     this.canvas.removeEventListener('wheel', this.onWheel);
   }
 }

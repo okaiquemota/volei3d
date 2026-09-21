@@ -11,7 +11,7 @@ import { Banhista } from '../players/Banhista';
 import { AIPlayer } from '../players/AI';
 import { descartarGeometriasDeAtleta } from '../players/buildAthlete';
 import { Arena } from '../world/Arena';
-import { construirPraia } from '../world/buildBeach';
+import { construirPraia, type PraiaConstruida } from '../world/buildBeach';
 import { carregarQuadraModelo, type ModeloDaQuadra } from '../world/buildQuadraModelo';
 import { PRAIA } from '../world/praia';
 import type { Side } from '../world/Court';
@@ -62,6 +62,9 @@ export class Game {
    * por codigo — o jogo nunca fica sem quadra.
    */
   private modeloDaQuadra: ModeloDaQuadra | null = null;
+
+  /** O chao do mundo. Guardado porque o cenario troca a cara dele. */
+  private praia!: PraiaConstruida;
 
   /**
    * As quadras da praia. Todas rodam ao mesmo tempo.
@@ -149,6 +152,7 @@ export class Game {
     const praia = construirPraia();
     this.scene.add(praia.root);
     this.descartaveis.push(...praia.descartaveis);
+    this.praia = praia;
 
     for (const lugar of PRAIA) {
       const arena = new Arena(lugar.id, lugar.posicao, lugar.rotacao);
@@ -301,8 +305,13 @@ export class Game {
 
   /** Poe a pele escolhida em todas as quadras da praia, inclusive as que so' se assiste. */
   private aplicarCenario(): void {
-    const molde = this.screens.ajustes.cenario === 'quadra' ? this.modeloDaQuadra?.molde ?? null : null;
+    const naQuadra = this.screens.ajustes.cenario === 'quadra';
+    const molde = naQuadra ? this.modeloDaQuadra?.molde ?? null : null;
     for (const arena of this.arenas) arena.usarModelo(molde);
+    // O chao acompanha: a quadra de modelo em cima de areia dourada continua
+    // parecendo uma quadra largada na praia, que e' o oposto do que o cenario
+    // esta' tentando ser.
+    this.praia.usarPisoClaro(naQuadra);
   }
 
   private aplicarAjustes(): void {

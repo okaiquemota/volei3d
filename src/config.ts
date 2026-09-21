@@ -767,6 +767,16 @@ export const CAMERA = {
 export const COLORS = {
   sky: 0x73b8eb,
   sand: 0xe6c995,
+  /**
+   * O chao em volta da quadra, no cenario QUADRA.
+   *
+   * Nao e' branco puro: 0xffffff num `MeshStandardMaterial` sob sol mais luz de
+   * ceu estoura, e o chao vira um vazio sem sombra nem relevo — justamente o que
+   * diz ao olho onde o plano esta'. Alguns pontos abaixo do teto deixam a sombra
+   * dos atletas e o relevo da superficie aparecerem, e a leitura continua
+   * "branco".
+   */
+  pisoClaro: 0xf2f2ef,
   line: 0xf7f7f2,
   post: 0x33383f,
   home: 0x2970d1,
