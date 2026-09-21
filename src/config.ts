@@ -637,11 +637,28 @@ export const CAMERA = {
    *
    * `foco` e' quanto a mira puxa pra bola em cada ponta. De perto ela puxa
    * menos: o mesmo puxao que de longe desloca o quadro tres vezes mais.
+   *
+   * `mira` e' a que altura do atleta a camera OLHA, e ela e' enquadramento, nao
+   * direcao: subir esse ponto inclina a camera pra cima, e o que ela ve' desce
+   * na tela. Era 1,2 nos dois, e com ele a quadra ficava alta — 43% da altura
+   * do quadro no ombro, 40% na tatica — com um terco de areia vazia embaixo.
+   *
+   * Os dois valores nao podiam ser o mesmo, e nao por gosto: a conta e' `metros
+   * = giro x distancia ate' o ponto mirado`, e essa distancia e' 7 m no ombro
+   * contra 15,8 m na tatica. O mesmo centimetro de mira vale duas vezes mais
+   * la', e a tatica ainda comeca mais alta no quadro — por isso 1,57 contra
+   * 4,2, e nao um numero so'.
+   *
+   * Medido em 1366x683, 1280x720 e 1600x900, com o jogador na linha de saque: o
+   * centro da quadra cai a 48,6% da altura do quadro no ombro e 48,5% na
+   * tatica. O numero nao muda com a largura da janela porque a lente do three
+   * e' VERTICAL.
    */
-  jogoPerto: { altura: 3.8, distancia: 6.5, foco: 0.14, lateral: 0.8 },
-  jogoLonge: { altura: 10.5, distancia: 13, foco: 0.35, lateral: 0.55 },
+  jogoPerto: { altura: 3.8, distancia: 6.5, foco: 0.14, lateral: 0.8, mira: 1.57 },
+  jogoLonge: { altura: 10.5, distancia: 13, foco: 0.35, lateral: 0.55, mira: 4.2 },
   /** Altura do ponto de mira de quem assiste: a cabeca de um jogador. */
   alturaDoOlhar: 1.6,
+
 
   /**
    * Onde fica a camera de quem assiste: mais alta e mais longe que a de quem joga.

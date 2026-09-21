@@ -107,6 +107,9 @@ export class CameraRig {
   private get acompanhamento(): number {
     return lerp(CAMERA.jogoPerto.lateral, CAMERA.jogoLonge.lateral, this.enquadramento);
   }
+  private get alturaDaMira(): number {
+    return lerp(CAMERA.jogoPerto.mira, CAMERA.jogoLonge.mira, this.enquadramento);
+  }
 
   /** Aproxima ou afasta, em pixels de roda. Positivo afasta. */
   aproximar(pixels: number): void {
@@ -325,7 +328,7 @@ export class CameraRig {
       return out;
     }
 
-    out.y += 1.2;
+    out.y += this.alturaDaMira;
     const puxao = this.puxaoDaBola;
     if (this.bola && puxao > 0) out.lerp(this.bola.position, clamp01(puxao));
     return out;

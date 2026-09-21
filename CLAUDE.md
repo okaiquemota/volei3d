@@ -860,6 +860,51 @@ dentro da zona livre e os atletas atravessam eles; as linhas de ataque do indoor
 aparecem e o vôlei de praia não as tem; e a laje está enterrada. As três são
 decisões de arte, pra quando o modo tiver dono.
 
+## Enquadrar é mexer em ONDE a câmera olha, não em onde ela está
+
+A quadra ficava alta no quadro (centro a 43% da altura no ombro, 32% na tática)
+com um terço de areia vazia embaixo. O que conserta isso não é mover a câmera —
+é subir o ponto que ela MIRA, o que a inclina para cima e faz a imagem descer.
+
+`CAMERA.jogoPerto.mira` e `jogoLonge.mira` são valores diferentes de propósito, e
+a diferença não é gosto: a conta é `metros = giro × distância até o ponto
+mirado`, e essa distância é ~7 m no ombro contra ~15,8 m na tática. O mesmo
+centímetro de mira vale o dobro lá, então 1,57 contra 4,2. Um número só deixaria
+um dos dois errado, e foi exatamente o que acontecia com o `1.2` que estava
+cravado no `calcularFoco`.
+
+Medido em três proporções de tela: 48,6% e 48,5%. **O número não muda com a
+largura da janela** — a lente do `PerspectiveCamera` é vertical, então mudar a
+largura não mexe no enquadramento vertical. Se uma medida de enquadramento variar
+com a largura, o erro está na medição, não na câmera.
+
+## Projetar com a matriz velha mede outro quadro
+
+`camera.lookAt()` mexe no quaternion e **não** em `matrixWorld`. `Vector3.project`
+usa `matrixWorldInverse`, que só é recalculada em `updateMatrixWorld`. Medir logo
+depois de um `rig.encaixar()` — sem render entre os dois — projeta com a matriz
+do quadro anterior.
+
+Isso custou uma conclusão inteira aqui: a primeira medição disse que a tática
+punha a quadra a 70% da altura, a captura de tela mostrava 40%, e eu quase fui
+"consertar" na direção errada. A regra: **`cam.updateMatrixWorld(true)` antes de
+qualquer `project` em teste**, ou medir depois de um quadro renderizado.
+
+## O painel de teclas seguiu a câmera
+
+A legenda morava de pé na lateral esquerda, com a justificativa — escrita no
+próprio CSS — de que ali ficava a maior área de areia vazia que a câmera
+enquadrava. Isso era verdade para a câmera antiga, alta e distante. Com a câmera
+de ombro a quadra passou a ocupar o meio do quadro e a ser larga, e a
+justificativa morreu sem que o código soubesse.
+
+Virou faixa deitada no rodapé: 46 px em 1366×683 (6,8% da altura), duas linhas,
+rótulo de grupo alinhado à esquerda. Detalhes que custaram uma iteração cada:
+`width: max-content` com `max-width`, senão o flex escolhe uma largura de
+encolhimento qualquer e quebra em quatro linhas com meia tela sobrando ao lado; e
+`white-space: nowrap` no rótulo, senão "EM QUADRA" quebra em duas e desalinha a
+própria linha.
+
 ## O que NÃO foi verificado
 
 O equilíbrio da IA contra um humano de verdade. O que se mediu foi um piloto

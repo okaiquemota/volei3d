@@ -59,9 +59,11 @@ As duas barras ficam no alto, logo abaixo do placar. `TOQUE` é o quanto *este*
 contato sairia limpo se você batesse agora; `FORÇA` é um **QTE**: ela varre e tem
 uma zona marcada perto do fim.
 
-A legenda de teclas fica no canto de baixo à esquerda — o único pedaço de areia
-que a câmera nunca precisa mostrar, já que a bola vive na metade de cima e a
-quadra ocupa o centro. Ela lista **só teclas**; o que cada barra significa e como
+A legenda de teclas é uma **faixa deitada no rodapé**. Era um painel de pé na
+lateral, e aquilo valia para a câmera antiga, alta e distante; com a câmera de
+ombro a quadra ocupa o meio do quadro e é *larga*, então a lateral deixou de ser
+vazia. O rodapé é o único pedaço do quadro onde nunca acontece nada — a areia
+logo à frente do jogador, atrás do próprio corpo dele. Ela lista **só teclas**; o que cada barra significa e como
 o rally funciona está no menu, em **COMO JOGAR**, que é texto pra ler uma vez.
 `H` esconde a legenda, e a preferência fica guardada.
 
@@ -156,6 +158,17 @@ em campo não são decoração, são o jogador procurando qual das duas está em
 A laje, os bancos e os cones ficam. A laje fica enterrada na areia, porque o chão
 da física é `y = 0` e levantar o desenho faria o jogo inteiro acontecer dentro
 dela.
+
+**A quadra fica no centro do quadro, nos dois enquadramentos.** Quem decide isso
+é a altura em que a câmera *olha*, e ela é enquadramento, não direção: subir o
+ponto mirado inclina a câmera para cima, e o que ela vê desce na tela. Os dois
+enquadramentos precisam de valores diferentes porque a conta é `metros = giro ×
+distância até o ponto mirado`, e essa distância é 7 m no ombro contra 15,8 m na
+tática — o mesmo centímetro vale o dobro lá.
+
+Medido em 1366×683, 1280×720 e 1600×900: o centro da quadra cai a 48,6% da
+altura do quadro no ombro e 48,5% na tática. O número não muda com a largura da
+janela porque a lente do three é **vertical**.
 
 **Dois enquadramentos, e a roda anda entre eles.** O padrão é a câmera de
 **ombro**: baixa, 6,5 m atrás de você, com o seu corpo ocupando um quarto do

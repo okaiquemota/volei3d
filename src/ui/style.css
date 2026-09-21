@@ -416,70 +416,91 @@ body.tela-aberta #hud { opacity: 0; }
 /* ======================= LEGENDA DE TECLAS ======================= */
 
 /*
- * Canto de BAIXO, a esquerda: a bola vive na metade de cima da tela e a quadra
- * ocupa o centro, entao o rodape esquerdo e' o unico pedaco de areia que a
- * camera nunca precisa mostrar.
+ * Uma FAIXA no rodape, deitada.
  *
- * Era um painel de altura inteira no meio da lateral, com cinco paragrafos
- * explicando as barras. Explicacao se le' uma vez — foi pro menu, em COMO
- * JOGAR. Aqui ficou o que se consulta de relance: tecla e acao, nada mais.
+ * Era um painel de pe' na lateral esquerda, com a justificativa de que ali
+ * ficava a maior area de areia vazia. Isso valia pra camera antiga, alta e
+ * distante. Com a camera de ombro a quadra ocupa o meio do quadro e e' LARGA:
+ * a lateral deixou de ser vazia, e o painel passou a disputar com o campo.
+ *
+ * O rodape e' o unico lugar do quadro onde nunca acontece nada — e' a areia
+ * logo a' frente do jogador, atras do proprio corpo dele, pra onde a bola nao
+ * vai e onde nao ha' o que ler.
  */
 #manual {
   position: absolute;
-  left: 1.6vmin;
-  bottom: 1.6vmin;
-  width: 15.5em;
-  padding: 0.85em 1em;
+  left: 50%;
+  bottom: 1.2vmin;
+  transform: translateX(-50%);
+  /* `max-content` primeiro: a faixa TENTA caber numa linha por grupo, e so'
+     quebra quando a janela nao da'. Sem isto o flex escolhe uma largura de
+     encolhimento qualquer e quebra em quatro linhas com meia tela sobrando ao
+     lado. */
+  width: max-content;
+  max-width: calc(100% - 2.4vmin);
+  padding: 0.55em 0.9em;
   background: var(--painel);
   border: 1px solid var(--borda);
   border-radius: var(--raio);
   backdrop-filter: blur(3px);
-  font-size: 0.92em;
-  line-height: 1.4;
+  font-size: 0.82em;
+  line-height: 1.3;
 
-  /* Largura pelo CONTEUDO, e nao por um numero: as linhas sao `nowrap`, entao
-     uma largura fixa nao aperta o texto — corta. Com `max-content` o painel
-     mede a linha mais longa que ele tem, e acrescentar uma tecla amanha nao
-     deixa metade de um rotulo pra fora sem ninguem ver. */
-  width: max-content;
-  max-width: min(22em, 30vw);
-  max-height: calc(100% - 3.2vmin);
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35em;
+}
+
+/* Cada grupo e' uma LINHA: rotulo a esquerda, teclas correndo a direita. */
+.grupo-teclas {
+  display: flex;
+  align-items: baseline;
+  gap: 0.9em;
 }
 
 #manual h2 {
-  margin: 0 0 0.5em;
-  font-size: 0.8em;
+  margin: 0;
+  /* Largura fixa pros dois rotulos: sem ela as duas linhas de teclas comecam
+     em colunas diferentes e a faixa perde o alinhamento que a torna varrivel.
+     E `nowrap`, senao "EM QUADRA" quebra em duas e desalinha a propria linha. */
+  flex: 0 0 8em;
+  white-space: nowrap;
+  font-size: 0.78em;
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   color: var(--home);
   opacity: 0.9;
-}
-#manual h2:not(:first-child) {
-  margin-top: 0.9em;
-  padding-top: 0.8em;
-  border-top: 1px solid rgba(232, 230, 227, 0.1);
+  text-align: right;
 }
 
-#manual ul { margin: 0; padding: 0; list-style: none; }
+#manual ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  /* A coluna e' o respiro entre acoes; a linha e' pro caso de a faixa quebrar
+     numa janela estreita. */
+  column-gap: 1.1em;
+  row-gap: 0.3em;
+}
 
 .teclas li {
   display: flex;
   align-items: center;
-  gap: 0.6em;
-  margin-bottom: 0.35em;
+  gap: 0.4em;
 }
-.teclas li:last-child { margin-bottom: 0; }
-.teclas .k { display: flex; align-items: center; gap: 0.2em; flex-shrink: 0; }
-/* Sem quebra no rotulo da acao: "carregar e atacar" em duas linhas desalinha a
-   lista inteira e o painel deixa de ser varrido de relance. */
-.teclas .o { opacity: 0.72; font-size: 0.95em; white-space: nowrap; }
+.teclas .k { display: flex; align-items: center; gap: 0.15em; flex-shrink: 0; }
+/* Sem quebra no rotulo da acao: "carregar e atacar" em duas linhas desmonta a
+   fila inteira, e a faixa deixa de ser varrida de relance. */
+.teclas .o { opacity: 0.72; white-space: nowrap; }
 .teclas i { opacity: 0.35; font-style: normal; font-size: 0.85em; }
 
 kbd {
   display: inline-block;
-  min-width: 1.75em;
-  padding: 0.15em 0.35em;
+  min-width: 1.6em;
+  padding: 0.1em 0.3em;
   background: rgba(232, 230, 227, 0.1);
   border: 1px solid rgba(232, 230, 227, 0.22);
   /* A sombra de baixo e' o que faz ler como TECLA e nao como caixinha. */
@@ -492,19 +513,8 @@ kbd {
 }
 kbd.larga { min-width: auto; }
 
-#manual .rodape-manual {
-  margin: 0.8em 0 0;
-  padding-top: 0.7em;
-  border-top: 1px solid rgba(232, 230, 227, 0.1);
-  font-size: 0.74em;
-  opacity: 0.45;
-  text-align: center;
-  white-space: nowrap;
-}
-#manual .rodape-manual kbd { font-size: 0.9em; min-width: auto; }
-
-/* Telas baixas: a legenda competiria com a quadra. Some. */
-@media (max-height: 560px), (max-width: 900px) {
+/* Telas baixas ou estreitas: a faixa competiria com a quadra. Some. */
+@media (max-height: 520px), (max-width: 820px) {
   #manual { display: none; }
 }
 
