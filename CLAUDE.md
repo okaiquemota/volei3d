@@ -780,6 +780,59 @@ nunca sai de `false`. É uma vantagem do jogador, de propósito, e o dia em que 
 dificuldade pedir isso o caminho é o mesmo: `AI` chama `motor.mergulhar` quando a
 queda prevista cai fora do alcance mas dentro do alcance estendido.
 
+## O cenário QUADRA é uma PELE, e essa palavra é o desenho inteiro
+
+`Arena.usarModelo` esconde o `desenhoDaQuadra` e põe um clone do modelo no lugar.
+Os **colisores não são tocados** — eles saem de `construirQuadra` uma vez, no
+construtor, e continuam sendo os mesmos objetos nos dois cenários (medido:
+`JSON.stringify(colisores)` idêntico antes e depois da troca). Se algum dia essa
+linha se romper, o jogo não quebra: ele passa a *mentir*, e é muito pior.
+
+Três coisas que o encaixe (`encaixarQuadra.ts`) resolve, e que custaram um
+sintoma cada:
+
+- **Duas escalas, não uma.** XZ por `8/9` (o modelo é indoor 9 × 18, o campo é
+  praia 8 × 16, e os dois são 1:2, então as linhas caem em cima das certas). Y
+  por `netHeight / topoDaRede`, porque a fita do modelo está a 2,10 e o colisor
+  a 2,24 — com escala única ela cairia pra 1,87, e a bola passaria por cima do
+  desenho pra bater no nada.
+- **Recentrar.** O modelo nasce a 136 m da origem no X. Sem isso ele sai do
+  tamanho certo e no lugar errado — e "no lugar errado" a 136 m é fácil de ler
+  como "o modelo não carregou".
+- **`POUSO_NA_AREIA`.** Exportado de `buildCourt` porque as linhas desenhadas e a
+  pele de modelo têm que pousar no MESMO milímetro. Na primeira tentativa o piso
+  foi pro `y = 0` exato e sumiu inteiro: a areia ganhou a briga de z e a quadra
+  apareceu sem chão, só rede, postes e bancos.
+
+**E o z-fighting voltou pela distância.** Com o piso a 1 mm, a laje azul aparecia
+de perto e sumia de longe — não é posição, é a precisão do z-buffer, que cai com
+a distância. Subir a geometria resolveria a briga e criaria outra (o chão da
+física é `y = 0`, então levantar o desenho afunda a bola nele ao quicar).
+`polygonOffset` nos materiais do modelo empurra tudo na direção da câmera só no
+teste de profundidade, sem mover um milímetro, e a ordem interna do modelo não
+muda porque o empurrão é o mesmo pra todas as peças.
+
+**O encaixe tem teste, e o carregador não pode ter.** `buildQuadraModelo.ts`
+importa o `.glb` por `?url`, que o Vite resolve e o Node não — um `import` desses
+no topo fecha a porta do teste pro arquivo inteiro (`ERR_UNKNOWN_FILE_EXTENSION`).
+Por isso a geometria pura mora em `encaixarQuadra.ts`, sem asset nenhum, e é ela
+que os quatro testes cobrem.
+
+**O `.glb` mora em `src/assets/`, não em `public/`.** Em `public/` o arquivo não
+passa pelo pipeline do Vite — e o build de arquivo único depende exatamente disso
+pra embutir o modelo em base64. Precisou de `assetsInclude: ['**/*.glb']` no
+`vite.config.ts` (o Vite não reconhece `.glb` sozinho) e de uma declaração de
+módulo pro TypeScript aceitar `import ... from '*.glb?url'`.
+
+**Bug de borda que apareceu junto:** `scripts/build-single.mjs` escrevia em
+`dist/` sem criar o diretório. Num clone novo, rodar `build:single` antes de
+`build` morria num ENOENT no fim de tudo, depois do build inteiro. Um `mkdir`.
+
+**O que fica pendente no cenário QUADRA**, e é de propósito (nada foi removido):
+os bancos ficam dentro da zona livre e os atletas atravessam eles; as linhas de
+ataque do indoor aparecem e o vôlei de praia não as tem; e a laje está enterrada.
+As três são decisões de arte, pra quando o modo tiver dono.
+
 ## O que NÃO foi verificado
 
 O equilíbrio da IA contra um humano de verdade. O que se mediu foi um piloto

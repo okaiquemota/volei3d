@@ -599,6 +599,11 @@ kbd.larga { min-width: auto; }
 }
 .rodape kbd { font-size: 0.85em; opacity: 0.9; }
 
+/* O credito do modelo. CC-BY exige credito VISIVEL, entao ele nao pode viver
+   so' no README — mas tambem nao disputa atencao com o botao JOGAR. */
+.rodape .credito { display: inline-block; margin-top: 0.5rem; font-size: 0.92em; opacity: 0.8; }
+.rodape a { color: inherit; }
+
 /* As duas colunas do menu: ajustes de um lado, como se joga do outro.
    Numa tela estreita viram uma so' — e a ordem do HTML ja' poe o botao
    JOGAR antes do texto explicativo, que e' a ordem certa empilhado. */

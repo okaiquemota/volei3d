@@ -143,6 +143,14 @@
               </div>
             </div>
 
+            <div class="campo">
+              <span class="rotulo">CENARIO</span>
+              <div id="opt-cenario" class="segmento" role="radiogroup" aria-label="Cenario">
+                <label><input type="radio" name="cenario" value="areia" checked /><span>AREIA</span></label>
+                <label><input type="radio" name="cenario" value="quadra" /><span>QUADRA</span></label>
+              </div>
+            </div>
+
             <label class="campo">
               <span class="rotulo">RESOLUCAO <b id="opt-res-valor">100%</b></span>
               <input id="opt-res" type="range" min="50" max="100" step="10" value="100" />
@@ -205,7 +213,10 @@
         <button id="btn-jogar" class="botao">JOGAR</button>
 
         <p class="rodape"><kbd>ESC</kbd> pausa &middot; <kbd>F3</kbd> desempenho
-          &middot; <kbd>H</kbd> esconde as teclas</p>
+          &middot; <kbd>H</kbd> esconde as teclas<br />
+          <span class="credito">Cenario QUADRA: &ldquo;Volleyball court&rdquo; de Konstantin,
+            sob <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank"
+            rel="noopener">CC&nbsp;Attribution</a></span></p>
       </div>
     </div>
 

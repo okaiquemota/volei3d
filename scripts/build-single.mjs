@@ -18,7 +18,7 @@
  * o que faltava sumia calado — arma voltando pro modelo procedural, som que
  * nunca toca. Um build quebrado tem que doer no build, nao no jogador.
  */
-import { readFile, writeFile, readdir, rm, stat } from 'node:fs/promises';
+import { readFile, writeFile, readdir, mkdir, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { build } from 'vite';
 
@@ -94,6 +94,11 @@ if (problemas.length) {
 }
 
 // ------------------------------------------------------------- montagem
+// `dist/` pode nao existir: este build tem o seu proprio diretorio de trabalho
+// e nao depende de `npm run build` ter rodado antes. Sem isto, rodar o arquivo
+// unico primeiro num clone novo morria num ENOENT no fim de tudo.
+await mkdir(SAIDA, { recursive: true });
+
 const [html, codigo, estilo] = await Promise.all([
   readFile(join(TRABALHO, 'index.html'), 'utf8'),
   readFile(join(ASSETS, js[0]), 'utf8'),

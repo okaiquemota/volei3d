@@ -12,6 +12,7 @@ import { AIPlayer } from '../players/AI';
 import { descartarGeometriasDeAtleta } from '../players/buildAthlete';
 import { Arena } from '../world/Arena';
 import { construirPraia } from '../world/buildBeach';
+import { carregarQuadraModelo, type ModeloDaQuadra } from '../world/buildQuadraModelo';
 import { PRAIA } from '../world/praia';
 import type { Side } from '../world/Court';
 import { setMaxAnisotropy } from '../world/textures';
@@ -51,6 +52,16 @@ export class Game {
    * um tempo e enquadrando outro.
    */
   private tempo = new Tempo();
+
+  /**
+   * A pele de modelo da quadra, quando ela chega.
+   *
+   * Carrega uma vez e em segundo plano: sao 136 kB, mas e' rede, e travar a
+   * primeira pintura por causa de um cenario que talvez nao seja escolhido
+   * seria pagar caro por nada. Ate' chegar, o cenario QUADRA mostra o desenho
+   * por codigo — o jogo nunca fica sem quadra.
+   */
+  private modeloDaQuadra: ModeloDaQuadra | null = null;
 
   /**
    * As quadras da praia. Todas rodam ao mesmo tempo.
@@ -269,6 +280,29 @@ export class Game {
 
     this.screens.mostrarMenu(true);
     this.hud.definirNomes(MEU_NOME, 'CPU');
+    void this.buscarModeloDaQuadra();
+  }
+
+  /**
+   * Busca o modelo da quadra e aplica, se o cenario ja' estiver escolhido.
+   *
+   * Falhar aqui nao pode derrubar o jogo: sem rede, sem o arquivo, ou com um
+   * glTF quebrado, o que se perde e' um cenario — e o outro continua sendo o
+   * que o jogo sempre foi.
+   */
+  private async buscarModeloDaQuadra(): Promise<void> {
+    try {
+      this.modeloDaQuadra = await carregarQuadraModelo();
+      this.aplicarCenario();
+    } catch (erro) {
+      console.warn('nao deu pra carregar a quadra de modelo; seguindo na areia', erro);
+    }
+  }
+
+  /** Poe a pele escolhida em todas as quadras da praia, inclusive as que so' se assiste. */
+  private aplicarCenario(): void {
+    const molde = this.screens.ajustes.cenario === 'quadra' ? this.modeloDaQuadra?.molde ?? null : null;
+    for (const arena of this.arenas) arena.usarModelo(molde);
   }
 
   private aplicarAjustes(): void {
@@ -279,6 +313,7 @@ export class Game {
         if (atleta instanceof AIPlayer) atleta.definirHabilidade(AI_SKILL[this.screens.ajustes.dificuldade]);
       }
     }
+    this.aplicarCenario();
     this.resolution = this.screens.ajustes.resolucao;
     this.onResize();
   }
@@ -762,6 +797,9 @@ export class Game {
     window.removeEventListener('resize', this.onResize);
     this.input.dispose();
     for (const d of this.descartaveis) d.dispose();
+    // O modelo e' UM: as arenas so' tem clones, que compartilham geometria e
+    // material. Quem descarta e' o molde, e uma vez so'.
+    this.modeloDaQuadra?.dispose();
     descartarGeometriasDeAtleta();
     this.renderer.dispose();
   }

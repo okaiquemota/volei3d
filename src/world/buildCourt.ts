@@ -20,6 +20,16 @@ import { criarRede } from './textures';
  * colisor nenhum.
  */
 
+/**
+ * A que altura um desenho POUSA na areia sem brigar por z.
+ *
+ * O chao do mundo esta' em y = 0, e qualquer coisa desenhada exatamente ali
+ * pisca contra ele. Um milimetro resolve, e e' invisivel — mas tem que ser O
+ * MESMO milimetro em todo lugar, senao as linhas desenhadas e a pele de modelo
+ * pousam em alturas diferentes e uma passa por dentro da outra.
+ */
+export const POUSO_NA_AREIA = 0.001;
+
 export interface Colisores {
   /** Malha da rede + a saia invisivel abaixo dela. */
   rede: AABB[];
@@ -54,8 +64,8 @@ export function construirQuadra(court: Court): QuadraConstruida {
     metalness: 0,
   }));
 
-  const LINHA_Y = 0.011;
   const LINHA_ESPESSURA = 0.02;
+  const LINHA_Y = POUSO_NA_AREIA + LINHA_ESPESSURA / 2;
   const geoLateral = guardar(new THREE.BoxGeometry(COURT.lineWidth, LINHA_ESPESSURA, COURT.length + COURT.lineWidth));
   const geoFundo = guardar(new THREE.BoxGeometry(COURT.width + COURT.lineWidth, LINHA_ESPESSURA, COURT.lineWidth));
 

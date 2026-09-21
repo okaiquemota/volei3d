@@ -2,13 +2,22 @@ import { STORAGE_KEY } from '../config';
 
 export type Dificuldade = 'facil' | 'normal' | 'dificil';
 
+/**
+ * Onde se joga.
+ *
+ * `areia` e' a quadra desenhada por codigo, que o jogo sempre teve. `quadra` e'
+ * a pele de modelo por cima do MESMO campo — muda o desenho, nao as medidas.
+ */
+export type Cenario = 'areia' | 'quadra';
+
 export interface Ajustes {
   dificuldade: Dificuldade;
+  cenario: Cenario;
   /** Escala de resolucao, de 0.5 a 1. */
   resolucao: number;
 }
 
-const PADRAO: Ajustes = { dificuldade: 'normal', resolucao: 1 };
+const PADRAO: Ajustes = { dificuldade: 'normal', cenario: 'areia', resolucao: 1 };
 
 function elemento<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -41,6 +50,9 @@ export class Screens {
   private radiosDificuldade = Array.from(
     document.querySelectorAll<HTMLInputElement>('#opt-skill input[name="skill"]'),
   );
+  private radiosCenario = Array.from(
+    document.querySelectorAll<HTMLInputElement>('#opt-cenario input[name="cenario"]'),
+  );
   private sliderResolucao = elemento<HTMLInputElement>('opt-res');
   private valorResolucao = elemento('opt-res-valor');
 
@@ -63,6 +75,14 @@ export class Screens {
       radio.addEventListener('change', () => {
         if (!radio.checked) return;
         this.ajustes.dificuldade = radio.value as Dificuldade;
+        this.aplicar();
+      });
+    }
+
+    for (const radio of this.radiosCenario) {
+      radio.addEventListener('change', () => {
+        if (!radio.checked) return;
+        this.ajustes.cenario = radio.value as Cenario;
         this.aplicar();
       });
     }
@@ -92,6 +112,9 @@ export class Screens {
 
     for (const radio of this.radiosDificuldade) {
       radio.checked = radio.value === this.ajustes.dificuldade;
+    }
+    for (const radio of this.radiosCenario) {
+      radio.checked = radio.value === this.ajustes.cenario;
     }
     this.sliderResolucao.value = String(Math.round(this.ajustes.resolucao * 100));
     this.valorResolucao.textContent = `${Math.round(this.ajustes.resolucao * 100)}%`;

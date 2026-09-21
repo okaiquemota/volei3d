@@ -16,6 +16,16 @@ const DECODIFICADORES = /draco_|basis_transcoder/;
 export default defineConfig(({ mode }) => ({
   base: './',
   server: { host: true, port: 5173 },
+
+  /**
+   * `.glb` nao esta' na lista de assets que o Vite reconhece sozinho.
+   *
+   * Sem isto o import de um modelo vira erro de resolucao. Com isto ele passa
+   * pelo pipeline de assets como qualquer imagem — inclusive pelo
+   * `assetsInlineLimit` abaixo, que e' o que faz o build de arquivo unico
+   * continuar sendo um arquivo unico.
+   */
+  assetsInclude: ['**/*.glb'],
   build: {
     target: 'es2022',
     outDir: 'dist',

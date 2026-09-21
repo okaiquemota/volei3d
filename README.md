@@ -137,6 +137,24 @@ a regra de verdade. E o sacador tem **8 segundos**, como no vôlei de verdade: p
 adversário. Sem relógio, quem está perdendo simplesmente não saca, e não havia
 nada no jogo que o obrigasse.
 
+**Dois cenários, e a mesma quadra por baixo.** No menu dá pra escolher entre
+**AREIA**, a quadra desenhada por código que o jogo sempre teve, e **QUADRA**, um
+modelo low-poly por cima do mesmo campo. É uma *pele*: os colisores, os limites
+de corrida, o julgamento de dentro e fora e o limite da mira saem todos do
+`Court` e do config, e nenhum deles muda. Trocar de cenário troca o que se vê,
+nunca o que vale.
+
+O encaixe é uma sorte geométrica: o modelo é de quadra indoor (9 × 18 m) e o
+campo é de praia (8 × 16 m), mas os dois são 1:2 — então uma escala única de 8/9
+põe as linhas do desenho exatamente em cima das linhas que valem. A altura vai
+por outra conta, porque a fita do modelo termina a 2,10 m e o colisor que para a
+bola está a 2,24: escalando tudo junto, a bola passaria por cima do desenho e
+bateria no nada.
+
+Nada foi removido do modelo — a laje, os bancos, a bola de enfeite e os cones
+vêm todos. A laje fica enterrada na areia, porque o chão da física é `y = 0` e
+levantar o desenho faria o jogo inteiro acontecer dentro dela.
+
 **Dois enquadramentos, e a roda anda entre eles.** O padrão é a câmera de
 **ombro**: baixa, 6,5 m atrás de você, com o seu corpo ocupando um quarto do
 quadro e o horizonte visível por cima da rede. A roda leva até a **tática**, alta
@@ -415,3 +433,12 @@ O menu tem um controle de resolução (50% a 100%). O custo do quadro cresce com
   (`Match`, `Court`, `ballistics`, `Physics`) já rodariam num servidor Node sem
   mudança; o que falta é `Athlete` e `Ball` pararem de importar render.
 - Placas de patrocínio nas âncoras que a quadra já cria.
+
+## Créditos
+
+O cenário **QUADRA** usa o modelo *[Volleyball court](https://sketchfab.com/3d-models/volleyball-court-1d42899e76374926869d370a222be1c3)*,
+de **Konstantin**, sob [CC Attribution 4.0](https://creativecommons.org/licenses/by/4.0/).
+O crédito também aparece no rodapé do menu, que é onde a licença exige que ele
+esteja: visível para quem joga, não só para quem lê o repositório.
+
+Todo o resto — quadra, atletas, bola, areia, rede — é gerado por código.

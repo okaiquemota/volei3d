@@ -40,6 +40,18 @@ export class Arena {
 
   private readonly descartaveis: Array<{ dispose(): void }> = [];
 
+  /**
+   * O desenho da quadra feito por codigo, e a pele de modelo que pode tomar o
+   * lugar dele.
+   *
+   * Sao duas PELES do mesmo campo. Os colisores, os limites de area, o
+   * julgamento de dentro e fora e a mira saem todos do `Court` e do config, e
+   * nenhum deles muda: trocar de cenario troca o que se ve', nunca o que vale.
+   * E' por isso que a troca cabe em dois `visible` e um `add`.
+   */
+  private desenhoDaQuadra!: THREE.Group;
+  private peleDeModelo: THREE.Object3D | null = null;
+
   /** Segundos ate' os bots comecarem a partida seguinte. */
   private descanso = MATCH.descansoEntrePartidas;
 
@@ -62,6 +74,7 @@ export class Arena {
 
     const quadra = construirQuadra(this.court);
     this.raiz.add(quadra.root);
+    this.desenhoDaQuadra = quadra.root;
     this.colisores = quadra.colisores;
     this.descartaveis.push(...quadra.descartaveis);
 
@@ -86,6 +99,29 @@ export class Arena {
     this.rally.match = this.match;
 
     this.ball.aoTocar = (por) => this.match.registrarToque(por.side);
+  }
+
+  /**
+   * Troca a pele da quadra. `null` volta pro desenho por codigo.
+   *
+   * O modelo chega como MOLDE e e' clonado aqui — `Object3D.clone` compartilha
+   * geometria e material, entao tres quadras na praia custam tres arvores de
+   * nos e uma copia da malha. Por isso o `dispose` do modelo e' do molde, e nao
+   * das arenas: descartar a geometria de uma esvaziaria as outras duas.
+   */
+  usarModelo(molde: THREE.Object3D | null): void {
+    if (this.peleDeModelo) {
+      this.raiz.remove(this.peleDeModelo);
+      this.peleDeModelo = null;
+    }
+
+    if (molde) {
+      this.peleDeModelo = molde.clone();
+      this.peleDeModelo.applyMatrix4(this.court.matrix);
+      this.raiz.add(this.peleDeModelo);
+    }
+
+    this.desenhoDaQuadra.visible = molde === null;
   }
 
   private criarBot(lado: Side): AIPlayer {
