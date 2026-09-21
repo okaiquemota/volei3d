@@ -8,7 +8,9 @@
   <link rel="stylesheet" href="/src/ui/style.css" />
 </head>
 <body>
-  <canvas id="viewport"></canvas>
+  <!-- `draggable=false` e' a segunda tranca do arraste nativo: o `dragstart` e'
+       cancelado no Input, e isto impede o navegador de sequer comecar. -->
+  <canvas id="viewport" draggable="false"></canvas>
 
   <!-- ================= HUD ================= -->
   <div id="hud" class="hidden">

@@ -957,6 +957,28 @@ Uma armadilha dentro da cura: os bits de `MouseEvent.buttons` **não** seguem a
 numeração de `MouseEvent.button`. Primário é bit 1, secundário é 2, do meio é 4;
 `button` numera 0, 2 e 1. Trocar os dois faz o botão direito "soltar" o esquerdo.
 
+## Os dois botões do mouse têm gesto nativo, e os dois foram bloqueados
+
+O botão esquerdo é carregar um ataque; o direito é levantar. O navegador tem um
+gesto próprio para cada um, e os dois apareceram como bug:
+
+- **`contextmenu`** no direito, que abre o menu do navegador no meio do rally.
+- **`dragstart`** no esquerdo. Segurar e mover faz o navegador tratar o canvas
+  como conteúdo arrastável: ele começa um drag-and-drop e desenha uma miniatura
+  semitransparente da tela inteira grudada no cursor. O jogo continua rodando
+  por trás dela, e o que se vê é a partida com um fantasma de si mesma por cima
+  — parece corrupção de render e é só o feedback de arraste.
+
+Os dois morrem na **janela em captura**, e não no canvas: o alvo pode ser
+qualquer pedaço do HUD. O `dragstart` leva ainda `draggable="false"` no canvas e
+`-webkit-user-drag: none` no CSS, porque cada motor decide de um jeito quando
+canvas é arrastável.
+
+Verificação honesta: o Chromium não inicia arraste nativo em canvas, então não deu
+para ver o fantasma sumir no harness. O que dá para medir — e foi medido — é que
+o `dragstart` sai cancelado em canvas, faixa de teclas e placar, e que segurar e
+arrastar continua carregando o ataque normalmente.
+
 ## O `SHIFT + botão direito` do Firefox não tem como ser bloqueado
 
 O botão direito é uma ação do jogo (levantar), e o `contextmenu` é bloqueado —

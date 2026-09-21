@@ -56,7 +56,13 @@ html, body {
   user-select: none;
 }
 
-#viewport { display: block; width: 100%; height: 100%; }
+#viewport {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* Terceira tranca, pro WebKit, que ignora `draggable` em canvas. */
+  -webkit-user-drag: none;
+}
 
 .hidden { display: none !important; }
 

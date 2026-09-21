@@ -16,7 +16,8 @@
  *   teclado ABNT ou AZERTY o WASD iria parar em outro lugar;
  * - `blur` e `visibilitychange` zeram TUDO. Sem isso, trocar de aba com a tecla
  *   apertada deixa o atleta correndo sozinho ate' a volta;
- * - `contextmenu` bloqueado: o botao direito e' uma acao do jogo (levantar).
+ * - `contextmenu` e `dragstart` bloqueados: os dois botoes do mouse sao acoes do
+ *   jogo, e o navegador tem gesto proprio pra cada um.
  */
 /**
  * O foco esta' num controle de formulario?
@@ -100,6 +101,20 @@ export class Input {
      * `capture: true` pra chegar antes de qualquer outro tratador.
      */
     window.addEventListener('contextmenu', this.onContextMenu, { capture: true });
+
+    /**
+     * E o ARRASTE nativo, que e' o irmao do menu de contexto.
+     *
+     * Segurar o botao esquerdo e mover e' carregar um ataque. Pro navegador e'
+     * o comeco de um drag-and-drop: ele considera o canvas conteudo
+     * arrastavel, comeca a operacao e desenha uma miniatura semitransparente da
+     * tela inteira grudada no cursor. O jogo continua rodando por tras dela, e
+     * o que se ve' e' a partida com um fantasma de si mesma por cima.
+     *
+     * Na janela e em captura pelo mesmo motivo do `contextmenu`: o alvo pode
+     * ser o canvas ou qualquer pedaco do HUD.
+     */
+    window.addEventListener('dragstart', this.onDragStart, { capture: true });
     this.canvas.addEventListener('wheel', this.onWheel, { passive: false });
   }
 
@@ -251,6 +266,9 @@ export class Input {
    */
   private onContextMenu = (e: Event): void => { e.preventDefault(); };
 
+  /** Segurar e mover e' carregar um ataque, nunca arrastar a pagina. */
+  private onDragStart = (e: Event): void => { e.preventDefault(); };
+
   private onWindowBlur = (): void => {
     this.clearAll();
     this.onBlur?.();
@@ -320,6 +338,7 @@ export class Input {
 
   dispose(): void {
     window.removeEventListener('contextmenu', this.onContextMenu, { capture: true });
+    window.removeEventListener('dragstart', this.onDragStart, { capture: true });
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
     window.removeEventListener('mousemove', this.onMouseMove);
