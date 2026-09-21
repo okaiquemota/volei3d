@@ -153,10 +153,19 @@ por outra conta, porque a fita do modelo termina a 2,10 m e o colisor que para a
 bola está a 2,24: escalando tudo junto, a bola passaria por cima do desenho e
 bateria no nada.
 
-O chão acompanha: no cenário QUADRA a areia dourada vira um piso claro, porque
-uma quadra de modelo em cima de areia continua parecendo uma quadra largada na
-praia. O chão é **um** para a praia inteira, então isso vale para as três quadras
-e para quem anda por fora — o cenário é do mundo, não de uma arena.
+**O cenário QUADRA é uma partida, não um lugar.** O chão claro vem junto — uma
+quadra de modelo em cima de areia dourada continua parecendo uma quadra largada
+na praia — e o céu vai embora: fundo e névoa viram branco, e a quadra fica
+sozinha num vazio claro.
+
+E existe **uma** quadra. As outras duas somem da cena e param de ser atualizadas,
+o que é o único jeito honesto de dizer "só existe esta": escondidas e ainda
+jogando, elas continuariam gastando quadro e mudando placar pelas costas. Junto
+somem as quatro teclas que pressupõem mais de um lugar — sair (`Q`), entrar
+(`E`), assistir a vizinha (`[` `]`) e voltar para a sua (`Tab`) — e a linha
+`NA PRAIA` da legenda sai com elas.
+
+No cenário AREIA nada disso muda: três quadras, praia inteira, livre para andar.
 
 Do modelo sai só o que compete com o jogo: a bola de enfeite, porque duas bolas
 em campo não são decoração, são o jogador procurando qual das duas está em jogo.

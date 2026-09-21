@@ -10,7 +10,16 @@
      Um token so' porque a areia clara come contraste: quando um painel some
      no fundo, os outros somem junto, e mexer em cinco lugares vira cinco
      tons diferentes. */
-  --painel: rgba(8, 11, 15, 0.66);
+  /**
+   * O fundo de todo painel do HUD.
+   *
+   * Era 0,66, medido contra areia dourada. O cenario QUADRA trocou o mundo por
+   * branco, e sobre branco esse alfa da' cinza medio: o azul de "VOCE" no
+   * placar perdia o contraste e a faixa de teclas lavava. Um painel de HUD tem
+   * que ser legivel sobre QUALQUER coisa que o jogo desenhe atras dele, e a
+   * unica forma barata de garantir isso e' ele ser quase opaco.
+   */
+  --painel: rgba(8, 11, 15, 0.85);
   --borda: rgba(232, 230, 227, 0.16);
 
   /* O branco quente: anel de mira, zona da forca, toque no ponto. Tres
@@ -171,6 +180,11 @@ body.tela-aberta #hud { opacity: 0; }
  * centro da tela, escreva-se o que se escrever na tecla.
  */
 #tempo kbd {
+  /* Esta tecla flutua sobre o mundo, sem painel atras. O `kbd` comum e' um
+     branco translucido — invisivel sobre o branco do cenario QUADRA. Aqui ela
+     vira uma pastilha escura, que le' sobre areia e sobre branco. */
+  background: var(--painel);
+  border-color: var(--borda);
   position: absolute;
   right: 100%;
   top: 50%;
@@ -526,6 +540,9 @@ kbd {
   letter-spacing: 0.04em;
 }
 kbd.larga { min-width: auto; }
+
+/* No cenario de quadra unica nao ha' praia pra onde ir. */
+body.cenario-quadra .so-praia { display: none; }
 
 /* Telas baixas ou estreitas: a faixa competiria com a quadra. Some. */
 @media (max-height: 520px), (max-width: 820px) {

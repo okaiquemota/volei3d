@@ -972,6 +972,44 @@ chão está.
 E o branco não é `0xffffff`: puro, sob sol mais luz de céu, estoura e leva
 junto a sombra dos atletas — justamente o que diz ao olho onde o plano está.
 
+## "Só existe esta quadra" é parar de simular, não esconder
+
+No cenário QUADRA sobra uma arena. `arenasVivas` é a lista que o laço percorre, e
+as outras duas saem dela — não só de `visible`. Escondidas e ainda atualizando,
+elas continuariam gastando quadro e **mudando placar pelas costas**: o jogador
+voltaria para a areia e encontraria dois sets decididos que ele nunca viu.
+Medido: 90 s de simulação, o placar da sua vira 1×15 e os outros dois ficam em
+0×0.
+
+Duas armadilhas de ordem em `aplicarCenario`:
+
+- **Quem está na areia tem que voltar para dentro ANTES** de escolher a arena
+  viva. `minhaArena` é derivada de quem tem humano; trocando de cenário com o
+  jogador andando na praia, ela é `null`, nenhuma arena seria a viva e o cenário
+  abriria num mundo vazio.
+- **Fundo e névoa andam juntos.** A névoa que destoa do fundo recorta a borda do
+  chão como adesivo — é a mesma lição que fez os dois nascerem com a mesma cor
+  lá no construtor. Trocar um e esquecer o outro dá um horizonte com contorno.
+
+As quatro teclas de lugar (`Q`, `E`, `[`, `]`, `Tab`) morrem num `if` só. Deixar
+cada uma falhar em silêncio dentro do próprio método seriam quatro jeitos
+diferentes de não acontecer nada, e nenhum deles apareceria na tela.
+
+## Um painel de HUD tem que ler sobre QUALQUER coisa
+
+`--painel` era `rgba(8,11,15,0.66)`, um alfa escolhido contra areia dourada.
+Quando o cenário QUADRA trocou o mundo por branco, esse alfa passou a dar cinza
+médio: o azul de "VOCE" no placar perdeu o contraste e a faixa de teclas lavou.
+Foi para 0,85.
+
+O mesmo vale para o que flutua **sem** painel: a tecla `SHIFT` da barra do poder
+é um `kbd`, e o `kbd` comum é um branco translúcido — invisível sobre branco. Ali
+ela virou pastilha escura.
+
+A regra que sai disso: um alfa de HUD ajustado olhando para *um* fundo é um alfa
+ajustado para aquele fundo. Se o jogo pode desenhar outra coisa atrás, o painel
+precisa ser quase opaco.
+
 ## O que NÃO foi verificado
 
 O equilíbrio da IA contra um humano de verdade. O que se mediu foi um piloto

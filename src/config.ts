@@ -777,6 +777,15 @@ export const COLORS = {
    * "branco".
    */
   pisoClaro: 0xf2f2ef,
+  /**
+   * O que sobra no lugar do ceu, no cenario QUADRA.
+   *
+   * Vale pro fundo E pra nevoa, que tem que ser a mesma cor — a nevoa que
+   * destoa do fundo recorta a borda do chao do ceu como adesivo. Branco puro
+   * contra o piso (0xf2f2ef) deixa um horizonte de sombra, o bastante pro
+   * chao nao virar um vazio sem plano.
+   */
+  brancoDaQuadra: 0xffffff,
   line: 0xf7f7f2,
   post: 0x33383f,
   home: 0x2970d1,

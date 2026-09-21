@@ -67,6 +67,22 @@ export class Game {
   private praia!: PraiaConstruida;
 
   /**
+   * As quadras que estao VIVAS: desenhadas e simuladas.
+   *
+   * No cenario AREIA sao as tres — e' o que faz a praia ter jogo acontecendo
+   * onde voce nao esta'. No QUADRA e' uma so': aquele cenario e' uma partida, e
+   * nao um lugar. As outras duas somem da cena e param de ser atualizadas, que
+   * e' o unico jeito honesto de "so' existe esta quadra" — escondidas e ainda
+   * jogando, elas continuariam gastando quadro e mudando placar pelas costas.
+   */
+  private arenasVivas: Arena[] = [];
+
+  /** O cenario e' de uma quadra so'? */
+  private get quadraUnica(): boolean {
+    return this.screens.ajustes.cenario === 'quadra';
+  }
+
+  /**
    * As quadras da praia. Todas rodam ao mesmo tempo.
    *
    * O Game deixou de ser dono de UMA quadra. Ele agora coordena varias, e cada
@@ -305,13 +321,41 @@ export class Game {
 
   /** Poe a pele escolhida em todas as quadras da praia, inclusive as que so' se assiste. */
   private aplicarCenario(): void {
-    const naQuadra = this.screens.ajustes.cenario === 'quadra';
+    const naQuadra = this.quadraUnica;
     const molde = naQuadra ? this.modeloDaQuadra?.molde ?? null : null;
     for (const arena of this.arenas) arena.usarModelo(molde);
     // O chao acompanha: a quadra de modelo em cima de areia dourada continua
     // parecendo uma quadra largada na praia, que e' o oposto do que o cenario
     // esta' tentando ser.
     this.praia.usarPisoClaro(naQuadra);
+
+    /**
+     * O ceu some junto.
+     *
+     * Fundo e nevoa tem que andar juntos: a nevoa que destoa do fundo recorta a
+     * borda do chao como adesivo — a licao e' antiga e esta' escrita la' em
+     * cima, onde os dois nasceram com a mesma cor.
+     */
+    const fundo = naQuadra ? COLORS.brancoDaQuadra : COLORS.sky;
+    (this.scene.background as THREE.Color).setHex(fundo);
+    (this.scene.fog as THREE.Fog).color.setHex(fundo);
+
+    /**
+     * E sobra UMA quadra.
+     *
+     * Se voce estava na areia na hora da troca, volta pra dentro antes de
+     * qualquer outra coisa: sem isto nao ha' "sua quadra", nenhuma arena seria
+     * a viva, e o cenario abriria num mundo vazio.
+     */
+    if (naQuadra && !this.player) this.entrarNaQuadra(this.arenaEmFoco, 'home');
+
+    const unica = naQuadra ? this.minhaArena : null;
+    this.arenasVivas = unica ? [unica] : [...this.arenas];
+    for (const arena of this.arenas) arena.raiz.visible = this.arenasVivas.includes(arena);
+
+    // A legenda esconde as teclas da praia: tecla que nao faz nada na tela e'
+    // pior do que tecla nenhuma.
+    document.body.classList.toggle('cenario-quadra', naQuadra);
   }
 
   private aplicarAjustes(): void {
@@ -347,7 +391,7 @@ export class Game {
      * existisse so' quando ele joga.
      */
     const minha = this.minhaArena;
-    for (const arena of this.arenas) {
+    for (const arena of this.arenasVivas) {
       if (arena === minha || arena.match.estadoAtual === 'parada') arena.match.comecar();
     }
     this.state = 'playing';
@@ -408,16 +452,26 @@ export class Game {
 
     if (this.input.wasPressed('F3')) this.perf.toggle();
     if (this.input.wasPressed('KeyH')) this.hud.alternarManual();
-    // Assistir as outras quadras da praia.
-    if (this.input.wasPressed('BracketLeft')) this.assistir(this.arenaFoco - 1);
-    if (this.input.wasPressed('BracketRight')) this.assistir(this.arenaFoco + 1);
-    if (this.input.wasPressed('Tab')) this.voltarPraMinhaQuadra();
+
+    /**
+     * Tudo que e' sobre ESTAR EM OUTRO LUGAR so' existe na praia.
+     *
+     * Sair, entrar, assistir a vizinha, voltar pra sua: sao quatro teclas que
+     * pressupoem mais de uma quadra. No cenario de quadra unica elas nao tem
+     * pra onde ir, e deixar cada uma falhar em silencio no seu proprio `if`
+     * seria quatro jeitos diferentes de nao acontecer nada.
+     */
+    if (!this.quadraUnica) {
+      if (this.input.wasPressed('BracketLeft')) this.assistir(this.arenaFoco - 1);
+      if (this.input.wasPressed('BracketRight')) this.assistir(this.arenaFoco + 1);
+      if (this.input.wasPressed('Tab')) this.voltarPraMinhaQuadra();
+    }
 
     if (this.state === 'playing') {
       // Entrar e sair de quadra. Uma tecla so' vale de cada vez: quem esta'
       // jogando sai, quem esta' na areia entra.
       if (this.player) {
-        if (this.input.wasPressed('KeyQ')) this.sairDaQuadra();
+        if (!this.quadraUnica && this.input.wasPressed('KeyQ')) this.sairDaQuadra();
       } else {
         if (this.input.wasPressed('KeyE')) this.entrarNaQuadraMaisPerto();
 
@@ -455,9 +509,10 @@ export class Game {
       && (this.input.isDown('ShiftLeft') || this.input.isDown('ShiftRight'));
     const dtJogo = dt * this.tempo.passo(dt, querLento);
 
-    // Todas as arenas avancam, inclusive as que ninguem esta' olhando. E' o
-    // que faz a praia ter jogo acontecendo em vez de quadras congeladas.
-    for (const arena of this.arenas) arena.update(dtJogo);
+    // Todas as arenas VIVAS avancam, inclusive as que ninguem esta' olhando. E'
+    // o que faz a praia ter jogo acontecendo em vez de quadras congeladas — e
+    // no cenario de quadra unica a lista tem um item so'.
+    for (const arena of this.arenasVivas) arena.update(dtJogo);
 
     // O banhista so' anda quando existe: dentro da quadra quem se mexe e' o
     // atleta, e o corpo na areia esta' guardado.
