@@ -94,7 +94,29 @@ export class Input {
     this.canvas.addEventListener('wheel', this.onWheel, { passive: false });
   }
 
+  /**
+   * Reconcilia os modificadores com o que o navegador diz que esta' pressionado.
+   *
+   * Um `keyup` pode nao chegar. Basta o atalho que o usuario apertou pertencer
+   * ao navegador ou ao sistema — e' assim que uma tecla "fica presa": o jogo viu
+   * o keydown, nunca viu o keyup, e segue achando que o dedo continua la'. Com
+   * o SHIFT isso e' camera lenta que nao desliga sozinha.
+   *
+   * Todo evento de teclado carrega `shiftKey`, `ctrlKey` e `altKey` com a
+   * verdade do momento. Conferir a cada evento faz a PROXIMA tecla apertada
+   * consertar o estado, sem precisar adivinhar qual atalho comeu o keyup.
+   */
+  private sincronizarModificadores(e: KeyboardEvent): void {
+    if (!e.shiftKey) { this.keys.delete('ShiftLeft'); this.keys.delete('ShiftRight'); }
+    if (!e.ctrlKey) { this.keys.delete('ControlLeft'); this.keys.delete('ControlRight'); }
+    if (!e.altKey) { this.keys.delete('AltLeft'); this.keys.delete('AltRight'); }
+  }
+
   private onKeyDown = (e: KeyboardEvent): void => {
+    // Antes de qualquer saida antecipada: um atalho do navegador que faz o
+    // codigo abaixo desistir nao pode deixar um modificador preso pra tras.
+    this.sincronizarModificadores(e);
+
     if (e.repeat) return;
     // Nao roubar atalho do navegador (Ctrl+R, Cmd+T...).
     if (e.ctrlKey && e.code !== 'ControlLeft' && e.code !== 'ControlRight') return;
@@ -127,10 +149,36 @@ export class Input {
   };
 
   private onKeyUp = (e: KeyboardEvent): void => {
+    this.sincronizarModificadores(e);
     this.keys.delete(e.code);
   };
 
+  /**
+   * Mesma ideia do `sincronizarModificadores`, pro mouse.
+   *
+   * Um `mouseup` solto FORA da janela — sobre a barra de abas, sobre outra
+   * janela — nao chega aqui, e o botao fica preso: o jogo segue carregando um
+   * ataque que o dedo ja' soltou. O `blur` cobre parte disso, mas nao cobre
+   * soltar sobre a propria moldura do navegador, que nao tira o foco da pagina.
+   *
+   * `MouseEvent.buttons` e' a mascara do que esta' pressionado AGORA, e vem em
+   * todo evento. O proximo movimento do mouse conserta o estado.
+   *
+   * Os bits nao seguem a ordem de `button`: primario e' 1, secundario e' 2,
+   * do meio e' 4 — enquanto `button` numera 0, 2 e 1. Trocar os dois faz o
+   * botao direito "soltar" o esquerdo.
+   */
+  private static readonly MASCARA: ReadonlyArray<[number, number]> = [[0, 1], [1, 4], [2, 2]];
+
+  private sincronizarBotoes(e: MouseEvent): void {
+    for (const [botao, bit] of Input.MASCARA) {
+      if ((e.buttons & bit) === 0) this.buttons.delete(botao);
+    }
+  }
+
   private onMouseMove = (e: MouseEvent): void => {
+    this.sincronizarBotoes(e);
+
     /**
      * Travado, o cursor nao anda: `clientX/Y` congelam e so' `movementX/Y`
      * reporta. Sair daqui cedo tambem PRESERVA `pointerX/Y` onde o cursor

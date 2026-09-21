@@ -31,6 +31,20 @@ html, body {
   color: var(--tinta);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   -webkit-font-smoothing: antialiased;
+
+  /**
+   * Nada nesta pagina e' texto pra copiar.
+   *
+   * Sem isto o SHIFT tem dois donos: o jogo, onde ele e' a camera lenta, e o
+   * navegador, onde ele estende selecao de texto. Segurar SHIFT e clicar
+   * pintava o HUD inteiro de azul — placar, aviso do ponto e a faixa de teclas
+   * — e a partir dali o teclado estava dividido entre uma partida e um bloco de
+   * texto selecionado.
+   *
+   * A pagina e' um jogo. Selecao aqui nao serve pra nada e cobra um atalho.
+   */
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 #viewport { display: block; width: 100%; height: 100%; }

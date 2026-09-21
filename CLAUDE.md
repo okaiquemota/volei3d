@@ -905,6 +905,39 @@ encolhimento qualquer e quebra em quatro linhas com meia tela sobrando ao lado; 
 `white-space: nowrap` no rótulo, senão "EM QUADRA" quebra em duas e desalinha a
 própria linha.
 
+## A página é um jogo: nada aqui é texto para copiar
+
+O `SHIFT` tinha dois donos. No jogo ele é a câmera lenta; no navegador ele
+estende seleção de texto. Segurar SHIFT e clicar pintava o HUD inteiro de azul —
+placar, aviso do ponto, a faixa de teclas — e a partir dali o teclado estava
+dividido entre uma partida e um bloco de texto selecionado.
+
+`user-select: none` no `html, body` resolve a classe toda, e não custa nada:
+seleção numa página de jogo não serve para nada e cobra um atalho. Os controles
+do menu continuam funcionando (seleção é uma coisa, interação é outra) — isso foi
+conferido, porque é o risco óbvio da mudança.
+
+## Evento de soltar não chega, e o estado fica preso
+
+É a mesma família de defeito, duas vezes:
+
+- **`keyup` engolido.** Basta o atalho pertencer ao navegador ou ao sistema. O
+  jogo viu o keydown, nunca vê o keyup, e segue achando que o dedo está lá — com
+  o SHIFT isso é câmera lenta que não desliga.
+- **`mouseup` fora da janela.** Soltar sobre a barra de abas ou sobre a moldura
+  do navegador não manda evento nenhum para a página, e o ataque fica carregando
+  para sempre. O `blur` não cobre: soltar sobre a moldura não tira o foco.
+
+A cura é a mesma nos dois: **todo evento carrega a verdade do momento**.
+`KeyboardEvent.shiftKey/ctrlKey/altKey` e `MouseEvent.buttons` dizem o que está
+pressionado *agora*, então reconciliar a cada evento faz a próxima tecla ou o
+próximo movimento de mouse consertar o estado — sem precisar adivinhar qual
+atalho comeu o evento.
+
+Uma armadilha dentro da cura: os bits de `MouseEvent.buttons` **não** seguem a
+numeração de `MouseEvent.button`. Primário é bit 1, secundário é 2, do meio é 4;
+`button` numera 0, 2 e 1. Trocar os dois faz o botão direito "soltar" o esquerdo.
+
 ## O que NÃO foi verificado
 
 O equilíbrio da IA contra um humano de verdade. O que se mediu foi um piloto
