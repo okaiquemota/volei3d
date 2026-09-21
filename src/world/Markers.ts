@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { COLORS } from '../config';
 import { clamp01 } from '../core/math';
+import { EMPURRAO_DOS_MARCADORES, empurrarParaFrente } from './chao';
 
 /**
  * Os dois marcadores no chao.
@@ -23,7 +24,14 @@ import { clamp01 } from '../core/math';
  * se precisa saber e' o ponto do CHAO — a bola a gente ja' ve'.
  */
 
-/** Altura sobre a areia. Pouco, mas o bastante pra nao brigar com o chao. */
+/**
+ * Altura sobre a areia. Pouco, mas o bastante pra nao brigar com o chao.
+ *
+ * Altura sozinha nao basta: no cenario de modelo o piso da quadra e' uma placa
+ * de 2 cm que ENGOLE esta altura, e os dois aneis sumiam dentro dela. Quem
+ * resolve e' o empurrao de profundidade, aplicado nos dois materiais abaixo —
+ * marcador e' decalque, e decalque ganha de tudo que esta' no chao.
+ */
 const ALTURA = 0.02;
 
 /** Acima deste tempo de voo o anel para de crescer. */
@@ -59,6 +67,7 @@ export class Markers {
       depthWrite: false,
       side: THREE.DoubleSide,
     });
+    empurrarParaFrente(material, EMPURRAO_DOS_MARCADORES);
     this.descartaveis.push(anel, ponto, material);
 
     for (const geo of [anel, ponto]) {
@@ -80,6 +89,7 @@ export class Markers {
       depthWrite: false,
       side: THREE.DoubleSide,
     });
+    empurrarParaFrente(material, EMPURRAO_DOS_MARCADORES);
     this.descartaveis.push(geo, material);
 
     const mesh = new THREE.Mesh(geo, material);

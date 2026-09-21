@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { COURT } from '../config';
-import { POUSO_NA_AREIA } from './buildCourt';
+import { POUSO_NA_AREIA } from './chao';
 
 /**
  * Onde o modelo de quadra pousa em cima do campo logico.
@@ -22,6 +22,27 @@ const PECAS = {
   /** A malha e a fita. O topo dela e' a altura que a nossa rede tem que ter. */
   rede: 'Plane089',
 } as const;
+
+/**
+ * O que sai do modelo, e por que.
+ *
+ * A regra geral e' nao mexer: o modelo vem inteiro, e a laje, os bancos e os
+ * cones ficam. A excecao e' o que o JOGO ja' desenha — duas bolas em campo, uma
+ * parada na areia, nao e' decoracao, e' o jogador procurando qual das duas esta'
+ * em jogo.
+ */
+const ENFEITES_FORA = [
+  /** Bola de enfeite, parada perto da rede. O jogo tem a sua, e ela se mexe. */
+  'GeoSphere008',
+] as const;
+
+/** Tira do modelo o que compete com o que o jogo ja' desenha. */
+export function tirarEnfeites(raiz: THREE.Object3D): void {
+  for (const nome of ENFEITES_FORA) {
+    const peca = raiz.getObjectByName(nome);
+    peca?.removeFromParent();
+  }
+}
 
 const _caixa = new THREE.Box3();
 const _tamanho = new THREE.Vector3();

@@ -799,10 +799,32 @@ sintoma cada:
 - **Recentrar.** O modelo nasce a 136 m da origem no X. Sem isso ele sai do
   tamanho certo e no lugar errado — e "no lugar errado" a 136 m é fácil de ler
   como "o modelo não carregou".
-- **`POUSO_NA_AREIA`.** Exportado de `buildCourt` porque as linhas desenhadas e a
-  pele de modelo têm que pousar no MESMO milímetro. Na primeira tentativa o piso
-  foi pro `y = 0` exato e sumiu inteiro: a areia ganhou a briga de z e a quadra
-  apareceu sem chão, só rede, postes e bancos.
+- **`POUSO_NA_AREIA`.** Vive em `chao.ts` porque as linhas desenhadas e a pele de
+  modelo têm que pousar no MESMO milímetro. Na primeira tentativa o piso foi pro
+  `y = 0` exato e sumiu inteiro: a areia ganhou a briga de z e a quadra apareceu
+  sem chão, só rede, postes e bancos.
+
+## Quem desenha no chão disputa a mesma altura, e a ordem mora em `chao.ts`
+
+Quatro coisas são praticamente coplanares: a areia do mundo, as linhas
+desenhadas por código, a pele de modelo e os marcadores de queda e de mira. O
+z-buffer não tem precisão pra decidir entre elas, e quem ganha muda com a
+câmera, com o enquadramento e com a distância.
+
+Isso já custou **dois** sintomas, e os dois pareciam "não carregou":
+
+1. O piso do modelo brigou com a areia e sumiu — a quadra apareceu só com rede,
+   postes e bancos.
+2. Resolvido o primeiro com `polygonOffset`, os **marcadores** passaram a brigar
+   com o piso do modelo e sumiram. Os anéis estão a 2 cm e a placa do modelo
+   ocupa de 0,1 a 2,1 cm: eles caem *dentro* da espessura dela, e o empurrão que
+   eu tinha escolhido só pra pele terminou de decidir a briga do lado errado.
+
+A lição é que **um `polygonOffset` escolhido sozinho não existe** — ele é uma
+posição numa ordem, e a ordem precisa de um lugar. `chao.ts` diz qual é
+(marcadores > pele > linhas e areia), e os três módulos importam de lá. Marcador
+é decalque: se ele perde, o jogo fica injogável na hora, então vem antes de
+qualquer decoração.
 
 **E o z-fighting voltou pela distância.** Com o piso a 1 mm, a laje azul aparecia
 de perto e sumia de longe — não é posição, é a precisão do z-buffer, que cai com
@@ -828,10 +850,15 @@ módulo pro TypeScript aceitar `import ... from '*.glb?url'`.
 `dist/` sem criar o diretório. Num clone novo, rodar `build:single` antes de
 `build` morria num ENOENT no fim de tudo, depois do build inteiro. Um `mkdir`.
 
-**O que fica pendente no cenário QUADRA**, e é de propósito (nada foi removido):
-os bancos ficam dentro da zona livre e os atletas atravessam eles; as linhas de
-ataque do indoor aparecem e o vôlei de praia não as tem; e a laje está enterrada.
-As três são decisões de arte, pra quando o modo tiver dono.
+**Do modelo sai só o que COMPETE com o jogo.** `ENFEITES_FORA` tem um nome: a
+bola de enfeite. Duas bolas em campo, uma parada na areia, não é decoração — é o
+jogador procurando qual das duas está em jogo. Os cones, os bancos e a laje
+ficam, porque não disputam leitura com nada.
+
+**O que fica pendente no cenário QUADRA**, e é de propósito: os bancos ficam
+dentro da zona livre e os atletas atravessam eles; as linhas de ataque do indoor
+aparecem e o vôlei de praia não as tem; e a laje está enterrada. As três são
+decisões de arte, pra quando o modo tiver dono.
 
 ## O que NÃO foi verificado
 

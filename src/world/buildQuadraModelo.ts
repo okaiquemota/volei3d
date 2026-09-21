@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { encaixarNoCampo } from './encaixarQuadra';
+import { encaixarNoCampo, tirarEnfeites } from './encaixarQuadra';
+import { EMPURRAO_DA_PELE, empurrarParaFrente } from './chao';
 import urlDaQuadra from '../assets/quadra.glb?url';
 
 /**
@@ -32,6 +33,7 @@ export interface ModeloDaQuadra {
 export async function carregarQuadraModelo(): Promise<ModeloDaQuadra> {
   const gltf = await new GLTFLoader().loadAsync(urlDaQuadra);
   const molde = gltf.scene;
+  tirarEnfeites(molde);
   encaixarNoCampo(molde);
 
   const geometrias = new Set<THREE.BufferGeometry>();
@@ -61,12 +63,12 @@ export async function carregarQuadraModelo(): Promise<ModeloDaQuadra> {
    * `polygonOffset` empurra o modelo na DIREcAO DA CAMERA so' no teste de
    * profundidade, sem mover um milimetro. A ordem entre as pecas do proprio
    * modelo nao muda, porque o empurrao e' o mesmo pra todas.
+   *
+   * O quanto vem de `chao.ts`, junto com o empurrao dos MARCADORES — que tem
+   * que ser maior. Este mesmo empurrao, escolhido aqui sozinho, foi o que fez
+   * os aneis de queda e de mira sumirem dentro do piso do modelo.
    */
-  for (const m of materiais) {
-    m.polygonOffset = true;
-    m.polygonOffsetFactor = -1;
-    m.polygonOffsetUnits = -1;
-  }
+  for (const m of materiais) empurrarParaFrente(m, EMPURRAO_DA_PELE);
 
   return {
     molde,

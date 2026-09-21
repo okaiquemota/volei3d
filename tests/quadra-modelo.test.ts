@@ -4,8 +4,8 @@ import fs from 'node:fs';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-import { encaixarNoCampo } from '../src/world/encaixarQuadra';
-import { POUSO_NA_AREIA } from '../src/world/buildCourt';
+import { encaixarNoCampo, tirarEnfeites } from '../src/world/encaixarQuadra';
+import { POUSO_NA_AREIA } from '../src/world/chao';
 import { COURT } from '../src/config';
 
 /**
@@ -83,4 +83,31 @@ test('o piso POUSA na areia: nem enterrado, nem flutuando', async () => {
     `base do piso em ${piso.min.y.toFixed(4)}, esperado ${POUSO_NA_AREIA}`);
   // E o piso fica RENTE: uma bola quicando em y = 0 nao pode afundar no desenho.
   assert.ok(piso.max.y < 0.05, `o piso subiu pra ${piso.max.y.toFixed(3)} m`);
+});
+
+test('a bola de enfeite sai: duas bolas em campo e uma pergunta, nao um enfeite', async () => {
+  const raiz = await modelo();
+  assert.ok(raiz.getObjectByName('GeoSphere008'), 'o modelo nao tem mais a bola de enfeite');
+
+  tirarEnfeites(raiz);
+  assert.equal(raiz.getObjectByName('GeoSphere008'), undefined);
+
+  // E o resto continua inteiro: tirar enfeite nao e limpar o modelo.
+  for (const nome of ['Plane088', 'Plane089', 'Box191', 'Box197']) {
+    assert.ok(raiz.getObjectByName(nome), `levou ${nome} junto`);
+  }
+});
+
+test('tirar a bola nao mexe no encaixe', async () => {
+  const comBola = await modelo();
+  encaixarNoCampo(comBola);
+
+  const semBola = await modelo();
+  tirarEnfeites(semBola);
+  encaixarNoCampo(semBola);
+
+  // O encaixe mede o piso e a rede, nao a cena inteira — tirar uma esfera solta
+  // perto da rede nao pode mover a quadra um milimetro.
+  assert.deepEqual(semBola.position.toArray(), comBola.position.toArray());
+  assert.deepEqual(semBola.scale.toArray(), comBola.scale.toArray());
 });

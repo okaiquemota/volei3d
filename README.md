@@ -151,9 +151,11 @@ por outra conta, porque a fita do modelo termina a 2,10 m e o colisor que para a
 bola está a 2,24: escalando tudo junto, a bola passaria por cima do desenho e
 bateria no nada.
 
-Nada foi removido do modelo — a laje, os bancos, a bola de enfeite e os cones
-vêm todos. A laje fica enterrada na areia, porque o chão da física é `y = 0` e
-levantar o desenho faria o jogo inteiro acontecer dentro dela.
+Do modelo sai só o que compete com o jogo: a bola de enfeite, porque duas bolas
+em campo não são decoração, são o jogador procurando qual das duas está em jogo.
+A laje, os bancos e os cones ficam. A laje fica enterrada na areia, porque o chão
+da física é `y = 0` e levantar o desenho faria o jogo inteiro acontecer dentro
+dela.
 
 **Dois enquadramentos, e a roda anda entre eles.** O padrão é a câmera de
 **ombro**: baixa, 6,5 m atrás de você, com o seu corpo ocupando um quarto do

@@ -3,6 +3,7 @@ import { COLORS, COURT } from '../config';
 import { AABB } from '../core/math';
 import { Court } from './Court';
 import { criarRede } from './textures';
+import { POUSO_NA_AREIA } from './chao';
 
 /**
  * Geometria da quadra: linhas, rede e postes.
@@ -19,16 +20,6 @@ import { criarRede } from './textures';
  * pra local uma vez por passo e testa tudo ali. Girar a quadra nao recalcula
  * colisor nenhum.
  */
-
-/**
- * A que altura um desenho POUSA na areia sem brigar por z.
- *
- * O chao do mundo esta' em y = 0, e qualquer coisa desenhada exatamente ali
- * pisca contra ele. Um milimetro resolve, e e' invisivel — mas tem que ser O
- * MESMO milimetro em todo lugar, senao as linhas desenhadas e a pele de modelo
- * pousam em alturas diferentes e uma passa por dentro da outra.
- */
-export const POUSO_NA_AREIA = 0.001;
 
 export interface Colisores {
   /** Malha da rede + a saia invisivel abaixo dela. */
