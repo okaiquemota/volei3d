@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { AI_SKILL, CAMERA, COLORS, PASSEIO } from '../config';
+import { AI_SKILL, CAMERA, COLORS, COURT, ESTADIO, PASSEIO } from '../config';
 import { Input } from './Input';
 import { Tempo } from './Tempo';
 import { CameraRig } from './CameraRig';
@@ -16,7 +16,7 @@ import { construirPraia, type PraiaConstruida } from '../world/buildBeach';
 import { construirCeu, type CeuConstruido } from '../world/buildSky';
 import { carregarQuadraModelo, type ModeloDaQuadra } from '../world/buildQuadraModelo';
 import { carregarEstadio, type ModeloDoEstadio } from '../world/buildEstadio';
-import { PRAIA } from '../world/praia';
+import { LIMITE_DA_PRAIA, PRAIA } from '../world/praia';
 import type { Side } from '../world/Court';
 import { setMaxAnisotropy } from '../world/textures';
 
@@ -458,7 +458,14 @@ export class Game {
      */
     if (naQuadra && !this.player) this.entrarNaQuadra(this.arenaEmFoco, 'home');
 
-    const unica = naQuadra ? this.minhaArena : null;
+    /**
+     * `minhaArena` e' onde o humano esta' — e agora ele pode SAIR dela.
+     *
+     * Sem o `??`, sair da quadra no cenario de quadra unica zerava a lista de
+     * arenas vivas na proxima troca de ajuste: a quadra sumia da tela junto com
+     * a partida, e o jogador ficava num estadio vazio.
+     */
+    const unica = naQuadra ? this.minhaArena ?? this.arenaEmFoco : null;
     this.arenasVivas = unica ? [unica] : [...this.arenas];
     for (const arena of this.arenas) arena.raiz.visible = this.arenasVivas.includes(arena);
 
@@ -474,6 +481,17 @@ export class Game {
 
     // Pedir o arquivo so' agora: quem nunca abrir o ESTADIO nunca baixa 1,5 MB.
     if (this.noEstadio && !this.modeloDoEstadio) void this.buscarEstadio();
+
+    /**
+     * Onde da' pra andar depois de sair da quadra, e sao tres respostas.
+     *
+     * Na praia, a caixa das tres quadras. No estadio, o anel de LED. No
+     * estudio, uma volta curta em torno da quadra — andar mais do que isso ali
+     * e' caminhar pro branco infinito, que nao e' lugar nenhum.
+     */
+    this.banhista.limite = !naQuadra ? LIMITE_DA_PRAIA
+      : this.noEstadio ? { x: ESTADIO.passeio.x, z: ESTADIO.passeio.z }
+      : { x: COURT.width / 2 + COURT.freeZone + 4, z: COURT.length / 2 + COURT.freeZone + 4 };
 
     // A legenda esconde as teclas da praia: tecla que nao faz nada na tela e'
     // pior do que tecla nenhuma.
@@ -593,7 +611,15 @@ export class Game {
       // Entrar e sair de quadra. Uma tecla so' vale de cada vez: quem esta'
       // jogando sai, quem esta' na areia entra.
       if (this.player) {
-        if (!this.quadraUnica && this.input.wasPressed('KeyQ')) this.sairDaQuadra();
+        /**
+         * Sair da quadra vale nos TRES cenarios.
+         *
+         * Era bloqueado na quadra unica porque nao havia praia pra onde ir — e
+         * com o estadio passou a haver: o piso da arena em volta da quadra e'
+         * um lugar. O limite de quanto da' pra andar e' que muda por cenario,
+         * e quem decide isso e' `aplicarCenario`.
+         */
+        if (this.input.wasPressed('KeyQ')) this.sairDaQuadra();
       } else {
         if (this.input.wasPressed('KeyE')) this.entrarNaQuadraMaisPerto();
 

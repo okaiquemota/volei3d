@@ -127,6 +127,37 @@ export const ATHLETE = {
  * camera lenta estica de 0,42 s pra mais de um segundo vivido. Sem o poder o
  * mergulho e' uma leitura; com ele, uma decisao.
  */
+/**
+ * O ESTADIO, em cima da quadra.
+ *
+ * `escala` e' o unico numero que muda o enquadramento, e ele tem um PISO
+ * medido, nao escolhido: a peca do modelo mais proxima da quadra e' o anel de
+ * placas de LED, a 13,37 m do centro. Os atletas correm ate' 8 m (meia largura
+ * mais a zona livre). Logo o anel so' fica fora da area de jogo enquanto
+ *
+ *   13,37 * escala > 8   ou seja   escala > 0,60
+ *
+ * e 0,65 deixa 69 cm de folga entre o atleta no limite e a propaganda — que e'
+ * mais ou menos a folga de uma quadra central de verdade. Abaixo disso o
+ * jogador passa a correr por DENTRO do painel, e o teste de vertices reprova.
+ *
+ * Encolher mais exigiria tirar o anel de LED ou as escadas de canto, e nao
+ * mexer neste numero.
+ */
+export const ESTADIO = {
+  /** Quanto o estadio encolhe em volta da quadra. 1 e' o tamanho do modelo. */
+  escala: 0.65,
+  /**
+   * Ate' onde da' pra andar depois de sair da quadra, dentro do estadio.
+   *
+   * Fica ENTRE a zona livre (8 x 12) e o anel de LED (8,69 x 14,4 nesta
+   * escala): sair da quadra tem que levar a algum lugar, e atravessar a
+   * propaganda nao e' esse lugar. A faixa atras da linha de fundo e' onde
+   * sobra espaco de verdade.
+   */
+  passeio: { x: 8.5, z: 14 },
+} as const;
+
 export const MERGULHO = {
   /** Velocidade do arranco, em m/s. */
   impulso: 7.5,
@@ -792,12 +823,40 @@ export const COLORS = {
   /**
    * O chao em volta da quadra dentro do ESTADIO.
    *
-   * Cinza de concreto, tirado da propria laje do modelo pra nao brigar com ela.
    * Nao pode ser areia (a quadra de modelo em cima de areia le' como quadra
    * largada na praia) nem o branco do estudio (chapado, sem sombra, some
    * debaixo da arquibancada).
+   *
+   * A primeira tentativa foi o cinza da laje do modelo, 0x3c3f45 — e era um
+   * BURACO: metade da tela num tom quase preto, ao lado de uma quadra turquesa
+   * e de arquibancada azul e laranja. Cinza de concreto lido na foto de um
+   * estadio nao e' cinza de concreto lido ao lado de cor saturada. Este e'
+   * claro o bastante pra ser piso, e frio o bastante pra nao competir com a
+   * quadra.
    */
-  pisoDaArena: 0x3c3f45,
+  pisoDaArena: 0x7d8494,
+
+  /**
+   * As cores do ESTADIO, e por que ele precisava de paleta propria.
+   *
+   * O modelo vem com arquibancada azul-marinho, casca cinza e — o problema de
+   * verdade — metalness 1,0 em quase tudo que e' refletor. Metal sem mapa de
+   * ambiente o three pinta de PRETO: eram 40 mil triangulos de torre saindo
+   * como silhueta morta, ao lado de personagens e quadra de cor viva.
+   *
+   * Os tons abaixo sao os mesmos do resto do jogo, nao tons "de estadio": a
+   * arquibancada puxa pro azul do time da casa e pro laranja do visitante.
+   */
+  arquibancadaAzul: 0x2f6fd0,
+  arquibancadaLaranja: 0xe08a3c,
+  /** O que era preto puro: degrau, viga, estrutura de refletor. */
+  estruturaDoEstadio: 0x566079,
+  /** Mastro e carcaca de refletor, antes metal preto. */
+  metalDoEstadio: 0x8892a6,
+  /** A casca externa do bowl. */
+  cascaDoEstadio: 0x6e7789,
+  /** As escadas de trelica, que eram branco puro e gritavam na tela. */
+  escadaDoEstadio: 0x7f8798,
   line: 0xf7f7f2,
   post: 0x33383f,
   home: 0x2970d1,

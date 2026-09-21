@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 
-import { COURT } from '../src/config';
+import { COURT, ESTADIO } from '../src/config';
 
 /**
  * O que estes testes protegem:
@@ -38,6 +38,15 @@ const carregar = async (): Promise<THREE.Object3D> => {
   try {
     const gltf = await new Promise<{ scene: THREE.Object3D }>((ok, err) =>
       loader.parse(ab, '', ok as never, err));
+
+    /**
+     * Medir NA ESCALA que vai pra tela, e nao no tamanho do arquivo.
+     *
+     * Encolher o estadio aproxima a arquibancada da quadra, entao a escala e'
+     * exatamente o numero que pode fazer o modelo invadir a area de jogo. Um
+     * teste no tamanho cru passaria com folga e nao diria nada sobre o jogo.
+     */
+    gltf.scene.scale.setScalar(ESTADIO.escala);
     gltf.scene.updateMatrixWorld(true);
     return gltf.scene;
   } finally {
@@ -67,7 +76,7 @@ test('o piso do estadio esta na altura da areia', async () => {
   assert.ok(caixa.min.y > -3, `estadio enterrado: base em ${caixa.min.y.toFixed(2)}`);
   assert.ok(caixa.min.y < 0.1, `estadio flutuando: base em ${caixa.min.y.toFixed(2)}`);
   // E ele tem que ser alto: arquibancada e refletor sao a razao de ele existir.
-  assert.ok(caixa.max.y > 15, `estadio baixo demais: topo em ${caixa.max.y.toFixed(2)}`);
+  assert.ok(caixa.max.y > 10, `estadio baixo demais: topo em ${caixa.max.y.toFixed(2)}`);
 });
 
 /**
@@ -137,4 +146,44 @@ test('o arquivo cabe no que o jogador baixa', async () => {
   const { size } = fs.statSync(new URL('../src/assets/estadio.glb', import.meta.url));
   // O cru tem 45 MB. Acima de 3 MB alguma coisa deu errado na receita.
   assert.ok(size < 3 * 1024 * 1024, `estadio com ${(size / 1024 / 1024).toFixed(1)} MB`);
+});
+
+/**
+ * O passeio tem que caber DENTRO do estadio.
+ *
+ * Sair da quadra e' permitido nos tres cenarios, e no estadio quem limita o
+ * passeio e' `ESTADIO.passeio` — um retangulo escrito a mao no config, enquanto
+ * a parede de verdade e' o anel de LED do modelo, que encolhe junto com a
+ * escala. Mexer na escala e esquecer o passeio deixaria o jogador atravessar a
+ * propaganda e sair andando por baixo da arquibancada.
+ */
+test('da pra andar dentro do estadio sem atravessar a arquibancada', async () => {
+  const cena = await carregar();
+
+  const v = new THREE.Vector3();
+  const invasores: string[] = [];
+  cena.traverse((o) => {
+    const malha = o as THREE.Mesh;
+    if (!malha.isMesh) return;
+    const pos = malha.geometry.getAttribute('position');
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(malha.matrixWorld);
+      if (v.y > 0.05 && v.y < 3
+        && Math.abs(v.x) < ESTADIO.passeio.x && Math.abs(v.z) < ESTADIO.passeio.z) {
+        invasores.push(`${malha.name} em (${v.x.toFixed(1)}, ${v.z.toFixed(1)})`);
+        return;
+      }
+    }
+  });
+
+  assert.equal(invasores.length, 0,
+    `o passeio esbarra no estadio: ${invasores.slice(0, 3).join('; ')}`);
+});
+
+/** E o passeio tem que ser maior que a quadra, senao "sair" nao leva a lugar nenhum. */
+test('o passeio do estadio e maior que a propria quadra', () => {
+  assert.ok(ESTADIO.passeio.x > COURT.width / 2 + COURT.freeZone,
+    'o passeio para dentro da zona livre: nao da pra sair');
+  assert.ok(ESTADIO.passeio.z > COURT.length / 2 + COURT.freeZone,
+    'o passeio para dentro da zona livre: nao da pra sair');
 });

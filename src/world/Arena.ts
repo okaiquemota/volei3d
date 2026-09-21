@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { COLORS, MATCH } from '../config';
+import { ESTADIO, COLORS, MATCH } from '../config';
 import { Ball } from '../ball/Ball';
 import { LigacaoDoRally, Match, type EventosDaPartida } from '../match/Match';
 import { AIPlayer } from '../players/AI';
@@ -145,6 +145,9 @@ export class Arena {
 
     if (molde) {
       this.estadio = molde.clone();
+      // Encolhe ANTES de ir pro lugar da quadra: `applyMatrix4` multiplica por
+      // cima do que ja' esta' na matriz, entao a ordem e' escala e depois posto.
+      this.estadio.scale.setScalar(ESTADIO.escala);
       this.estadio.applyMatrix4(this.court.matrix);
       this.raiz.add(this.estadio);
     }

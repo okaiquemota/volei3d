@@ -1267,6 +1267,32 @@ arquibancada em volta) e depois sobre branco chapado (um vazio claro sob a
 arquibancada). Nenhum dos dois é o que ele é. Hoje é `usarPiso(tipo)`, com os
 três nomeados.
 
+## O preto não era cor, era luz
+
+Depois de repintar o estádio inteiro, as faces laterais dos degraus continuavam
+pretas na tela. A sonda dizia o contrário: **nenhum material era preto** — a
+paleta toda estava em cinza-azulado e cor viva, com `metalness` zerado.
+
+Eram duas causas, e as duas se disfarçam de "cor feia":
+
+- **`metalness: 1` sem mapa de ambiente.** O three resolve metal como preto:
+  não há o que refletir. O modelo vinha com metal em quase todo refletor, 40
+  mil triângulos saindo como silhueta morta. Zerar o metal devolve a cor
+  difusa, que é o que um refletor pintado tem de qualquer jeito.
+- **A luz da cena é de praia.** Sol direcional forte e pouco preenchimento;
+  face virada para o lado contrário do sol cai praticamente a zero. Numa praia
+  aberta isso nunca apareceu porque não há superfície vertical grande — uma
+  arquibancada é feita só disso.
+
+A correção do segundo é **local e não na luz**: um pouco da própria cor no
+emissivo (22%) levanta o piso do material. Mexer na luz da cena consertaria a
+arquibancada e lavaria junto o volume dos atletas, que é exatamente o que
+aquele par quente/frio existe para dar.
+
+A lição de método: quando a tela mostra preto e a paleta não tem preto, o
+problema mudou de departamento. Continuar trocando números de cor teria sido
+trocar o que já estava certo.
+
 ## O asset cozido precisa de teste, e o teste é "nada invade a quadra"
 
 O estádio sai de um script que apaga 73% do original. O arquivo cru não está no

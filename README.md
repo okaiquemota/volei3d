@@ -545,7 +545,25 @@ o decoder já vem com o three, em 29 kB).
 
 Dentro da arquibancada vai a **mesma quadra do cenário QUADRA** — o estádio é a
 vizinhança dela, não um substituto. O chão em volta é concreto: areia ali seria a
-praia de novo, com arquibancada em volta, que não é nem uma coisa nem outra.
+praia de novo, com arquibancada em volta, que não é nem uma coisa nem outra. Dá
+para **sair da quadra com `Q`** e andar pelo piso da arena, até o anel de LED.
+
+**O quanto o estádio encolhe tem um piso medido, não escolhido.** A peça mais
+próxima da quadra é o anel de placas de LED, a 13,37 m do centro; os atletas
+correm até 8 m (meia largura mais a zona livre). Então `13,37 × escala > 8`, ou
+seja `escala > 0,60`. Hoje está em **0,65**, que deixa 69 cm entre o atleta no
+limite e a propaganda. Encolher mais exige tirar o anel de LED ou as escadas de
+canto — não mexer no número.
+
+E a paleta é do jogo, não do modelo. Duas coisas deixavam o estádio morto ao
+lado de personagens e quadra de cor viva:
+
+- **`metalness: 1` em quase todo refletor.** Material metálico sem mapa de
+  ambiente o three resolve como **preto** — não há o que refletir. Eram 40 mil
+  triângulos de torre saindo como silhueta morta.
+- **A luz do jogo é de praia**: sol direcional forte, pouco preenchimento. Face
+  virada para o lado contrário do sol cai quase a zero. Numa praia aberta isso
+  não aparece; uma arquibancada é feita só de superfície vertical.
 
 Duas outras medidas resolveram o encaixe, e as duas foram surpresas boas:
 

@@ -547,7 +547,7 @@ kbd {
 }
 kbd.larga { min-width: auto; }
 
-/* No cenario de quadra unica nao ha' praia pra onde ir. */
+/* Com uma quadra so nao ha vizinha pra assistir nem pra onde voltar. */
 body.cenario-quadra .so-praia { display: none; }
 
 /* Telas baixas ou estreitas: a faixa competiria com a quadra. Some. */

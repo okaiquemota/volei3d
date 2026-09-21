@@ -53,15 +53,25 @@ export class Banhista {
    * O Motor nunca soube o que e' quadra — recebe uma funcao de limite e
    * pergunta a cada quadro. Aqui essa funcao e' "a praia, menos as redes".
    */
+  /**
+   * Ate' onde da' pra andar. Trocavel porque o CENARIO decide, nao o banhista.
+   *
+   * Na praia e' a caixa das tres quadras; dentro do estadio e' o anel de LED,
+   * que fica bem mais perto. Sem isto, sair da quadra no estadio deixava sair
+   * do ESTADIO tambem — o limite da praia e' 44 m em x, e o bowl encolhido tem
+   * 24. Andava-se atravessando a arquibancada pra areia vazia atras dela.
+   */
+  limite: { x: number; z: number } = LIMITE_DA_PRAIA;
+
   constructor(cor: number, quadras: readonly Court[] = []) {
     this.cor = cor;
     this.visual = construirAtleta(cor, COURT.serveBallHeight);
 
     this.motor = new Motor((posicao, out) => {
       out.set(
-        clamp(posicao.x, -LIMITE_DA_PRAIA.x, LIMITE_DA_PRAIA.x),
+        clamp(posicao.x, -this.limite.x, this.limite.x),
         posicao.y,
-        clamp(posicao.z, -LIMITE_DA_PRAIA.z, LIMITE_DA_PRAIA.z),
+        clamp(posicao.z, -this.limite.z, this.limite.z),
       );
       for (const quadra of quadras) quadra.desviarDaRede(out, ATHLETE.radius, out);
       return out;
