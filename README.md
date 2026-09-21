@@ -153,10 +153,10 @@ por outra conta, porque a fita do modelo termina a 2,10 m e o colisor que para a
 bola está a 2,24: escalando tudo junto, a bola passaria por cima do desenho e
 bateria no nada.
 
-**O cenário QUADRA é uma partida, não um lugar.** O chão claro vem junto — uma
-quadra de modelo em cima de areia dourada continua parecendo uma quadra largada
-na praia — e o céu vai embora: fundo e névoa viram branco, e a quadra fica
-sozinha num vazio claro.
+**O cenário QUADRA é uma partida, não um lugar.** Fundo, névoa e chão usam o
+**mesmo** branco, e o chão deixa de ser iluminado para chegar lá — a luz de céu é
+azulada, então material branco sob ela sai cinza. A quadra fica sozinha num vazio
+branco, sem horizonte.
 
 E existe **uma** quadra. As outras duas somem da cena e param de ser atualizadas,
 o que é o único jeito honesto de dizer "só existe esta": escondidas e ainda
@@ -173,16 +173,19 @@ A laje, os bancos e os cones ficam. A laje fica enterrada na areia, porque o ch�
 da física é `y = 0` e levantar o desenho faria o jogo inteiro acontecer dentro
 dela.
 
-**A quadra fica no centro do quadro, nos dois enquadramentos.** Quem decide isso
-é a altura em que a câmera *olha*, e ela é enquadramento, não direção: subir o
-ponto mirado inclina a câmera para cima, e o que ela vê desce na tela. Os dois
-enquadramentos precisam de valores diferentes porque a conta é `metros = giro ×
-distância até o ponto mirado`, e essa distância é 7 m no ombro contra 15,8 m na
-tática — o mesmo centímetro vale o dobro lá.
+**A câmera é presa à quadra, não ao atleta.** A quadra fica parada no quadro e
+quem se mexe dentro dela é você — que é como se filma vôlei, e é o que a mira
+precisa: o alvo é um ponto do chão resolvido pelo cursor, então uma câmera
+estável significa que o mesmo pixel é sempre o mesmo metro de quadra.
 
-Medido em 1366×683, 1280×720 e 1600×900: o centro da quadra cai a 48,6% da
-altura do quadro no ombro e 48,5% na tática. O número não muda com a largura da
-janela porque a lente do three é **vertical**.
+A posição é fixa atrás da sua linha de fundo e a mira é um ponto fixo do chão. A
+profundidade desse ponto é o que enquadra: aproximá-lo da câmera a inclina para
+baixo, e a quadra sobe na tela.
+
+Medido em 1366×683, 1280×720 e 1600×900: o centro da quadra cai a 49,9% da altura
+do quadro no ombro e 49,8% na tática — e **idêntico** com o atleta deslocado 3 m
+para o lado e 5 m para a frente. O número não muda com a largura da janela porque
+a lente do three é **vertical**.
 
 **Dois enquadramentos, e a roda anda entre eles.** O padrão é a câmera de
 **ombro**: baixa, 6,5 m atrás de você, com o seu corpo ocupando um quarto do

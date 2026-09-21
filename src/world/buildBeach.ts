@@ -76,19 +76,30 @@ export function construirPraia(): PraiaConstruida {
 
   const usarPisoClaro = (claro: boolean): void => {
     /**
-     * O mapa de COR sai; o de RELEVO fica.
+     * Pra ser branco de verdade, o chao para de ser ILUMINADO.
      *
-     * A cor da areia esta' na textura, nao no `color` — tintar de branco por
-     * cima dela devolveria areia lavada, nao um piso claro. Tirar o mapa e' o
-     * unico jeito de a cor do material valer.
+     * Tres coisas tinham que sair juntas, e cada uma sozinha deixava o chao
+     * cinza:
      *
-     * O relevo continua, mais fraco: sem ele a laje de 400 m vira um plano sem
-     * nenhuma informacao de superficie, e o olho perde a referencia de onde o
-     * chao esta'. Com ele, o piso claro ainda tem textura.
+     *   o MAPA    a cor da areia mora na textura, nao no `color`. Tintar de
+     *             branco por cima devolve areia lavada.
+     *   a LUZ     `color` e' resposta a' luz, e a luz de ceu daqui e' azulada:
+     *             branco vezes azul-acinzentado da' cinza. Zerando o `color`, o
+     *             material deixa de responder a luz nenhuma.
+     *   o RELEVO  so' existe pra modular luz. Sem luz ele nao faz nada.
+     *
+     * O branco sai do `emissive`, que e' cor que o material EMITE e nao cor que
+     * ele reflete — chapada, igual em todo ponto, e exatamente o mesmo valor do
+     * fundo e da nevoa. E' assim que o chao e o ceu viram uma coisa so'.
+     *
+     * O que se perde e' a sombra NESTE chao. Nao custa nada aqui: o atleta joga
+     * dentro da quadra, e ali a sombra cai na laje do modelo, que continua
+     * iluminada.
      */
     material.map = claro ? null : areia.map;
-    material.normalScale.setScalar(claro ? areia.relevo * 0.35 : areia.relevo);
-    material.color.setHex(claro ? COLORS.pisoClaro : COLORS.sand);
+    material.normalScale.setScalar(claro ? 0 : areia.relevo);
+    material.color.setHex(claro ? 0x000000 : COLORS.sand);
+    material.emissive.setHex(claro ? COLORS.brancoDaQuadra : 0x000000);
     // Trocar mapa muda o PROGRAMA do shader. Sem isto o three reaproveita o
     // anterior e a troca simplesmente nao aparece.
     material.needsUpdate = true;

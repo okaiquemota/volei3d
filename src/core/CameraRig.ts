@@ -101,13 +101,8 @@ export class CameraRig {
   private get distancia(): number {
     return lerp(CAMERA.jogoPerto.distancia, CAMERA.jogoLonge.distancia, this.enquadramento);
   }
-  private get puxaoDaBola(): number {
-    return lerp(CAMERA.jogoPerto.foco, CAMERA.jogoLonge.foco, this.enquadramento);
-  }
-  private get acompanhamento(): number {
-    return lerp(CAMERA.jogoPerto.lateral, CAMERA.jogoLonge.lateral, this.enquadramento);
-  }
-  private get alturaDaMira(): number {
+  /** A que distancia da rede, do SEU lado, a camera mira no chao. */
+  private get profundidadeDaMira(): number {
     return lerp(CAMERA.jogoPerto.mira, CAMERA.jogoLonge.mira, this.enquadramento);
   }
 
@@ -276,23 +271,26 @@ export class CameraRig {
       );
     }
 
-    this.court.paraLocal(this.alvo!.position, _alvoLocal);
-
-    const sinal = sinalDe(this.side);
-    const lateral = _alvoLocal.x * this.acompanhamento;
-
     /**
-     * "Atras" e' sempre o lado de fora da quadra do jogador. A camera acompanha
-     * a profundidade do atleta, mas nunca passa da linha de fundo — sem esse
-     * limite, correr pra rede leva a camera junto e ela acaba DENTRO da quadra,
-     * com a rede colada na lente.
+     * A camera de jogo e' presa a' QUADRA, nao ao atleta.
+     *
+     * Ela seguia o atleta em profundidade e de lado, e o resultado era a quadra
+     * passeando pela tela: cada passo pro lado levava o campo junto, e "a quadra
+     * esta' centrada" so' valia no instante do saque, que e' o unico momento em
+     * que o atleta esta' no meio da linha de fundo.
+     *
+     * Presa a' quadra, o campo fica PARADO no quadro e quem se mexe dentro dele
+     * e' o jogador — que e' como se filma volei, e e' o que a mira precisa: o
+     * alvo e' um ponto do chao resolvido pelo cursor, entao uma camera estavel
+     * significa que o mesmo pixel e' sempre o mesmo metro de quadra. Com a
+     * camera andando, o jogador reaprendia a mira a cada passo.
+     *
+     * `distancia` passa a ser medida da LINHA DE FUNDO, e nao do atleta. No
+     * saque os dois coincidem, entao os numeros do config continuam querendo
+     * dizer quase a mesma coisa.
      */
-    const cru = _alvoLocal.z + this.distancia * sinal;
-    const minimo = this.court.halfLength + CAMERA.minDepthMargin;
-    const atras = sinal < 0 ? Math.min(cru, -minimo) : Math.max(cru, minimo);
-
     return this.court.paraMundo(
-      _alvoLocal.set(lateral, this.altura, atras),
+      _alvoLocal.set(0, this.altura, (this.court.halfLength + this.distancia) * sinalDe(this.side)),
       out,
     );
   }
@@ -321,16 +319,33 @@ export class CameraRig {
       );
     }
 
-    out.copy(this.alvo!.position);
-
-    if (this.modo === 'passeio') {
-      out.y += CAMERA.alturaDoOlhar;
-      return out;
+    /**
+     * Jogando: mira num ponto FIXO do CHAO da quadra.
+     *
+     * Nao no atleta e nao na bola. Puxar a mira pra qualquer um dos dois
+     * devolveria a camera perseguidora por outro caminho — a posicao ficaria
+     * parada e o enquadramento e' que sairia balancando, que e' pior, porque a
+     * quadra passaria a entortar em vez de deslizar.
+     *
+     * O ponto e' no CHAO e o que se ajusta e' a PROFUNDIDADE dele, nao uma
+     * altura. Mirando na linha da rede a quadra caia a 75% da altura do quadro,
+     * e pra trazer ela pro meio uma "altura de mira" teria que ficar NEGATIVA —
+     * a camera olhando pra um ponto abaixo do chao. O numero existe, mas nao
+     * quer dizer nada pra quem le'.
+     *
+     * Medido do chao e em metros, ele diz o que faz: a camera olha pra um ponto
+     * a tantos metros da rede, do seu lado. Aproximar esse ponto da camera
+     * inclina ela pra baixo, e a quadra sobe no quadro.
+     */
+    if (this.modo === 'jogo') {
+      return this.court.paraMundo(
+        _alvoLocal.set(0, 0, this.profundidadeDaMira * sinalDe(this.side)),
+        out,
+      );
     }
 
-    out.y += this.alturaDaMira;
-    const puxao = this.puxaoDaBola;
-    if (this.bola && puxao > 0) out.lerp(this.bola.position, clamp01(puxao));
+    out.copy(this.alvo!.position);
+    out.y += CAMERA.alturaDoOlhar;
     return out;
   }
 }

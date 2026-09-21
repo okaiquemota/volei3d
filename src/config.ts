@@ -635,8 +635,9 @@ export const CAMERA = {
    * pela malha, que e' vazada. E' o preco do enquadramento, e e' por isso que
    * ele nao e' o unico.
    *
-   * `foco` e' quanto a mira puxa pra bola em cada ponta. De perto ela puxa
-   * menos: o mesmo puxao que de longe desloca o quadro tres vezes mais.
+   * `distancia` e' medida da LINHA DE FUNDO: a camera de jogo e' presa a'
+   * quadra, nao ao atleta. Nao ha' mais acompanhamento lateral nem puxao pra
+   * bola — os dois existiam pra perseguir, e perseguir era o defeito.
    *
    * `mira` e' a que altura do atleta a camera OLHA, e ela e' enquadramento, nao
    * direcao: subir esse ponto inclina a camera pra cima, e o que ela ve' desce
@@ -644,18 +645,17 @@ export const CAMERA = {
    * do quadro no ombro, 40% na tatica — com um terco de areia vazia embaixo.
    *
    * Os dois valores nao podiam ser o mesmo, e nao por gosto: a conta e' `metros
-   * = giro x distancia ate' o ponto mirado`, e essa distancia e' 7 m no ombro
-   * contra 15,8 m na tatica. O mesmo centimetro de mira vale duas vezes mais
-   * la', e a tatica ainda comeca mais alta no quadro — por isso 1,57 contra
-   * 4,2, e nao um numero so'.
+   * = giro x distancia ate' o ponto mirado`, e essa distancia muda com o
+   * enquadramento — o mesmo centimetro de mira vale mais na tatica, que olha de
+   * mais longe.
    *
-   * Medido em 1366x683, 1280x720 e 1600x900, com o jogador na linha de saque: o
-   * centro da quadra cai a 48,6% da altura do quadro no ombro e 48,5% na
-   * tatica. O numero nao muda com a largura da janela porque a lente do three
-   * e' VERTICAL.
+   * Com a camera presa a' quadra esta medida virou ESTAVEL: ela nao depende
+   * mais de onde o atleta esta', entao o numero abaixo vale o jogo inteiro e
+   * nao so' no instante do saque. O numero tambem nao muda com a largura da
+   * janela, porque a lente do three e' VERTICAL.
    */
-  jogoPerto: { altura: 3.8, distancia: 6.5, foco: 0.14, lateral: 0.8, mira: 1.57 },
-  jogoLonge: { altura: 10.5, distancia: 13, foco: 0.35, lateral: 0.55, mira: 4.2 },
+  jogoPerto: { altura: 3.8, distancia: 6.5, mira: 4.06 },
+  jogoLonge: { altura: 10.5, distancia: 13, mira: 2.44 },
   /** Altura do ponto de mira de quem assiste: a cabeca de um jogador. */
   alturaDoOlhar: 1.6,
 
@@ -739,8 +739,6 @@ export const CAMERA = {
    * a quadro, pouco pra se notar.
    */
   passeioSuavidade: 20,
-  /** Folga minima atras da linha de fundo: a camera nunca entra na quadra. */
-  minDepthMargin: 2,
 
   /**
    * A roda de quem JOGA anda entre `jogoPerto` (0) e `jogoLonge` (1).
@@ -768,22 +766,17 @@ export const COLORS = {
   sky: 0x73b8eb,
   sand: 0xe6c995,
   /**
-   * O chao em volta da quadra, no cenario QUADRA.
+   * O branco do cenario QUADRA. UM so' numero, de proposito.
    *
-   * Nao e' branco puro: 0xffffff num `MeshStandardMaterial` sob sol mais luz de
-   * ceu estoura, e o chao vira um vazio sem sombra nem relevo — justamente o que
-   * diz ao olho onde o plano esta'. Alguns pontos abaixo do teto deixam a sombra
-   * dos atletas e o relevo da superficie aparecerem, e a leitura continua
-   * "branco".
-   */
-  pisoClaro: 0xf2f2ef,
-  /**
-   * O que sobra no lugar do ceu, no cenario QUADRA.
+   * Fundo, nevoa e chao usam este mesmo valor, e nao tres tons parecidos: a
+   * primeira tentativa deu ao chao um branco de material ILUMINADO (0xf2f2ef) e
+   * ao ceu um branco puro, e o resultado foi um chao cinza contra um ceu branco
+   * — um horizonte sujo, que e' exatamente o que o cenario esta' tentando nao
+   * ter.
    *
-   * Vale pro fundo E pra nevoa, que tem que ser a mesma cor — a nevoa que
-   * destoa do fundo recorta a borda do chao do ceu como adesivo. Branco puro
-   * contra o piso (0xf2f2ef) deixa um horizonte de sombra, o bastante pro
-   * chao nao virar um vazio sem plano.
+   * A luz do ceu aqui e' azulada (`skyLight`), entao QUALQUER cor de material
+   * sai puxando pro cinza-azulado. Branco de verdade num chao so' sai desligando
+   * a iluminacao dele — ver `usarPisoClaro`.
    */
   brancoDaQuadra: 0xffffff,
   line: 0xf7f7f2,

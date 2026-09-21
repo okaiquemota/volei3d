@@ -860,23 +860,42 @@ dentro da zona livre e os atletas atravessam eles; as linhas de ataque do indoor
 aparecem e o vôlei de praia não as tem; e a laje está enterrada. As três são
 decisões de arte, pra quando o modo tiver dono.
 
-## Enquadrar é mexer em ONDE a câmera olha, não em onde ela está
+## A câmera de jogo é presa à QUADRA, não ao atleta
 
-A quadra ficava alta no quadro (centro a 43% da altura no ombro, 32% na tática)
-com um terço de areia vazia embaixo. O que conserta isso não é mover a câmera —
-é subir o ponto que ela MIRA, o que a inclina para cima e faz a imagem descer.
+Isto custou duas tentativas erradas, e as duas erraram a mesma coisa: eu tratei
+"a quadra centrada na tela" como um NÚMERO a acertar no instante do saque, e o
+pedido era a quadra **parada**.
 
-`CAMERA.jogoPerto.mira` e `jogoLonge.mira` são valores diferentes de propósito, e
-a diferença não é gosto: a conta é `metros = giro × distância até o ponto
-mirado`, e essa distância é ~7 m no ombro contra ~15,8 m na tática. O mesmo
-centímetro de mira vale o dobro lá, então 1,57 contra 4,2. Um número só deixaria
-um dos dois errado, e foi exatamente o que acontecia com o `1.2` que estava
-cravado no `calcularFoco`.
+A câmera seguia o atleta em profundidade e de lado (`lateral`), e a mira ainda
+puxava para a bola (`foco`). Com isso "centrada" só valia no saque — o único
+momento em que o atleta está no meio da linha de fundo. Um passo para o lado e o
+campo inteiro deslizava junto.
 
-Medido em três proporções de tela: 48,6% e 48,5%. **O número não muda com a
-largura da janela** — a lente do `PerspectiveCamera` é vertical, então mudar a
-largura não mexe no enquadramento vertical. Se uma medida de enquadramento variar
-com a largura, o erro está na medição, não na câmera.
+Agora a posição é court-local `(0, altura, (halfLength + distancia) · sinal)` e a
+mira é um ponto fixo do CHÃO. `lateral` e `foco` não existem mais: os dois só
+serviam para perseguir, e perseguir era o defeito. `minDepthMargin` foi junto —
+ele existia só para impedir que a câmera perseguidora entrasse na quadra.
+
+**A mira é uma PROFUNDIDADE, não uma altura.** Mirando na linha da rede a quadra
+caía a 75% do quadro, e para trazê-la ao meio uma "altura de mira" teria que
+ficar negativa — a câmera olhando para um ponto abaixo do chão. O número existe e
+não quer dizer nada. Medida do chão e em metros, ela diz o que faz: a câmera olha
+para um ponto a tantos metros da rede, do seu lado; aproximá-lo da câmera a
+inclina para baixo e a quadra sobe no quadro.
+
+Duas propriedades que essa mudança comprou, e valem mais que o enquadramento:
+
+- **A medida virou estável.** 49,9% no ombro e 49,8% na tática, e *idêntico* com
+  o atleta deslocado 3 m para o lado e 5 m para a frente. Antes toda medição
+  dependia de onde o atleta estava, e era por isso que os números não paravam de
+  pé.
+- **A mira do jogador virou aprendível.** O alvo é um ponto do chão resolvido por
+  raycast do cursor. Com a câmera parada, o mesmo pixel é sempre o mesmo metro de
+  quadra; com ela andando, o jogador reaprendia a mira a cada passo.
+
+**O número não muda com a largura da janela** — a lente do `PerspectiveCamera` é
+vertical. Se uma medida de enquadramento variar com a largura, o erro está na
+medição.
 
 ## Projetar com a matriz velha mede outro quadro
 
@@ -969,8 +988,19 @@ O relevo (`normalMap`) fica, com força reduzida: sem ele a laje de 400 m vira u
 plano sem nenhuma informação de superfície e o olho perde a referência de onde o
 chão está.
 
-E o branco não é `0xffffff`: puro, sob sol mais luz de céu, estoura e leva
-junto a sombra dos atletas — justamente o que diz ao olho onde o plano está.
+**E branco de verdade num chão só sai desligando a iluminação dele.** A primeira
+tentativa deu ao chão um branco de material iluminado (`0xf2f2ef`) e ao céu um
+branco puro; o resultado foi chão cinza contra céu branco — um horizonte sujo,
+exatamente o que o cenário tenta não ter. A luz de céu aqui é azulada
+(`skyLight`), então *qualquer* cor de material sai puxando para o cinza-azulado.
+
+O branco sai do `emissive`, com `color` zerado: cor que o material EMITE, não cor
+que ele reflete. Chapada, igual em todo ponto, e o mesmo valor do fundo e da
+névoa — é assim que chão e céu viram uma coisa só. O `normalMap` sai junto,
+porque relevo só existe para modular luz e não há mais luz ali.
+
+O que se perde é a sombra *nesse* chão, e não custa nada: o atleta joga dentro da
+quadra, e ali a sombra cai na laje do modelo, que continua iluminada.
 
 ## "Só existe esta quadra" é parar de simular, não esconder
 
