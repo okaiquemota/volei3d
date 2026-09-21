@@ -140,15 +140,31 @@ body.tela-aberta #hud { opacity: 0; }
  * faria o olho procurar a que importa no quadro em que ele nao tem tempo.
  */
 #tempo {
+  position: relative;
   display: flex;
-  align-items: center;
   justify-content: center;
-  gap: 0.5em;
   margin-top: 0.5em;
   opacity: 0.55;
   transition: opacity 0.2s;
 }
-#tempo kbd { font-size: 0.68em; min-width: auto; }
+
+/*
+ * O rotulo sai do FLUXO, pendurado a' esquerda do trilho.
+ *
+ * Em fluxo ele entra na conta da largura, e o trilho deixa de ser centrado na
+ * tela: com "SHIFT" a barra do poder ficava 20 px a' direita da de FORCA, logo
+ * abaixo dela. Fora do fluxo, o trilho e' o unico conteudo — o centro dele e' o
+ * centro da tela, escreva-se o que se escrever na tecla.
+ */
+#tempo kbd {
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-right: 0.6em;
+  font-size: 0.68em;
+  min-width: auto;
+}
 
 #tempo-trilho {
   width: 11em;

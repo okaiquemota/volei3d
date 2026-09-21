@@ -23,7 +23,9 @@ const _alvoDoToque = new THREE.Vector3();
  *   Espaco ............... pular
  *   Mouse ................ mirar (um ponto no CHAO, nao uma direcao)
  *   Clique esq. / E ...... tocar na bola
- *   Clique dir. / Shift .. forcar o ataque por cima da rede
+ *   Clique dir. .......... levantar no proprio campo
+ *   F .................... forcar o ataque por cima da rede
+ *   Shift ................ camera lenta (quem le' e' o Game: e' do mundo, nao do atleta)
  */
 export class Human extends Athlete {
   /** Ultimo ponto mirado, ja' limitado ao campo adversario. */
@@ -255,15 +257,20 @@ export class Human extends Athlete {
   }
 
   /**
-   * Shift continua forcando o ataque, mesmo com carga baixa.
+   * F forca o ataque, mesmo com carga baixa.
    *
    * E' a valvula pra quando a bola chega em cima e nao ha' tempo de segurar:
    * o toque sai fraco, mas sai por cima da rede em vez de armar no proprio
    * campo, que naquele momento seria perder o ponto.
+   *
+   * Morava no Shift, e o Shift virou a camera lenta. A troca e' de graca aqui e
+   * nao era la': este modificador e' de INSTANTE — segura junto com o clique, no
+   * momento do contato, ja' posicionado. A camera lenta e' de PERCURSO, e se
+   * segura enquanto se corre atras da bola; tirar o indicador do D pra chegar no
+   * F custava o passo, que e' justamente o que o poder existe pra dar.
    */
   private get segurandoModificador(): boolean {
-    const input = this.input;
-    return !!input && (input.isDown('ShiftLeft') || input.isDown('ShiftRight'));
+    return !!this.input && this.input.isDown('KeyF');
   }
 
   /** Carga atual, de 0 a 1. O HUD e o marcador de mira leem daqui. */

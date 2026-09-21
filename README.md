@@ -44,7 +44,8 @@ npm run build:single # dist/volei3d.html — joga com duplo clique, offline
 | Sacar | Segure e solte o clique esquerdo — a carga vale aqui também |
 | Sair da quadra e andar pela areia | `Q` |
 | Entrar na quadra em que você está encostado | `E` |
-| Câmera lenta | Segurar `F` |
+| Câmera lenta | Segurar `Shift` |
+| Forçar o ataque com carga baixa | Segurar `F` no contato |
 | Trocar o enquadramento (ombro ↔ tática) | Roda do mouse |
 | Girar a câmera (só fora da quadra) | Mover o mouse |
 | Assistir outra quadra | `[` e `]` |
@@ -152,11 +153,17 @@ Medido em 1280×720, com você na linha de fundo: o campo adversário ocupa 78 p
 altura no ombro e 101 px na tática. A mira é um ponto no chão resolvido pelo
 cursor, então essa altura **é** a precisão de mira: o ombro custa um quarto dela.
 
-**A câmera lenta é o poder.** Segurar `F` põe o mundo a 35% da velocidade — a
+**A câmera lenta é o poder.** Segurar `Shift` põe o mundo a 35% da velocidade — a
 bola, os atletas, as outras quadras da praia e, principalmente, **a barra de
 força**. É esse o ponto: a barra é um QTE de 180 ms, e o poder compra tempo pra
 acertar a zona ou pra alcançar uma bola que já tinha passado. Se ele não mexesse
 na barra, seria enfeite.
+
+Fica no `Shift` porque é um poder de **percurso**: você segura enquanto corre
+atrás da bola. O modificador que força o ataque com carga baixa, que morava ali,
+foi para o `F` — esse é de **instante**, segurado junto com o clique no momento
+do contato, já posicionado, e por isso não custa o passo que tirar o indicador
+do `D` custaria.
 
 O gasto é em segundos de **relógio**, não de jogo: a barra cheia dá 2,5 segundos
 vividos, que viram menos de um segundo de jogo, e demora 9 para voltar. É para

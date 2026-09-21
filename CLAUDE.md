@@ -702,6 +702,14 @@ Duas armadilhas que o teste protege e a tela não mostra:
   depois do fim faz a barra recarregar, cruzar o mínimo e religar sozinha por
   meio segundo, em ciclos.
 
+**Poder de percurso não mora em tecla de letra.** O poder nasceu no `F` e durou
+um teste de jogo: ele se segura enquanto se corre atrás da bola, e chegar no `F`
+pede tirar o indicador do `D`, que é o passo que o poder existe pra dar. Foi pro
+`Shift`. O modificador que força o ataque com carga baixa, que morava lá, foi pro
+`F` — esse é de **instante**, segurado junto com o clique no momento do contato,
+com o atleta já posicionado, e ali a troca não custa nada. A pergunta que separa
+os dois não é "qual tecla sobrou", é **se a mão precisa continuar andando**.
+
 ## Um `top: Nvmin` por elemento é uma bomba-relógio no HUD
 
 Placar, barras e avisos tinham cada um o seu `top` em vmin. No dia em que a

@@ -407,7 +407,9 @@ export class Game {
      * A barra de FORCA fica de propósito do lado do mundo: ela e' um QTE de
      * 180 ms, e comprar tempo pra acertar a zona e' o poder inteiro.
      */
-    const dtJogo = dt * this.tempo.passo(dt, this.player !== null && this.input.isDown('KeyF'));
+    const querLento = this.player !== null
+      && (this.input.isDown('ShiftLeft') || this.input.isDown('ShiftRight'));
+    const dtJogo = dt * this.tempo.passo(dt, querLento);
 
     // Todas as arenas avancam, inclusive as que ninguem esta' olhando. E' o
     // que faz a praia ter jogo acontecendo em vez de quadras congeladas.
