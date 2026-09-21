@@ -190,3 +190,78 @@ test('levantamento dobra o cotovelo, manchete nao', async () => {
   assert.ok(estica('Manchete') > estica('Levantamento') + 0.05,
     'o braco do levantamento nao esta mais recolhido que o da manchete');
 });
+
+/**
+ * A SILHUETA, que e' a unica coisa que se enxerga a' distancia da camera de jogo.
+ *
+ * Este teste existe por causa de um defeito que nenhum outro pegava: as poses
+ * estavam certas uma a uma — braco no lugar, cotovelo no angulo, pe' na areia —
+ * e mesmo assim quatro dos seis gestos liam como "levantou os dois bracos". De
+ * perto eram diferentes; a oito metros, nao.
+ *
+ * Por isso a medida aqui nao e' de osso. Sao as tres coisas que sobram quando o
+ * boneco tem 90 pixels de altura: quao alta esta' a mao, se UM braco subiu ou os
+ * dois, e quao separadas estao as maos.
+ */
+const silhueta = (raiz: THREE.Object3D, clipe: THREE.AnimationClip, t: number) => {
+  const { onde, soltar } = posar(raiz, clipe, t);
+  const d = onde('WristR');
+  const e = onde('WristL');
+  const r = { maoAlta: Math.max(d.y, e.y), desnivel: Math.abs(d.y - e.y), separacao: d.distanceTo(e) };
+  soltar();
+  return r;
+};
+
+test('um braco so no ataque e no saque; os dois no pulo e no levantamento', async () => {
+  const feitos = await clipes();
+  const raiz = await carregar();
+
+  // Um braco bate e o outro desce. E' o que da' a leitura de ataque.
+  const ataque = silhueta(raiz, feitos.get('Ataque')!, 0);
+  assert.ok(ataque.desnivel > 0.5, `ataque com os bracos emparelhados: desnivel ${ataque.desnivel.toFixed(2)}`);
+  assert.ok(ataque.maoAlta > 1.7, `mao de ataque baixa: ${ataque.maoAlta.toFixed(2)}`);
+
+  // No saque a outra mao aponta a bola a' frente, nao sobe junto.
+  const saque = silhueta(raiz, feitos.get('Saque')!, 0);
+  assert.ok(saque.desnivel > 0.22, `saque com as duas maos no alto: desnivel ${saque.desnivel.toFixed(2)}`);
+
+  // Levantamento e pulo sao de dois bracos — e e' por isso que precisam se
+  // separar por ALTURA, no teste seguinte.
+  for (const [nome, clipe, t] of [
+    ['Levantamento', feitos.get('Levantamento')!, 0],
+    ['Pulo', feitos.get('Pulo')!, 0.6],
+  ] as const) {
+    const s = silhueta(raiz, clipe, t);
+    assert.ok(s.desnivel < 0.1, `${nome} deveria ser de dois bracos: desnivel ${s.desnivel.toFixed(2)}`);
+  }
+});
+
+test('a mao do levantamento para na testa; a do pulo passa da cabeca', async () => {
+  const feitos = await clipes();
+  const raiz = await carregar();
+
+  const levanta = silhueta(raiz, feitos.get('Levantamento')!, 0);
+  const pula = silhueta(raiz, feitos.get('Pulo')!, 0.6);
+
+  // A cabeca do modelo fica em 1,55 e o alto dela em ~1,65.
+  assert.ok(levanta.maoAlta < 1.62,
+    `mao do levantamento acima da cabeca (${levanta.maoAlta.toFixed(2)}): vira o mesmo gesto do pulo`);
+  assert.ok(levanta.maoAlta > 1.4, `mao do levantamento baixa demais: ${levanta.maoAlta.toFixed(2)}`);
+  assert.ok(pula.maoAlta > 1.75, `mao do pulo baixa: ${pula.maoAlta.toFixed(2)}`);
+  assert.ok(pula.maoAlta - levanta.maoAlta > 0.18,
+    `pulo e levantamento a ${(pula.maoAlta - levanta.maoAlta).toFixed(2)} m um do outro: pouco pra distinguir`);
+});
+
+test('a manchete e o unico gesto com as maos abaixo do peito', async () => {
+  const feitos = await clipes();
+  const raiz = await carregar();
+
+  const manchete = silhueta(raiz, feitos.get('Manchete')!, 0);
+  assert.ok(manchete.maoAlta < 1.05, `plataforma alta demais: ${manchete.maoAlta.toFixed(2)}`);
+  assert.ok(manchete.separacao < 0.25, `maos separadas: ${manchete.separacao.toFixed(2)}`);
+
+  for (const nome of ['Ataque', 'Saque', 'Levantamento']) {
+    const s = silhueta(raiz, feitos.get(nome)!, 0);
+    assert.ok(s.maoAlta - manchete.maoAlta > 0.4, `${nome} perto demais da manchete`);
+  }
+});

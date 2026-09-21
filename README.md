@@ -500,6 +500,21 @@ tocou a bola depois de tocar — o `Hitter` resolve e a bola sai no mesmo quadro
 sem aviso prévio. Quem faz o papel da armada é a própria mistura entre clipes,
 curta de propósito: uma armada de 0,2 s faria a bola sair antes da mão chegar.
 
+E os seis são desenhados por **silhueta**, não por anatomia. A primeira versão
+tinha cada pose certa isolada e mesmo assim quatro delas liam como "levantou os
+dois braços" à distância da câmera — o erro não estava em nenhuma pose, estava na
+falta de contraste entre elas. Hoje o braço livre da cortada vai para o quadril e
+a mão do levantamento para na testa, e há teste medindo que os gestos fiquem
+longe uns dos outros:
+
+| gesto | mão mais alta | desnível entre as mãos |
+|---|---|---|
+| `Manchete` | 0,88 | 0,00 — plataforma |
+| `Levantamento` | 1,53 — na testa | 0,00 — dois braços |
+| `Pulo` | 1,81 — acima da cabeça | 0,00 — dois braços |
+| `Saque` | 1,80 | 0,31 — um braço |
+| `Ataque` | 1,81 | 0,78 — um braço |
+
 ## Publicando
 
 O repositório traz um workflow de GitHub Pages: `npm ci`, `npm run build`,

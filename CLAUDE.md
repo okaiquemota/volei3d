@@ -1195,11 +1195,45 @@ serve de marca para reiniciar o clipe em dois toques **iguais** seguidos —
 sem ela a segunda manchete do rally sairia de um corpo imóvel, porque o nome do
 clipe não mudou.
 
+## Pose certa, gesto irreconhecível: o teste tem que ser na distância de jogo
+
+Primeira versão das seis poses: cada uma **certa** isolada — braço no lugar,
+cotovelo no ângulo, pé na areia, tudo medido por sonda e conferido em imagem de
+perto. E o veredito de quem jogou foi *"parece que todas as animações só levanta
+os dois braços"*.
+
+Estava certo. Quatro dos seis gestos (`Pulo`, `Ataque`, `Levantamento`, `Saque`)
+começavam com o braço já no alto, e a oito metros de câmera viravam a mesma
+silhueta. O erro **não estava em nenhuma pose**: estava na falta de contraste
+entre elas, que é uma propriedade do conjunto e não de nenhum membro.
+
+O conserto foi desenhar por silhueta, não por anatomia:
+
+| gesto | mão mais alta | desnível entre as mãos |
+|---|---|---|
+| `Manchete` | 0,88 | 0,00 — plataforma |
+| `Levantamento` | 1,53 — na testa | 0,00 — dois braços |
+| `Pulo` | 1,81 — acima da cabeça | 0,00 — dois braços |
+| `Saque` | 1,80 | 0,31 — um braço |
+| `Ataque` | 1,81 | 0,78 — um braço |
+
+Duas coisas fizeram o trabalho: o braço livre da cortada foi para o **quadril**
+(e não para o peito), e a mão do levantamento passou a parar **na testa**, nunca
+acima da cabeça.
+
+A lição sobre teste é a mesma do sinal do passo lateral, num nível acima:
+**um teste por peça não cobre a propriedade do conjunto.** Os testes que já
+existiam — pé na areia, simetria, cotovelo dobrado — passavam todos. O que pega
+isso mede a silhueta (altura da mão, desnível, separação) e exige que os gestos
+fiquem **distantes uns dos outros**, porque é isso que o olho usa quando o boneco
+tem 90 pixels de altura.
+
 ## O que NÃO foi verificado
 
-As poses foram conferidas em imagem, quadro a quadro, e medidas por sonda — não
-por olho de animador. Elas **lêem** como o gesto certo à distância da câmera de
-jogo; não são referência anatômica, e a transição entre elas só se julga jogando.
+As poses foram conferidas em imagem, no enquadramento da câmera de jogo, e
+medidas por sonda — não por olho de animador. Elas **lêem** como o gesto certo à
+distância; não são referência anatômica, e a transição entre elas só se julga
+jogando.
 
 O equilíbrio da IA contra um humano de verdade. O que se mediu foi um piloto
 automático dos dois lados — e ele é mais preciso que qualquer pessoa: não tem

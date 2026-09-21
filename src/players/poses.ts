@@ -137,10 +137,12 @@ const PULO: Receita = {
       UpperLegL: mix([B, 3], [T, 1]), LowerLegL: mix([B, 2], [T, 1.2]),
     }),
     quadro(0.6, 0, {
-      // Braco direito armado atras da cabeca, esquerdo a' frente pra mirar: e'
-      // a pose de quem vai cortar, e encaixa no quadro de contato do `Ataque`.
-      UpperArmR: mix([C, 2.5], [T, 1.2]), LowerArmR: mix([C, 1.5], [T, 1.2]),
-      UpperArmL: mix([C, 2.5], [F, 0.8]), LowerArmL: mix([C, 3], [F, 0.5]),
+      // Dois bracos RETOS e juntos no alto, como quem bloqueia. E' a silhueta
+      // que separa o pulo do levantamento (cotovelo aberto, mao na testa) e do
+      // ataque (um braco so'). As tres eram "braco pro alto" e viravam a mesma
+      // coisa a' distancia da camera de jogo.
+      UpperArmR: mix([C, 5], [F, 1]), LowerArmR: mix([C, 5], [F, 1]),
+      UpperArmL: mix([C, 5], [F, 1]), LowerArmL: mix([C, 5], [F, 1]),
       UpperLegR: mix([B, 4], [T, 1]), LowerLegR: mix([B, 3], [T, 1]),
       UpperLegL: mix([B, 4], [T, 1]), LowerLegL: mix([B, 3], [T, 1]),
     }),
@@ -203,15 +205,25 @@ const ATAQUE: Receita = {
   duracao: 0.45,
   quadros: [
     quadro(0, 0, {
-      UpperArmR: mix([C, 3], [F, 1.4]), LowerArmR: mix([C, 3], [F, 1.5]),
-      // O braco de MIRA desce enquanto o outro bate. Com os dois no alto — que
-      // foi a primeira tentativa — nao da' pra dizer qual bateu na bola.
-      UpperArmL: mix([C, 0.6], [F, 1]), LowerArmL: mix([C, 0.5], [F, 1]),
-      Chest: mix([C, 7], [F, 1]),
+      // Quase na vertical e esticado: a mao tem que ser, sozinha, o ponto mais
+      // alto do corpo.
+      UpperArmR: mix([C, 4], [F, 1]), LowerArmR: mix([C, 4], [F, 1.2]),
+      /**
+       * O braco de mira vai pro QUADRIL, nao pro peito.
+       *
+       * E' o que o cortador faz de verdade — o braco livre puxa pra baixo pra
+       * girar o tronco — e e' tambem a unica coisa que faz o gesto ler como
+       * ataque a' distancia. Com os dois bracos em cima, ataque, saque,
+       * levantamento e pulo viram a mesma silhueta: "levantou os dois bracos".
+       */
+      UpperArmL: mix([B, 2], [T, 1], [E, 0.5]), LowerArmL: mix([B, 2], [T, 0.8]),
+      Chest: mix([C, 7], [T, 1]),
     }),
-    quadro(0.2, 0, {
-      UpperArmR: mix([F, 2], [B, 1.8], [E, 0.4]), LowerArmR: mix([F, 1], [B, 2.4], [E, 0.3]),
-      UpperArmL: mix([B, 2], [E, 0.8]), LowerArmL: mix([B, 2], [F, 0.5]),
+    quadro(0.18, 0, {
+      // A varrida passa do quadril: e' ela que le' como pancada, e nao como
+      // "baixou o braco".
+      UpperArmR: mix([F, 1.5], [B, 2.5]), LowerArmR: mix([B, 3], [F, 1]),
+      UpperArmL: mix([B, 2.5], [T, 0.6]), LowerArmL: mix([B, 2.5], [F, 0.4]),
       Chest: mix([C, 3], [F, 2]),
     }),
     quadro(0.45, 0.12, {
@@ -277,19 +289,27 @@ const LEVANTAMENTO: Receita = {
   nome: 'Levantamento',
   duracao: 0.35,
   quadros: [
-    quadro(0, 0.1, {
-      UpperArmR: mix([C, 1], [D, 1.2], [F, 0.3]), LowerArmR: mix([C, 2], [F, 0.7], [E, 0.5]),
-      UpperArmL: mix([C, 1], [E, 1.2], [F, 0.3]), LowerArmL: mix([C, 2], [F, 0.7], [D, 0.5]),
+    quadro(0, 0.12, {
+      /**
+       * Cotovelo QUASE na horizontal e antebraco subindo pra dentro. A mao para
+       * na altura da testa, e isso e' o ponto: mao acima da cabeca era o que
+       * fazia o levantamento virar o mesmo "bracos pro alto" do pulo e do
+       * ataque. O losango cotovelo-mao-cotovelo e' a silhueta do gesto.
+       */
+      UpperArmR: mix([C, 1], [D, 3], [F, 0.5]), LowerArmR: mix([C, 1], [E, 0.7], [F, 0.35]),
+      UpperArmL: mix([C, 1], [E, 3], [F, 0.5]), LowerArmL: mix([C, 1], [D, 0.7], [F, 0.35]),
       Chest: mix([C, 9], [T, 1]),
     }),
     quadro(0.12, 0, {
-      UpperArmR: mix([C, 2.5], [D, 1], [F, 0.4]), LowerArmR: mix([C, 3], [F, 0.5], [E, 0.3]),
-      UpperArmL: mix([C, 2.5], [E, 1], [F, 0.4]), LowerArmL: mix([C, 3], [F, 0.5], [D, 0.3]),
+      // O empurrao: perna estende e a mao sobe um palmo. Continua sem passar do
+      // alto da cabeca.
+      UpperArmR: mix([C, 1], [D, 2], [F, 0.5]), LowerArmR: mix([C, 1], [E, 0.4], [F, 0.3]),
+      UpperArmL: mix([C, 1], [E, 2], [F, 0.5]), LowerArmL: mix([C, 1], [D, 0.4], [F, 0.3]),
       Chest: mix([C, 10], [T, 1]),
     }),
     quadro(0.35, 0.06, {
-      UpperArmR: mix([C, 0.6], [D, 1.2], [F, 0.5]), LowerArmR: mix([C, 1.2], [F, 1]),
-      UpperArmL: mix([C, 0.6], [E, 1.2], [F, 0.5]), LowerArmL: mix([C, 1.2], [F, 1]),
+      UpperArmR: mix([C, 1], [D, 2.5], [F, 0.8]), LowerArmR: mix([C, 1], [F, 0.8]),
+      UpperArmL: mix([C, 1], [E, 2.5], [F, 0.8]), LowerArmL: mix([C, 1], [F, 0.8]),
       Chest: mix([C, 8], [F, 1]),
     }),
   ],
@@ -308,14 +328,15 @@ const SAQUE: Receita = {
   duracao: 0.5,
   quadros: [
     quadro(0, 0, {
-      UpperArmR: mix([C, 3], [F, 1]), LowerArmR: mix([C, 3], [F, 1.2]),
-      // Aberta pro lado e mais baixa: a mao acabou de largar a bola, e duas
-      // maos no alto lado a lado leem como comemoracao, nao como saque.
-      UpperArmL: mix([C, 1], [F, 0.8], [E, 1]), LowerArmL: mix([C, 1.2], [F, 0.8], [E, 0.6]),
-      Chest: mix([C, 8], [F, 1]),
+      UpperArmR: mix([C, 4], [F, 1]), LowerArmR: mix([C, 4], [F, 1.2]),
+      // Esticada pra FRENTE, na altura do ombro: e' a mao que acabou de largar
+      // a bola e ficou apontando pra ela. No alto, ao lado da outra, lia como
+      // comemoracao — e igual ao pulo e ao levantamento.
+      UpperArmL: mix([F, 2], [C, 0.5], [E, 0.6]), LowerArmL: mix([F, 2], [C, 0.4], [E, 0.3]),
+      Chest: mix([C, 9], [F, 1]),
     }),
     quadro(0.22, 0.04, {
-      UpperArmR: mix([F, 2], [B, 1.2]), LowerArmR: mix([F, 1.4], [B, 2]),
+      UpperArmR: mix([F, 1.5], [B, 2]), LowerArmR: mix([B, 3], [F, 1]),
       UpperArmL: mix([B, 1.5], [F, 1], [E, 0.5]), LowerArmL: mix([B, 2], [F, 1]),
       Chest: mix([C, 5], [F, 2]),
     }),
