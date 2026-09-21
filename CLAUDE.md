@@ -727,6 +727,59 @@ Efeito colateral do enquadramento novo: as barras agora caem na altura da REDE
 na tela. Os trilhos passaram a ser quase opacos (0,92) — com 0,72 a malha preta
 aparecia por dentro da barra.
 
+## O mergulho é uma troca, e metade dele é o custo
+
+`C` joga o corpo. O que se ganha está no `Hitter` (`estendido`): +1,1 m de
+alcance horizontal, +45 cm pra baixo, e um bônus de `defesa`. O que se paga está
+no `Motor`: no voo o teclado não manda, e depois vêm 0,85 s caído sem correr nem
+pular.
+
+As duas metades são a mesma decisão. Um mergulho corrigível no meio do voo é só
+uma corrida mais rápida; um mergulho sem tempo de levantar é uma corrida mais
+rápida que também alcança mais. Qualquer vazamento no custo transforma o gesto
+de último recurso no jeito normal de andar — e nada na tela denuncia isso, por
+isso tem teste.
+
+Três decisões que parecem detalhe e não são:
+
+- **O arranco SUBSTITUI a velocidade, não soma.** Somando, quem já corria a toda
+  mergulharia mais longe, e o alcance do gesto viraria função da corrida
+  anterior em vez de um número que dá pra aprender.
+- **A zona limpa do contato continua medindo pelo alcance BASE.** Se ela
+  crescesse junto com o alcance estendido, deitar deixaria o toque perto do corpo
+  *mais limpo* do que ficar em pé. O que o mergulho estica é só o denominador: o
+  metro a mais é todo na faixa cara.
+- **Deitado amortece velocidade (`defesaExtra`).** Sem isso o mergulho seria
+  inútil contra o que existe pra salvar: numa cortada a 22 m/s o custo de
+  velocidade sozinho já derruba a qualidade, e somado ao estica de uma bola na
+  ponta do alcance *todo* mergulho queimaria.
+
+**O voo tem gravidade própria** (`MERGULHO.gravidade`, 45% da do pulo). Com a
+gravidade do pulo, 0,42 s de voo pediriam subir 40 cm e o peixinho sairia
+parecendo um pulinho; com ela baixa, o mesmo tempo cabe em 19 cm. Tempo de voo e
+altura são a mesma conta — não dá pra pedir um longo e raso sem mexer no `g`.
+
+**E o voo é a janela que a câmera lenta estica.** 0,42 s é tempo de ver que deu
+certo, não de escolher o lado; a 35% viram mais de um segundo vivido, e aí a
+decisão existe. Os dois foram desenhados juntos, e é por isso que o tempo de voo
+tem teste: se ele encolher, o poder para de servir pro que foi feito.
+
+**O pivô do corpo está nos pés**, então o tombo (`aplicarRotacao`) varre a cabeça
+pra frente e pra baixo e a 1,35 rad o corpo fica deitado rente ao chão — a pose
+sai de graça, sem osso nenhum. O tombo multiplica *à direita* do olhar, pra girar
+em torno do X do próprio corpo: à esquerda, o peixinho tombaria sempre pro mesmo
+lado do mundo.
+
+**Ao testar isto no navegador:** mergulhar durante o saque é proibido de
+propósito (`!this.sacando`). Um teste que entra no jogo e aperta `C` sem sacar
+antes mede o guarda, não o mergulho, e o sintoma é `mergulhando` nunca virar
+`true` — sem erro nenhum no console.
+
+**A IA não mergulha.** O gesto está no `Human`, e o `Hitter.estendido` da IA
+nunca sai de `false`. É uma vantagem do jogador, de propósito, e o dia em que a
+dificuldade pedir isso o caminho é o mesmo: `AI` chama `motor.mergulhar` quando a
+queda prevista cai fora do alcance mas dentro do alcance estendido.
+
 ## O que NÃO foi verificado
 
 O equilíbrio da IA contra um humano de verdade. O que se mediu foi um piloto

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ATAQUE, HIT, TOQUE } from '../config';
+import { ATAQUE, HIT, MERGULHO, TOQUE } from '../config';
 import { alturaAoCruzarRede, arcoPorApice, arcoPorTempo, corrigirArrasto } from '../core/ballistics';
 import { clamp, randomInCircle } from '../core/math';
 import type { Ball, Tocador } from '../ball/Ball';
@@ -75,16 +75,37 @@ export class Hitter {
     this.espera = 0;
   }
 
+  /**
+   * O corpo esta' ESTENDIDO — voando num mergulho?
+   *
+   * Quem escreve aqui e' o atleta, a cada quadro. Fica no Hitter e nao no Motor
+   * porque o que muda e' o ALCANCE e o amortecimento, que sao assunto do toque;
+   * o Motor so' sabe que o corpo esta' no ar.
+   */
+  estendido = false;
+
+  /** Alcance horizontal de agora. Deitado, o corpo chega mais longe. */
+  private get alcance(): number {
+    return HIT.reachRadius + (this.estendido ? MERGULHO.alcanceExtra : 0);
+  }
+
   /** A bola esta' ao alcance dos bracos? */
   alcanca(ball: Ball, posicaoDoAtleta: THREE.Vector3): boolean {
     if (ball.presa) return false;
 
     const dx = ball.posicao.x - posicaoDoAtleta.x;
     const dz = ball.posicao.z - posicaoDoAtleta.z;
-    if (Math.hypot(dx, dz) > HIT.reachRadius) return false;
+    if (Math.hypot(dx, dz) > this.alcance) return false;
 
+    /**
+     * Pra BAIXO o mergulho tambem alcanca mais, e sem isto ele erraria
+     * justamente a bola que existe pra pegar: o corpo esta' a uns 20 cm do chao
+     * no meio do voo, e uma bola rasteira ficaria fora da faixa pelo tanto que
+     * o atleta subiu.
+     */
+    const abaixo = HIT.lowReach + (this.estendido ? MERGULHO.alcanceBaixoExtra : 0);
     const dy = ball.posicao.y - posicaoDoAtleta.y;
-    return dy >= -HIT.lowReach && dy <= HIT.verticalReach;
+    return dy >= -abaixo && dy <= HIT.verticalReach;
   }
 
   /**
@@ -106,9 +127,17 @@ export class Hitter {
     const dz = ball.posicao.z - posicaoDoAtleta.z;
     const distancia = Math.hypot(dx, dz);
 
+    /**
+     * A zona limpa sai do alcance BASE, e nao do estendido.
+     *
+     * Se ela crescesse junto, mergulhar deixaria o contato perto do corpo mais
+     * limpo do que ficar de pe' — e o gesto de ultimo recurso viraria o jeito
+     * certo de tocar em tudo. O que o mergulho estica e' so' o DENOMINADOR: o
+     * metro a mais existe, e ele e' todo na faixa cara.
+     */
     const zonaLimpa = HIT.reachRadius * TOQUE.zonaLimpa;
     const estica = clamp(
-      (distancia - zonaLimpa) / Math.max(0.01, HIT.reachRadius - zonaLimpa),
+      (distancia - zonaLimpa) / Math.max(0.01, this.alcance - zonaLimpa),
       0,
       1,
     );
@@ -120,7 +149,15 @@ export class Hitter {
       1,
     );
 
-    const custoDaVelocidade = dureza * TOQUE.pesoDaVelocidade * (1 - clamp(this.defesa, 0, 1));
+    /**
+     * Deitado, o corpo inteiro amortece.
+     *
+     * Sem isto o mergulho seria inutil contra o que ele existe pra salvar: numa
+     * cortada a 22 m/s o custo de velocidade sozinho ja' derruba a qualidade, e
+     * somado ao estica de uma bola na ponta do alcance TODO mergulho queimaria.
+     */
+    const defesa = clamp(this.defesa + (this.estendido ? MERGULHO.defesaExtra : 0), 0, 1);
+    const custoDaVelocidade = dureza * TOQUE.pesoDaVelocidade * (1 - defesa);
     return clamp(1 - estica - custoDaVelocidade, 0, 1);
   }
 

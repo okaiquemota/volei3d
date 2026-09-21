@@ -115,6 +115,60 @@ export const ATHLETE = {
   turnSpeed: 14,
 } as const;
 
+/**
+ * O mergulho: jogar o corpo no chao pra alcancar o que os pes nao alcancam.
+ *
+ * E' uma TROCA, e o desenho inteiro sai disso: alcance extra agora, em troca de
+ * nao poder corrigir no meio do voo e de ficar caido depois. Sem o custo seria
+ * so' uma corrida mais rapida, e todo mundo mergulharia o tempo todo.
+ *
+ * Ele nasceu pra andar junto com a camera lenta, e por isso o VOO e' a janela
+ * que importa: e' durante ele que o corpo esta' estendido, e e' ele que a
+ * camera lenta estica de 0,42 s pra mais de um segundo vivido. Sem o poder o
+ * mergulho e' uma leitura; com ele, uma decisao.
+ */
+export const MERGULHO = {
+  /** Velocidade do arranco, em m/s. */
+  impulso: 7.5,
+  /** Quanto o corpo sobe ao sair. */
+  impulsoVertical: 1.85,
+
+  /**
+   * Gravidade do mergulho: menos da metade da do pulo.
+   *
+   * Com a gravidade do pulo, um voo de 0,42 s pediria subir 40 cm, e o
+   * "peixinho" sairia parecendo um pulinho. Baixando a gravidade, o mesmo tempo
+   * de voo cabe em 19 cm de altura — rasante e longo, que e' o gesto. Voo de
+   * 2*1,85/8,8 = 0,42 s, e uns 3 m de chao.
+   */
+  gravidade: GRAVITY * 2 * 0.45,
+
+  /** Metros a mais de alcance com o corpo estendido. */
+  alcanceExtra: 1.1,
+  /** E quanto abaixo dos pes, pra bola rasteira que so' o mergulho pega. */
+  alcanceBaixoExtra: 0.45,
+  /**
+   * Quanto a defesa melhora deitado.
+   *
+   * O corpo inteiro amortece, e sem isto o mergulho seria inutil justamente
+   * contra o que ele existe pra salvar: cortada, onde o custo de velocidade
+   * sozinho ja' derruba a qualidade a zero.
+   */
+  defesaExtra: 0.3,
+
+  /** Segundos caido antes de voltar a correr. E' o preco. */
+  levantar: 0.85,
+  /** Desaceleracao no ar: quase nenhuma, o corpo esta' voando. */
+  arrastoNoAr: 2,
+  /** Desaceleracao deslizando: a areia freia. */
+  arrastoNoChao: 26,
+
+  /** Quanto o corpo deita, em radianos. 1,35 e' quase no chao. */
+  inclinacao: 1.35,
+  /** Quao rapido ele deita e levanta (usado com damp). */
+  velocidadeDaInclinacao: 16,
+} as const;
+
 export const HIT = {
   /** Distancia horizontal maxima entre atleta e bola pra tocar. */
   reachRadius: 1.3,

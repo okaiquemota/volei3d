@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { ATHLETE } from '../config';
-import { dampFactor } from '../core/math';
+import { ATHLETE, MERGULHO } from '../config';
+import { damp, dampFactor } from '../core/math';
 
 const _alvo = new THREE.Vector3();
 const _limitado = new THREE.Vector3();
@@ -9,6 +9,9 @@ const _matriz = new THREE.Matrix4();
 const _frente = new THREE.Vector3();
 /** Fixo, e fora do laco: alocar um Vector3 por quadro por atleta e' lixo de graca. */
 const _ORIGEM = new THREE.Vector3();
+const _ZERO = new THREE.Vector3();
+const _EIXO_X = new THREE.Vector3(1, 0, 0);
+const _tombo = new THREE.Quaternion();
 
 /** Limita uma posicao a' area onde o atleta pode correr. */
 export type LimitarArea = (posicao: THREE.Vector3, out: THREE.Vector3) => THREE.Vector3;
@@ -37,6 +40,14 @@ export class Motor {
   private tempoForaDoChao = 0;
   private pediuPulo = false;
 
+  // ------------------------------------------------------------- mergulho
+  private pediuMergulho = false;
+  private direcaoDoMergulho = new THREE.Vector3();
+  private voando = false;
+  private tempoDeLevantar = 0;
+  /** 0 de pe', 1 deitado. E' so' visual, e por isso e' amaciado. */
+  private deitado = 0;
+
   constructor(private limitarArea: LimitarArea) {}
 
   /** Direcao desejada em espaco de MUNDO (ja' relativa a' camera). */
@@ -45,14 +56,54 @@ export class Motor {
     if (this.direcaoDesejada.lengthSq() > 1) this.direcaoDesejada.normalize();
   }
 
-  /** Pra onde o atleta olha. Zero mantem o que estava. */
+  /**
+   * Pra onde o atleta olha. Zero mantem o que estava.
+   *
+   * Mergulhando nao muda: o corpo aponta pra onde ele se jogou, e nao pra onde
+   * a bola foi parar. Quem chama isto e' o `Human`, que encara a bola a cada
+   * quadro — e um corpo deitado girando pra seguir a bola parece um boneco
+   * rodando no chao, nao um atleta esticado.
+   */
   encarar(direcao: THREE.Vector3): void {
+    if (!this.livre) return;
     if (direcao.x * direcao.x + direcao.z * direcao.z < 1e-4) return;
     this.direcaoDeFrente.set(direcao.x, 0, direcao.z).normalize();
   }
 
   pular(): void {
     this.pediuPulo = true;
+  }
+
+  /** O corpo esta' no ar, estendido? E' a janela em que o alcance e maior. */
+  get mergulhando(): boolean { return this.voando; }
+
+  /** Caido, esperando pra levantar. Nao corre, nao pula, nao mergulha. */
+  get levantando(): boolean { return this.tempoDeLevantar > 0; }
+
+  /** Da' pra correr, pular e mergulhar? */
+  get livre(): boolean { return !this.voando && this.tempoDeLevantar <= 0; }
+
+  /** O quanto o corpo esta' deitado, de 0 a 1. Pro visual e pro que mais quiser. */
+  get inclinacaoDoCorpo(): number { return this.deitado; }
+
+  /**
+   * Joga o corpo na direcao pedida.
+   *
+   * `direcao` zerada mergulha pra FRENTE: quem aperta sem andar quer o peixinho
+   * pra onde esta' olhando, e um mergulho que nao sai do lugar nao salva nada.
+   *
+   * Sem direcao pra corrigir depois: o `direcaoDeFrente` e' escrito aqui, direto,
+   * porque o `encarar` se recusa a mexer nele durante o mergulho — e e' esta
+   * chamada que define pra onde o corpo aponta o voo inteiro.
+   */
+  mergulhar(direcao: THREE.Vector3): void {
+    if (!this.livre || !this.noChao) return;
+
+    this.direcaoDoMergulho.set(direcao.x, 0, direcao.z);
+    if (this.direcaoDoMergulho.lengthSq() < 1e-4) this.direcaoDoMergulho.copy(this.direcaoDeFrente);
+    this.direcaoDoMergulho.normalize();
+    this.direcaoDeFrente.copy(this.direcaoDoMergulho);
+    this.pediuMergulho = true;
   }
 
   /** Altura atual acima do chao. Zero quando plantado. */
@@ -68,6 +119,12 @@ export class Motor {
     this.direcaoDesejada.set(0, 0, 0);
     this.noChao = true;
     this.tempoForaDoChao = 0;
+    // O mergulho morre junto: reposicionar acontece no fim do ponto, e herdar
+    // um corpo caido do rally anterior travaria o saque seguinte.
+    this.pediuMergulho = false;
+    this.voando = false;
+    this.tempoDeLevantar = 0;
+    this.deitado = 0;
     this.encarar(olharPara);
   }
 
@@ -76,10 +133,44 @@ export class Motor {
 
     if (this.noChao) this.tempoForaDoChao = 0;
     else this.tempoForaDoChao += dt;
+    if (this.tempoDeLevantar > 0) this.tempoDeLevantar = Math.max(0, this.tempoDeLevantar - dt);
+
+    /**
+     * O arranco do mergulho SUBSTITUI a corrida deste quadro.
+     *
+     * Escrito direto na velocidade, e nao somado: somar faria o mergulho de
+     * quem ja' estava correndo a toda ir mais longe que o de quem estava
+     * parado, e o alcance do gesto viraria funcao da corrida anterior.
+     *
+     * O `tempoForaDoChao` vai pro fim da janela de coyote de proposito: sem
+     * isso um Espaco apertado junto com o mergulho ainda seria aceito, e o
+     * atleta sairia voando pra cima no meio do peixinho.
+     */
+    if (this.pediuMergulho) {
+      this.velocidadeHorizontal.copy(this.direcaoDoMergulho).multiplyScalar(MERGULHO.impulso);
+      this.velocidadeVertical = MERGULHO.impulsoVertical;
+      this.voando = true;
+      this.noChao = false;
+      this.tempoForaDoChao = ATHLETE.coyoteTime + 1;
+      this.pediuMergulho = false;
+      this.pediuPulo = false;
+    }
 
     // ---------------------------------------------------------- horizontal
-    _alvo.copy(this.direcaoDesejada).multiplyScalar(ATHLETE.moveSpeed);
-    const taxa = this.direcaoDesejada.lengthSq() > 1e-4 ? ATHLETE.acceleration : ATHLETE.deceleration;
+    /**
+     * Mergulhando ou caido, o teclado nao manda.
+     *
+     * E' o custo do gesto e nao um detalhe: um mergulho corrigivel no meio do
+     * voo seria uma corrida mais rapida sem nenhuma desvantagem, e mergulhar
+     * viraria o jeito normal de andar.
+     */
+    const controlando = this.livre;
+    _alvo.copy(controlando ? this.direcaoDesejada : _ZERO).multiplyScalar(ATHLETE.moveSpeed);
+
+    const taxa = this.voando ? MERGULHO.arrastoNoAr
+      : this.tempoDeLevantar > 0 ? MERGULHO.arrastoNoChao
+      : this.direcaoDesejada.lengthSq() > 1e-4 ? ATHLETE.acceleration
+      : ATHLETE.deceleration;
     moverEmDirecaoA(this.velocidadeHorizontal, _alvo, taxa * dt);
 
     // ------------------------------------------------------------ vertical
@@ -89,14 +180,16 @@ export class Motor {
 
     // Coyote time: o pulo pedido logo depois de sair do chao ainda vale. E' o
     // que separa "pulei tarde" de "o jogo comeu meu pulo".
-    if (this.pediuPulo && this.tempoForaDoChao <= ATHLETE.coyoteTime) {
+    if (this.pediuPulo && this.livre && this.tempoForaDoChao <= ATHLETE.coyoteTime) {
       this.velocidadeVertical = Math.sqrt(2 * ATHLETE.gravity * ATHLETE.jumpHeight);
       this.tempoForaDoChao = ATHLETE.coyoteTime + 1;
       this.noChao = false;
     }
     this.pediuPulo = false;
 
-    this.velocidadeVertical -= ATHLETE.gravity * dt;
+    // O mergulho cai com a sua propria gravidade, bem menor: e' o que deixa o
+    // voo durar 0,42 s sem o corpo precisar subir 40 cm pra isso.
+    this.velocidadeVertical -= (this.voando ? MERGULHO.gravidade : ATHLETE.gravity) * dt;
 
     this.posicao.addScaledVector(this.velocidadeHorizontal, dt);
     this.posicao.y += this.velocidadeVertical * dt;
@@ -106,6 +199,11 @@ export class Motor {
       this.posicao.y = 0;
       this.velocidadeVertical = 0;
       this.noChao = true;
+      // Caiu de peixinho: acabou o voo, comeca o preco.
+      if (this.voando) {
+        this.voando = false;
+        this.tempoDeLevantar = MERGULHO.levantar;
+      }
     } else {
       this.noChao = false;
     }
@@ -117,6 +215,10 @@ export class Motor {
     if (_limitado.z !== this.posicao.z) this.velocidadeHorizontal.z = 0;
     this.posicao.x = _limitado.x;
     this.posicao.z = _limitado.z;
+
+    // O corpo deita e levanta amaciado. Sem isto o atleta pisca entre de pe' e
+    // deitado no quadro do arranco e no quadro em que o tempo de levantar zera.
+    this.deitado = damp(this.deitado, this.livre ? 0 : 1, MERGULHO.velocidadeDaInclinacao, dt);
   }
 
   /**
@@ -142,6 +244,21 @@ export class Motor {
 
     _matriz.lookAt(_frente, _ORIGEM, THREE.Object3D.DEFAULT_UP);
     _olhar.setFromRotationMatrix(_matriz);
+
+    /**
+     * Deitar e' um giro em torno do X do PROPRIO corpo, e por isso vem DEPOIS
+     * do olhar (multiplicacao a' direita): assim o peixinho tomba pra frente
+     * seja qual for o rumo, em vez de tombar sempre pro mesmo lado do mundo.
+     *
+     * O pivo do corpo esta' nos pes, entao o tombo varre a cabeca pra frente e
+     * pra baixo — a 1,35 rad o corpo fica deitado rente ao chao, que e'
+     * exatamente a pose que se queria e nao custou osso nenhum.
+     */
+    if (this.deitado > 1e-3) {
+      _tombo.setFromAxisAngle(_EIXO_X, MERGULHO.inclinacao * this.deitado);
+      _olhar.multiply(_tombo);
+    }
+
     objeto.quaternion.slerp(_olhar, dampFactor(ATHLETE.turnSpeed, dt));
   }
 }

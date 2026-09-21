@@ -24,6 +24,7 @@ const _alvoDoToque = new THREE.Vector3();
  *   Mouse ................ mirar (um ponto no CHAO, nao uma direcao)
  *   Clique esq. / E ...... tocar na bola
  *   Clique dir. .......... levantar no proprio campo
+ *   C .................... mergulhar: joga o corpo pra alcancar o que os pes nao alcancam
  *   F .................... forcar o ataque por cima da rede
  *   Shift ................ camera lenta (quem le' e' o Game: e' do mundo, nao do atleta)
  */
@@ -46,6 +47,10 @@ export class Human extends Athlete {
 
   override update(dt: number): void {
     this.hitter.update(dt);
+    // O corpo estendido alcanca mais. Escrito aqui, uma vez por quadro, porque
+    // quem sabe que o corpo esta' no ar e' o Motor e quem usa o alcance e' o
+    // Hitter — e nenhum dos dois devia conhecer o outro.
+    this.hitter.estendido = this.motor.mergulhando;
     this.atualizarMira();
     this.atualizarMovimento();
     this.atualizarAcoes(dt);
@@ -83,6 +88,25 @@ export class Human extends Athlete {
     if (!input) return;
 
     if (input.wasPressed('Space')) this.motor.pular();
+
+    /**
+     * O mergulho, e o toque que ele ja' traz junto.
+     *
+     * Mergulhar E' decidir tocar: quem se joga no chao nao vai decidir de novo
+     * meio segundo depois se quer ou nao encostar na bola. O buffer fica armado
+     * o voo inteiro (mais abaixo), entao o toque sai no primeiro quadro em que
+     * o corpo alcanca — a decisao que o jogador toma e PRA ONDE e QUANDO se
+     * jogar, que e' a leitura de jogo, e nao um segundo clique de tres quadros.
+     *
+     * A carga guardada morre junto: mergulho e' defesa. Chegar deitado com uma
+     * carga cheia de um ataque que nao aconteceu mandaria a bola por cima da
+     * rede a 20 m/s de um corpo caido.
+     */
+    if (input.wasPressed('KeyC') && !this.sacando && this.motor.livre && this.motor.noChao) {
+      this.motor.mergulhar(direcaoDoTeclado(input, this.camera, _direcao));
+      this.esquecerAtaque();
+      this.carregando = false;
+    }
 
     /**
      * Dois botoes, duas intencoes — e o esquerdo faz as duas coisas que o
@@ -139,7 +163,7 @@ export class Human extends Athlete {
      * perder: sem isso o jogo parece travado justamente quando o jogador
      * acertou o tempo. E' o irmao do jumpBuffer do rpk.fps.
      */
-    if (soltouOToque || pediuLevantar) {
+    if (soltouOToque || pediuLevantar || this.motor.mergulhando) {
       this.bufferDeToque = PLAYER.hitBuffer;
     } else if (this.bufferDeToque > 0) {
       this.bufferDeToque -= dt;
@@ -213,6 +237,16 @@ export class Human extends Athlete {
    * mas em camera lenta.
    */
   private escolherAcao(): Acao {
+    /**
+     * Deitado so' sai manchete.
+     *
+     * O contexto diria "cortada" — o corpo esta' fora do chao e a bola pode
+     * estar alta em relacao a ele. Mas quem esta' no ar aqui esta' esticado
+     * rente a' areia, nao pulado na frente da rede, e uma cortada saindo de um
+     * peixinho e' o jogo entendendo o gesto ao contrario.
+     */
+    if (this.motor.mergulhando || this.motor.levantando) return 'manchete';
+
     /**
      * Levantar e' a unica acao que o jogador PEDE contra o contexto.
      *

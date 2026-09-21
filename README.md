@@ -44,6 +44,7 @@ npm run build:single # dist/volei3d.html — joga com duplo clique, offline
 | Sacar | Segure e solte o clique esquerdo — a carga vale aqui também |
 | Sair da quadra e andar pela areia | `Q` |
 | Entrar na quadra em que você está encostado | `E` |
+| Mergulhar | `C` |
 | Câmera lenta | Segurar `Shift` |
 | Forçar o ataque com carga baixa | Segurar `F` no contato |
 | Trocar o enquadramento (ombro ↔ tática) | Roda do mouse |
@@ -153,11 +154,33 @@ Medido em 1280×720, com você na linha de fundo: o campo adversário ocupa 78 p
 altura no ombro e 101 px na tática. A mira é um ponto no chão resolvido pelo
 cursor, então essa altura **é** a precisão de mira: o ombro custa um quarto dela.
 
+**O mergulho é uma troca.** `C` joga o corpo na direção em que você está andando
+(ou pra frente, parado): o alcance cresce 1,1 m na horizontal e 45 cm pra baixo,
+e o corpo deitado amortece a bola rápida, sem o que todo mergulho contra uma
+cortada queimaria. Em troca, no voo o teclado não manda — o arranco *substitui* a
+corrida, então quem já estava a toda não mergulha mais longe — e depois você fica
+caído 0,85 s sem correr nem pular.
+
+O toque sai sozinho assim que o corpo alcança: mergulhar **é** decidir tocar, e
+pedir um segundo clique de três quadros no meio do voo seria teste de reflexo, não
+leitura de jogo. O que sai é sempre manchete, e a carga guardada morre no
+arranco — chegar deitado com um ataque carregado mandaria a bola a 20 m/s de um
+corpo no chão.
+
+E a zona limpa do contato continua medindo pelo alcance **de pé**: o metro a mais
+é todo na faixa cara. Se ela crescesse junto, mergulhar deixaria o toque perto do
+corpo mais limpo do que ficar em pé, e o gesto de último recurso viraria o jeito
+certo de tocar em tudo.
+
 **A câmera lenta é o poder.** Segurar `Shift` põe o mundo a 35% da velocidade — a
 bola, os atletas, as outras quadras da praia e, principalmente, **a barra de
 força**. É esse o ponto: a barra é um QTE de 180 ms, e o poder compra tempo pra
 acertar a zona ou pra alcançar uma bola que já tinha passado. Se ele não mexesse
 na barra, seria enfeite.
+
+É com o mergulho que ela rende mais, e foi pra isso que os dois foram feitos
+juntos: o voo dura 0,42 s — tempo de ver que deu certo, não de escolher o lado.
+Em câmera lenta ele passa de um segundo vivido, e aí a decisão existe.
 
 Fica no `Shift` porque é um poder de **percurso**: você segura enquanto corre
 atrás da bola. O modificador que força o ataque com carga baixa, que morava ali,
