@@ -116,3 +116,67 @@ test('a torcida e a mesma toda vez', async () => {
   a.dispose();
   b.dispose();
 });
+
+/** Le o desvio vertical de cada um em relacao a onde sentou. */
+function desvios(torcida: ReturnType<typeof construirTorcida>, base: Float32Array): number {
+  const corpos = torcida.root.getObjectByName('torcida-corpos') as THREE.InstancedMesh;
+  const arr = corpos.instanceMatrix.array as Float32Array;
+  let maior = 0;
+  for (let i = 0; i < corpos.count; i++) {
+    maior = Math.max(maior, Math.abs(arr[i * 16 + 13]! - base[i]!));
+  }
+  return maior;
+}
+
+function ondeSentaram(torcida: ReturnType<typeof construirTorcida>): Float32Array {
+  const corpos = torcida.root.getObjectByName('torcida-corpos') as THREE.InstancedMesh;
+  const arr = corpos.instanceMatrix.array as Float32Array;
+  const base = new Float32Array(corpos.count);
+  for (let i = 0; i < corpos.count; i++) base[i] = arr[i * 16 + 13]!;
+  return base;
+}
+
+/**
+ * Parada ela balanca pouco; no ponto ela PULA.
+ *
+ * Os dois numeros tem que ser diferentes por uma ordem de grandeza, senao a
+ * comemoracao nao se distingue do balanco e o ponto passa despercebido — que
+ * era o estado anterior, com a torcida imovel.
+ */
+test('a torcida balanca parada e pula no ponto', async () => {
+  const torcida = construirTorcida(await estadio());
+  const base = ondeSentaram(torcida);
+
+  // Alguns quadros de espera: o balanco e' lento de proposito.
+  for (let i = 0; i < 20; i++) torcida.update(1 / 60);
+  const parada = desvios(torcida, base);
+
+  assert.ok(parada > 0.001, `torcida imovel: desvio de ${parada.toFixed(4)} m`);
+  assert.ok(parada < 0.06, `balanco parado exagerado: ${parada.toFixed(3)} m`);
+
+  torcida.comemorar();
+  for (let i = 0; i < 6; i++) torcida.update(1 / 60);
+  const festa = desvios(torcida, base);
+
+  assert.ok(festa > parada * 4,
+    `comemoracao (${festa.toFixed(3)}) nao se distingue do balanco (${parada.toFixed(3)})`);
+  torcida.dispose();
+});
+
+/** E a festa ACABA: senao a arquibancada pula pelo resto da partida. */
+test('a comemoracao decai ate virar balanco de novo', async () => {
+  const torcida = construirTorcida(await estadio());
+  const base = ondeSentaram(torcida);
+
+  torcida.comemorar();
+  for (let i = 0; i < 6; i++) torcida.update(1 / 60);
+  const noPico = desvios(torcida, base);
+
+  // Passar do tempo de festa com folga.
+  for (let i = 0; i < 60 * 4; i++) torcida.update(1 / 60);
+  const depois = desvios(torcida, base);
+
+  assert.ok(depois < noPico / 3,
+    `a festa nao acabou: ${depois.toFixed(3)} m contra ${noPico.toFixed(3)} no pico`);
+  torcida.dispose();
+});

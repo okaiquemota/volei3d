@@ -61,6 +61,8 @@ export class Arena {
   private placas: PlacasConstruidas | null = null;
   /** A torcida, sentada na arquibancada. Nasce e morre com o estadio. */
   private torcida: TorcidaConstruida | null = null;
+  /** O placar do quadro passado, so' pra saber que ele andou. Ver `animarTorcida`. */
+  private pontosVistos = 0;
 
   /** Segundos ate' os bots comecarem a partida seguinte. */
   private descanso = MATCH.descansoEntrePartidas;
@@ -336,6 +338,33 @@ export class Arena {
     this.away.update(dt);
     this.ball.update(dt);
     this.atualizarMarcadores();
+    this.animarTorcida(dt);
+  }
+
+  /**
+   * A torcida comemora quando o PLACAR MUDA — lido aqui, e nao por evento.
+   *
+   * Pendurar num `pontoFeito` foi a primeira tentativa e nao para de pe': os
+   * campos de `match.eventos` sao do `Game`, que os SOBRESCREVE ao focar uma
+   * quadra (`arena.match.eventos.pontoFeito = ...`). O gancho existia no
+   * construtor e era destruido no primeiro foco — a torcida ficava muda e nada
+   * acusava, porque um evento que ninguem chama nao da' erro.
+   *
+   * Comparar dois inteiros por quadro custa nada e nao tem dono. E a regra fica
+   * dita do jeito que ela e': quem comemora, comemora porque o placar andou.
+   */
+  private animarTorcida(dt: number): void {
+    if (!this.torcida) return;
+
+    const { home, away } = this.match.placar;
+    const total = home + away;
+    // So' pra CIMA: fim de partida zera o placar, e ninguem comemora isso.
+    if (total > this.pontosVistos) this.torcida.comemorar();
+    this.pontosVistos = total;
+
+    // O `dt` e' o do JOGO: em camera lenta a arquibancada arrasta junto com o
+    // resto do mundo, senao ela denuncia que o tempo la' fora continua normal.
+    this.torcida.update(dt);
   }
 
   /**

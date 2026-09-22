@@ -175,7 +175,27 @@ export const ESTADIO = {
    * ainda tapa parte da seguinte, que e' o que arquibancada faz, sem virar
    * massa.
    */
-  torcida: { passo: 0.58, densidade: 0.74, altura: 0.78 },
+  torcida: {
+    passo: 0.58,
+    densidade: 0.74,
+    altura: 0.78,
+
+    /**
+     * O balanco de quem esta' so' assistindo, em metros.
+     *
+     * Dezoito milimetros num corpo de 78 cm e' quase nada, e e' de proposito:
+     * o que mata uma torcida parada nao e' falta de movimento, e' ser IGUAL em
+     * todo quadro. Cada pessoa tem fase propria, entao o que se ve' de longe e'
+     * um formigamento — nao mil pessoas fazendo a mesma ginastica.
+     */
+    balanco: 0.018,
+
+    /** Quanto sobe do banco ao comemorar. Aqui o movimento tem que aparecer. */
+    pulo: 0.17,
+
+    /** Quanto dura a festa de um ponto, em segundos. */
+    festa: 2.4,
+  },
 } as const;
 
 export const MERGULHO = {

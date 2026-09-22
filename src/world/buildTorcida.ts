@@ -64,6 +64,10 @@ export interface TorcidaConstruida {
   root: THREE.Group;
   /** Quantos couberam. So' pra quem esta' medindo. */
   readonly quantidade: number;
+  /** Um quadro de balanco. `dt` e' o do JOGO — em camera lenta a torcida acompanha. */
+  update(dt: number): void;
+  /** Um ponto saiu: todo mundo pula. Chamado pela Arena, no evento da partida. */
+  comemorar(): void;
   dispose(): void;
 }
 
@@ -222,9 +226,71 @@ export function construirTorcida(estadio: THREE.Object3D): TorcidaConstruida {
     root.add(m);
   }
 
+  /**
+   * O movimento mexe SO' na translacao da matriz, e nao recompoe matriz nenhuma.
+   *
+   * Giro e escala de cada um nunca mudam, entao recompor mil matrizes por
+   * quadro seria refazer a mesma conta pra chegar no mesmo resultado. Numa
+   * `Matrix4` em ordem de coluna, os indices 12, 13 e 14 SAO a translacao —
+   * escrever tres floats por pessoa e' o quadro inteiro.
+   */
+  const base = new Float32Array(lugares.length * 3);
+  const fases = new Float32Array(lugares.length);
+  lugares.forEach((lugar, i) => {
+    base[i * 3] = lugar.p.x;
+    base[i * 3 + 1] = lugar.p.y;
+    base[i * 3 + 2] = lugar.p.z;
+    // A fase e' o que separa uma torcida de um corpo de baile.
+    fases[i] = rnd() * Math.PI * 2;
+  });
+
+  const { balanco, pulo, festa: duracaoDaFesta } = ESTADIO.torcida;
+  const aDoCorpo = corpos.instanceMatrix.array as Float32Array;
+  const aDaCabeca = cabecas.instanceMatrix.array as Float32Array;
+
+  let relogio = 0;
+  let festa = 0;
+
+  const update = (dt: number): void => {
+    relogio += dt;
+    if (festa > 0) festa = Math.max(0, festa - dt);
+
+    /**
+     * A festa nao ligou e desligou: ela DECAI.
+     *
+     * Mil pessoas caindo no mesmo quadro parece um bug de fisica. Com a forca
+     * indo a zero aos poucos, o pulo vai virando balanco, que e' como uma
+     * arquibancada volta ao normal depois de um ponto.
+     */
+    const forca = duracaoDaFesta > 0 ? festa / duracaoDaFesta : 0;
+
+    for (let i = 0; i < lugares.length; i++) {
+      const fase = fases[i]!;
+      let y = base[i * 3 + 1]! + Math.sin(relogio * 1.7 + fase) * balanco;
+      const x = base[i * 3]! + Math.sin(relogio * 1.1 + fase * 1.7) * balanco * 0.6;
+
+      /**
+       * `abs` do seno, e nao o seno: quem pula sai do banco pra CIMA e volta.
+       * Com o seno cru metade da torcida afundaria no degrau a cada ciclo.
+       */
+      if (forca > 0) y += Math.abs(Math.sin(relogio * 7 + fase * 2.5)) * pulo * forca;
+
+      const o = i * 16;
+      aDoCorpo[o + 12] = x;
+      aDoCorpo[o + 13] = y;
+      aDaCabeca[o + 12] = x;
+      aDaCabeca[o + 13] = y;
+    }
+
+    corpos.instanceMatrix.needsUpdate = true;
+    cabecas.instanceMatrix.needsUpdate = true;
+  };
+
   return {
     root,
     quantidade: lugares.length,
+    update,
+    comemorar(): void { festa = duracaoDaFesta; },
     dispose(): void {
       tronco.dispose();
       cabeca.dispose();

@@ -591,6 +591,13 @@ outro para as cabeças. Separados de propósito — `instanceColor` é uma cor p
 instância, então uma pessoa inteira numa geometria só sairia monocromática, e
 mil pílulas coloridas não leem como gente.
 
+Elas **balançam** parado e **pulam a cada ponto**. O movimento mexe só na
+translação da matriz de instância (índices 12, 13 e 14, que numa `Matrix4` em
+ordem de coluna *são* a translação): giro e escala nunca mudam, então recompor
+mil matrizes por quadro seria refazer a mesma conta para chegar no mesmo
+resultado. Cada pessoa tem fase própria — é o que separa uma torcida de um corpo
+de baile.
+
 E há uma **ordem** entre os quatro raios em volta da quadra, cada um morando num
 arquivo diferente, que tem teste porque nada no código obriga os quatro a
 concordarem:

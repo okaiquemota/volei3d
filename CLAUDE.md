@@ -1329,6 +1329,26 @@ E a falha dela é silenciosa: se os nomes de material não baterem, o raycast n�
 acha banco nenhum e a arquibancada fica **vazia**, sem erro. Por isso o teste
 verifica que os nomes existem no `.glb` e que a arquibancada enche.
 
+## Um evento com dono não serve de gancho
+
+A torcida comemora quando o placar muda, e a primeira tentativa foi o caminho
+óbvio: envolver `pontoFeito` no construtor da Arena, chamando a torcida e
+repassando ao handler original.
+
+Não para de pé. Os campos de `match.eventos` **são do `Game`**, que os
+sobrescreve direto ao focar uma quadra (`arena.match.eventos.pontoFeito = ...`).
+O gancho existia no construtor e morria no primeiro foco — a torcida ficava muda
+e nada acusava, porque **um evento que ninguém chama não dá erro**.
+
+Hoje a Arena lê o placar no próprio `update` e compara com o quadro anterior.
+Dois inteiros por quadro, sem dono, e a regra fica dita do jeito que ela é: quem
+comemora, comemora porque o placar andou.
+
+A lição de depuração também vale: o sintoma era "comemorar() não é chamado", e
+eu passei três medições atrás dele. O que resolveu foi imprimir a **função que
+estava lá** (`String(eventos.pontoFeito)`) em vez de continuar verificando se o
+meu código estava certo — ele estava, e tinha sido substituído.
+
 ## Duas superfícies coplanares da mesma cor ainda brigam
 
 Com o piso do estádio pintado do mesmo azul da quadra, apareceu um retângulo
