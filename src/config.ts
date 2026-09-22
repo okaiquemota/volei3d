@@ -794,7 +794,23 @@ export const CAMERA = {
  * Cores. Vieram do VisualLibrary do Unity, que gerava tudo por codigo — mesma
  * ideia daqui, entao os valores passaram direto.
  */
+/**
+ * O azul da quadra, e por que ele mora FORA da tabela de cores.
+ *
+ * Ele e' usado em dois lugares que precisam bater exatamente: a borda da quadra
+ * de modelo (o material `blue2` do .glb) e o piso do ESTADIO em volta dela. Num
+ * ginasio de verdade o salao inteiro e' de uma cor so' — a borda nao acaba, ela
+ * continua ate' a arquibancada — e qualquer diferenca entre os dois vira uma
+ * emenda visivel bem no meio do quadro.
+ *
+ * O valor veio do proprio modelo. Estando aqui, o modelo passa a ser pintado
+ * por ele, e nao o contrario: nenhum dos dois pode escorregar sozinho.
+ */
+const AZUL_DA_QUADRA = 0x3198b6;
+
 export const COLORS = {
+  /** Ver `AZUL_DA_QUADRA`. Borda da quadra e piso da arena, a mesma tinta. */
+  azulDaQuadra: AZUL_DA_QUADRA,
   /**
    * O ceu, em tres paradas: horizonte, meio e zenite.
    *
@@ -828,14 +844,20 @@ export const COLORS = {
    * largada na praia) nem o branco do estudio (chapado, sem sombra, some
    * debaixo da arquibancada).
    *
-   * A primeira tentativa foi o cinza da laje do modelo, 0x3c3f45 — e era um
-   * BURACO: metade da tela num tom quase preto, ao lado de uma quadra turquesa
-   * e de arquibancada azul e laranja. Cinza de concreto lido na foto de um
-   * estadio nao e' cinza de concreto lido ao lado de cor saturada. Este e'
-   * claro o bastante pra ser piso, e frio o bastante pra nao competir com a
-   * quadra.
+   * Passou por dois erros antes de chegar aqui, e os dois sao sobre CONTEXTO:
+   *
+   * Primeiro o cinza da laje do modelo, 0x3c3f45 — um buraco quase preto
+   * ocupando metade da tela ao lado de uma quadra turquesa. Cinza de concreto
+   * lido na foto de um estadio nao e' cinza de concreto lido ao lado de cor
+   * saturada. Depois um cinza claro, que resolvia o buraco e continuava sendo
+   * uma ilha: a quadra virava um tapete colorido largado num galpao.
+   *
+   * Num ginasio de verdade nao ha' piso "em volta da quadra" — a quadra e o
+   * salao sao a MESMA superficie, e a borda da quadra so' continua ate' a
+   * arquibancada. Por isso este e' o azul da propria quadra, e nao uma cor
+   * escolhida pra acompanhar ela.
    */
-  pisoDaArena: 0x7d8494,
+  pisoDaArena: AZUL_DA_QUADRA,
 
   /**
    * As cores do ESTADIO, e por que ele precisava de paleta propria.

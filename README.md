@@ -544,9 +544,18 @@ para 124 mil triângulos; quantização e meshopt fazem o resto (4,2 MB → 1,5 
 o decoder já vem com o three, em 29 kB).
 
 Dentro da arquibancada vai a **mesma quadra do cenário QUADRA** — o estádio é a
-vizinhança dela, não um substituto. O chão em volta é concreto: areia ali seria a
-praia de novo, com arquibancada em volta, que não é nem uma coisa nem outra. Dá
-para **sair da quadra com `Q`** e andar pelo piso da arena, até o anel de LED.
+vizinhança dela, não um substituto. Dá para **sair da quadra com `Q`** e andar
+pelo piso da arena, até o anel de placas.
+
+O piso passou por dois erros antes de acertar, e os dois eram sobre **contexto**:
+primeiro o cinza da laje do modelo (um buraco quase preto ao lado de uma quadra
+turquesa), depois um cinza claro — que resolvia o buraco e continuava sendo uma
+ilha, com a quadra lendo como tapete largado num galpão. Num ginásio de verdade
+**não existe piso "em volta da quadra"**: a quadra e o salão são a mesma
+superfície, e a borda azul só continua até a arquibancada. Hoje o piso é o
+próprio azul da quadra, vindo da mesma constante que pinta o modelo — com a cor
+escrita em dois lugares, a primeira mexida num deles abriria uma emenda bem no
+meio do quadro.
 
 **O quanto o estádio encolhe tem um piso medido, não escolhido** — e quem define
 esse piso mudou de dono no meio do caminho. Era o anel de placas do próprio

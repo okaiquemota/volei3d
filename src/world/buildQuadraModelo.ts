@@ -26,6 +26,9 @@ import urlDaQuadra from '../assets/quadra.glb?url';
  */
 const PISO_DE_JOGO = 'Plane088_brown_0';
 
+/** O material da borda — a laje azul em volta do piso de jogo. */
+const BORDA_DA_QUADRA = 'blue2';
+
 /** Um modelo carregado, pronto pra ser clonado por quadra. */
 export interface ModeloDaQuadra {
   /** O molde. Cada arena recebe um `clone()`, que compartilha geometria e material. */
@@ -73,6 +76,19 @@ export async function carregarQuadraModelo(): Promise<ModeloDaQuadra> {
     proprio.color.setHex(COLORS.placas.laranja);
     piso.material = proprio;
     materiais.add(proprio);
+  }
+
+  /**
+   * A borda passa a ser pintada pelo `config`, e nao o contrario.
+   *
+   * O valor e' o mesmo que ja' vinha no modelo — o ponto nao e' mudar a cor, e'
+   * mudar de onde ela vem. No cenario ESTADIO o piso da arena usa essa mesma
+   * constante, porque num ginasio a borda da quadra nao acaba: ela continua
+   * ate' a arquibancada. Com a cor em dois lugares, a primeira mexida num deles
+   * abriria uma emenda visivel no meio do quadro.
+   */
+  for (const m of materiais) {
+    if (m.name === BORDA_DA_QUADRA) (m as THREE.MeshStandardMaterial).color.setHex(COLORS.azulDaQuadra);
   }
 
   /**
