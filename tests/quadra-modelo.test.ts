@@ -4,9 +4,10 @@ import fs from 'node:fs';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-import { encaixarNoCampo, tirarEnfeites } from '../src/world/encaixarQuadra';
+import { BORDA_DA_LAJE, PISO_DE_JOGO, encaixarNoCampo, tirarEnfeites } from '../src/world/encaixarQuadra';
 import { POUSO_NA_AREIA } from '../src/world/chao';
 import { COURT } from '../src/config';
+
 
 /**
  * O que estes testes protegem:
@@ -110,4 +111,29 @@ test('tirar a bola nao mexe no encaixe', async () => {
   // perto da rede nao pode mover a quadra um milimetro.
   assert.deepEqual(semBola.position.toArray(), comBola.position.toArray());
   assert.deepEqual(semBola.scale.toArray(), comBola.scale.toArray());
+});
+
+/**
+ * As duas pecas que o codigo chama pelo nome.
+ *
+ * `buildQuadraModelo` repinta o piso de jogo e a Arena esconde a laje azul no
+ * cenario ESTADIO — as duas por NOME, contra um .glb que veio de fora. Trocar o
+ * modelo por outro, ou reexportar este com nomes diferentes, nao quebra nada:
+ * o piso volta a ser marrom e a laje volta a desenhar aquele retangulo
+ * tracejado no meio do piso azul. Dois defeitos que parecem escolha de cor.
+ */
+test('o piso de jogo e a laje azul continuam onde o codigo procura', async () => {
+  const raiz = await modelo();
+
+  const piso = raiz.getObjectByName(PISO_DE_JOGO);
+  assert.ok(piso, 'sumiu a malha do piso de jogo: ela volta a ser marrom');
+
+  const laje = raiz.getObjectByName(BORDA_DA_LAJE);
+  assert.ok(laje, 'sumiu a malha da laje azul: volta a emenda no piso do estadio');
+
+  // E a laje tem que ser MAIOR que o piso, senao nao e' borda de coisa nenhuma.
+  const cxPiso = new THREE.Box3().setFromObject(piso);
+  const cxLaje = new THREE.Box3().setFromObject(laje);
+  assert.ok(cxLaje.min.x < cxPiso.min.x && cxLaje.max.x > cxPiso.max.x,
+    'a laje azul nao envolve o piso de jogo');
 });

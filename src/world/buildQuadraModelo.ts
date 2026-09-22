@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { COLORS } from '../config';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { encaixarNoCampo, tirarEnfeites } from './encaixarQuadra';
+import { BORDA_DA_QUADRA, PISO_DE_JOGO, encaixarNoCampo, tirarEnfeites } from './encaixarQuadra';
 import { EMPURRAO_DA_PELE, empurrarParaFrente } from './chao';
 import urlDaQuadra from '../assets/quadra.glb?url';
 
@@ -17,17 +17,6 @@ import urlDaQuadra from '../assets/quadra.glb?url';
  * vem todos, e e' de proposito: o que sobra decide o proximo passo melhor do
  * que uma lista de exclusoes decidida antes de ver.
  */
-
-/**
- * A malha do piso de jogo dentro do modelo.
- *
- * O `Plane088` e' o piso inteiro e vem partido por material: `_white_0` sao as
- * linhas e `_brown_0` e' a superficie. E' esta ultima que muda de cor.
- */
-const PISO_DE_JOGO = 'Plane088_brown_0';
-
-/** O material da borda — a laje azul em volta do piso de jogo. */
-const BORDA_DA_QUADRA = 'blue2';
 
 /** Um modelo carregado, pronto pra ser clonado por quadra. */
 export interface ModeloDaQuadra {

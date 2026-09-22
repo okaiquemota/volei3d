@@ -9,6 +9,7 @@ import { Human } from '../players/Human';
 import { Court, sinalDe, type Side } from './Court';
 import { construirQuadra, type Colisores } from './buildCourt';
 import { construirPlacas, type PlacasConstruidas } from './buildPlacas';
+import { BORDA_DA_LAJE } from './encaixarQuadra';
 import { Markers } from './Markers';
 
 /**
@@ -115,7 +116,7 @@ export class Arena {
    * nos e uma copia da malha. Por isso o `dispose` do modelo e' do molde, e nao
    * das arenas: descartar a geometria de uma esvaziaria as outras duas.
    */
-  usarModelo(molde: THREE.Object3D | null): void {
+  usarModelo(molde: THREE.Object3D | null, comBorda = true): void {
     if (this.peleDeModelo) {
       this.raiz.remove(this.peleDeModelo);
       this.peleDeModelo = null;
@@ -124,6 +125,23 @@ export class Arena {
     if (molde) {
       this.peleDeModelo = molde.clone();
       this.peleDeModelo.applyMatrix4(this.court.matrix);
+
+      /**
+       * A laje azul do modelo SOME quando o chao ja' e' daquele azul.
+       *
+       * Ela e' uma caixa cujo topo fica praticamente na altura do chao do
+       * mundo, e duas superficies coplanares a essa distancia nao tem z-buffer
+       * que decida: aparecia um retangulo tracejado em volta da quadra, no meio
+       * do piso, que so' se explica olhando de perto. No cenario QUADRA ela
+       * precisa existir, porque ali o chao e' branco e a borda azul e' o que
+       * separa a quadra do vazio. No ESTADIO ela nao desenha NADA que o chao ja'
+       * nao desenhe — some, e a emenda some junto.
+       */
+      if (!comBorda) {
+        const borda = this.peleDeModelo.getObjectByName(BORDA_DA_LAJE);
+        if (borda) borda.visible = false;
+      }
+
       this.raiz.add(this.peleDeModelo);
     }
 

@@ -1301,6 +1301,29 @@ e por isso era ele quem limitava o quanto o estádio podia diminuir. O anel novo
 é medido a partir da QUADRA e não encolhe junto — o piso da escala caiu de 0,60
 para 0,49, e o estádio pôde chegar bem mais perto.
 
+## Duas superfícies coplanares da mesma cor ainda brigam
+
+Com o piso do estádio pintado do mesmo azul da quadra, apareceu um retângulo
+**tracejado** no meio do azul, em volta da quadra. Cor igual dos dois lados e
+mesmo assim uma linha — porque o problema nunca foi cor: a laje azul do modelo é
+uma caixa cujo topo fica praticamente na altura do chão do mundo, e a essa
+distância o z-buffer não tem precisão para decidir qual das duas ganha. Sai
+tracejado justamente porque a decisão muda pixel a pixel.
+
+O `polygonOffset` que `chao.ts` já aplica resolve a disputa no MIOLO, onde há
+diferença de cor para mascarar o que sobra. Na borda não há o que mascarar.
+
+O conserto não foi empurrar mais: foi notar que **a laje virou redundante**. No
+cenário ESTÁDIO ela não desenha nada que o chão já não desenhe, então some — e
+a emenda some junto. No QUADRA ela continua, porque ali o chão é branco e a
+borda azul é o que separa a quadra do vazio.
+
+E os nomes de malha que o código procura no `.glb` mudaram de arquivo por causa
+disso: foram parar em `encaixarQuadra.ts`, que é o módulo puro. O carregador
+importa o `.glb` por URL do Vite, e **um `import` desses no topo do arquivo
+fecha a porta do teste para o arquivo inteiro** — a regra já estava escrita lá,
+e o teste novo esbarrou nela na primeira tentativa.
+
 ## O preto não era cor, era luz
 
 Depois de repintar o estádio inteiro, as faces laterais dos degraus continuavam

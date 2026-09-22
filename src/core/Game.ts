@@ -450,7 +450,8 @@ export class Game {
      * de novo, com arquibancada em volta — que nao e' nem uma coisa nem outra.
      */
     const molde = naQuadra ? this.modeloDaQuadra?.molde ?? null : null;
-    for (const arena of this.arenas) arena.usarModelo(molde);
+    // A borda azul da laje so' aparece no estudio: no estadio o chao ja' e' ela.
+    for (const arena of this.arenas) arena.usarModelo(molde, this.noEstudio);
 
     // O chao acompanha, e sao TRES: areia na praia, branco chapado no estudio,
     // concreto dentro do estadio. Ver `TipoDePiso`.

@@ -15,6 +15,21 @@ import { POUSO_NA_AREIA } from './chao';
  * rodando com a tela discordando das regras.
  */
 
+/**
+ * As pecas que o codigo PINTA, pelo nome.
+ *
+ * Moram aqui, e nao no carregador, pela mesma razao que o encaixe mora aqui: o
+ * carregador importa o `.glb` por URL do Vite, e um `import` desses no topo do
+ * arquivo fecha a porta do teste pro arquivo inteiro. Nome de malha contra um
+ * modelo que veio de fora e' exatamente o tipo de coisa que precisa de teste —
+ * errado, ele nao quebra nada, so' deixa a cor velha na tela.
+ */
+export const PISO_DE_JOGO = 'Plane088_brown_0';
+/** O material da borda: a laje azul em volta do piso. */
+export const BORDA_DA_QUADRA = 'blue2';
+/** E a MALHA dela, que o cenario ESTADIO esconde — ver `Arena.usarModelo`. */
+export const BORDA_DA_LAJE = 'Box191_blue2_0';
+
 /** As pecas que a montagem precisa achar pelo nome, e pra que servem. */
 const PECAS = {
   /** O piso com as linhas. 9 x 18 m — quadra oficial de INDOOR. */

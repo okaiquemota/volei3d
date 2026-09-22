@@ -547,6 +547,11 @@ Dentro da arquibancada vai a **mesma quadra do cenário QUADRA** — o estádio 
 vizinhança dela, não um substituto. Dá para **sair da quadra com `Q`** e andar
 pelo piso da arena, até o anel de placas.
 
+A laje azul do modelo **some** neste cenário: com o chão já daquele azul ela não
+desenha mais nada, e o topo dela — praticamente na altura do chão do mundo —
+deixava um retângulo tracejado de z-fighting em volta da quadra. No QUADRA ela
+continua, porque ali o chão é branco e a borda é o que separa a quadra do vazio.
+
 O piso passou por dois erros antes de acertar, e os dois eram sobre **contexto**:
 primeiro o cinza da laje do modelo (um buraco quase preto ao lado de uma quadra
 turquesa), depois um cinza claro — que resolvia o buraco e continuava sendo uma
