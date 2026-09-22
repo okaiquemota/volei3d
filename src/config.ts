@@ -157,6 +157,25 @@ export const ESTADIO = {
    * de verdade, e atravessar ela e' o unico jeito errado de sair da quadra.
    */
   passeio: { x: 8.3, z: 12.3 },
+
+  /**
+   * A torcida.
+   *
+   * `passo` e' a malha de lugares, em metros do estadio JA' ENCOLHIDO — e' o
+   * espacamento entre duas pessoas sentadas lado a lado.
+   *
+   * `densidade` e' quanto desses lugares fica ocupado. Cheio demais (1) vira um
+   * tapete de cabecas com cara de textura; vazio demais denuncia a grade. Em
+   * 0,72 sobram buracos irregulares, que e' como arquibancada cheia se parece.
+   *
+   * `altura` e' de uma pessoa SENTADA, do banco ao alto da cabeca, e ela nao e'
+   * de gente em escala real — e' proporcional ao DEGRAU. Com o estadio em 0,55
+   * o degrau sobe uns 30 cm, e um corpo de 1,05 m cobria a fileira inteira de
+   * tras: as fileiras se fundiam numa parede de pilulas. Em 0,78 cada fila
+   * ainda tapa parte da seguinte, que e' o que arquibancada faz, sem virar
+   * massa.
+   */
+  torcida: { passo: 0.58, densidade: 0.74, altura: 0.78 },
 } as const;
 
 export const MERGULHO = {

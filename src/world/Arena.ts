@@ -9,6 +9,7 @@ import { Human } from '../players/Human';
 import { Court, sinalDe, type Side } from './Court';
 import { construirQuadra, type Colisores } from './buildCourt';
 import { construirPlacas, type PlacasConstruidas } from './buildPlacas';
+import { construirTorcida, type TorcidaConstruida } from './buildTorcida';
 import { BORDA_DA_LAJE } from './encaixarQuadra';
 import { Markers } from './Markers';
 
@@ -58,6 +59,8 @@ export class Arena {
   private estadio: THREE.Object3D | null = null;
   /** O anel de propaganda. Anda com o estadio, mas e' medido pela quadra. */
   private placas: PlacasConstruidas | null = null;
+  /** A torcida, sentada na arquibancada. Nasce e morre com o estadio. */
+  private torcida: TorcidaConstruida | null = null;
 
   /** Segundos ate' os bots comecarem a partida seguinte. */
   private descanso = MATCH.descansoEntrePartidas;
@@ -168,6 +171,11 @@ export class Arena {
       this.placas.dispose();
       this.placas = null;
     }
+    if (this.torcida) {
+      this.raiz.remove(this.torcida.root);
+      this.torcida.dispose();
+      this.torcida = null;
+    }
 
     if (molde) {
       /**
@@ -185,8 +193,23 @@ export class Arena {
       // Encolhe ANTES de ir pro lugar da quadra: `applyMatrix4` multiplica por
       // cima do que ja' esta' na matriz, entao a ordem e' escala e depois posto.
       this.estadio.scale.setScalar(ESTADIO.escala);
+
+      /**
+       * A torcida e' medida AQUI, entre encolher e posicionar.
+       *
+       * Ela descobre os lugares por raycast contra os degraus, entao o estadio
+       * tem que estar na escala final — medido antes de encolher, a torcida
+       * ficaria boiando onde a arquibancada estava. E tem que ser antes do
+       * `court.matrix`, porque assim os dois recebem a mesma matriz depois e
+       * chegam juntos no lugar da quadra.
+       */
+      this.estadio.updateMatrixWorld(true);
+      this.torcida = construirTorcida(this.estadio);
+
       this.estadio.applyMatrix4(this.court.matrix);
+      this.torcida.root.applyMatrix4(this.court.matrix);
       this.raiz.add(this.estadio);
+      this.raiz.add(this.torcida.root);
     }
   }
 

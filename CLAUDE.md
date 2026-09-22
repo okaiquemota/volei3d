@@ -1301,6 +1301,34 @@ e por isso era ele quem limitava o quanto o estádio podia diminuir. O anel novo
 é medido a partir da QUADRA e não encolhe junto — o piso da escala caiu de 0,60
 para 0,49, e o estádio pôde chegar bem mais perto.
 
+## A torcida é descoberta, não escrita
+
+Os lugares da arquibancada saem de um *raycast* contra os próprios degraus, e
+não de uma tabela de fileiras. O custo é um laço de mil raios no carregamento; o
+que se compra é independência de duas coisas que já mudaram: a arquibancada
+deste modelo não é regular, e `ESTADIO.escala` mudou três vezes numa conversa só.
+Qualquer tabela teria errado em algum trecho — gente boiando ou enterrada — e
+teria que ser reescrita a cada ajuste de escala.
+
+O raio é barato porque não bate no estádio inteiro: só nas duas malhas de
+degrau, 1.400 triângulos contra 124 mil. E o sorteio de densidade vem **antes**
+do raio, que é a ordem certa entre um filtro barato e um caro.
+
+Duas decisões que só aparecem na tela:
+
+- **Corpo e cabeça são dois `InstancedMesh`, não um.** Juntar sairia em um
+  desenho em vez de dois e custaria a cor: `instanceColor` é uma cor por
+  instância, então a pessoa inteira numa geometria só fica monocromática — mil
+  pílulas coloridas, que leem como textura e não como gente.
+- **A altura é proporcional ao degrau, não a uma pessoa real.** Com o estádio
+  em 0,55 o degrau sobe 30 cm; um corpo de 1,05 m cobria a fileira inteira de
+  trás e as fileiras viravam uma parede. Em 0,78 cada fila ainda tapa parte da
+  seguinte, que é o que arquibancada faz.
+
+E a falha dela é silenciosa: se os nomes de material não baterem, o raycast não
+acha banco nenhum e a arquibancada fica **vazia**, sem erro. Por isso o teste
+verifica que os nomes existem no `.glb` e que a arquibancada enche.
+
 ## Duas superfícies coplanares da mesma cor ainda brigam
 
 Com o piso do estádio pintado do mesmo azul da quadra, apareceu um retângulo
