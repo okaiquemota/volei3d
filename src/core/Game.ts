@@ -5,7 +5,7 @@ import { Tempo } from './Tempo';
 import { CameraRig } from './CameraRig';
 import { PerfMeter } from '../ui/PerfMeter';
 import { HUD } from '../ui/HUD';
-import { Screens } from '../ui/Screens';
+import { Screens, type Cenario } from '../ui/Screens';
 import { Human } from '../players/Human';
 import { Banhista } from '../players/Banhista';
 import { carregarAtletaModelo, type ModeloDoAtleta } from '../players/buildAtletaModelo';
@@ -16,6 +16,11 @@ import { construirPraia, type PraiaConstruida } from '../world/buildBeach';
 import { construirCeu, type CeuConstruido } from '../world/buildSky';
 import { carregarQuadraModelo, type ModeloDaQuadra } from '../world/buildQuadraModelo';
 import { carregarEstadio, type ModeloDoEstadio } from '../world/buildEstadio';
+import {
+  DEFINICAO, adversarioAtual, novoTorneio, registrarPartida, type Etapa, type Jogador,
+} from '../match/Circuito';
+import { habilidadeDe } from '../match/habilidade';
+import { armazemDoNavegador, carregar, guardar, type Progresso } from '../match/salvar';
 import { LIMITE_DA_PRAIA, PRAIA } from '../world/praia';
 import type { Side } from '../world/Court';
 import { setMaxAnisotropy } from '../world/textures';
@@ -79,6 +84,20 @@ export class Game {
   /** Ja' pedimos o estadio? Impede de pedir de novo a cada troca de cenario. */
   private buscandoEstadio = false;
 
+  /**
+   * O CIRCUITO: modo, progresso salvo, e o cenario que a etapa impoe.
+   *
+   * O progresso e' lido uma vez, no arranque, e regravado a cada partida — nao
+   * a cada quadro. Nao ha' o que salvar no meio de um ponto, e o `localStorage`
+   * e' sincrono: gravar por quadro travaria o jogo em disco lento.
+   */
+  private modo: 'amistoso' | 'circuito' = 'amistoso';
+  private readonly armazem = armazemDoNavegador();
+  private progresso: Progresso = carregar(this.armazem);
+  private cenarioForcado: Cenario | null = null;
+  /** O adversario da partida do circuito em curso. Null no amistoso. */
+  private adversario: Jogador | null = null;
+
   /** O chao do mundo. Guardado porque o cenario troca a cara dele. */
   private praia!: PraiaConstruida;
 
@@ -112,16 +131,28 @@ export class Game {
    * com tres jogos acontecendo ao mesmo tempo nao faz sentido nenhum.
    */
   private get quadraUnica(): boolean {
-    return this.screens.ajustes.cenario !== 'areia';
+    return this.cenarioAtivo !== 'areia';
   }
 
   /** O cenario e' o branco do estudio, sem ceu e sem areia? */
   private get noEstudio(): boolean {
-    return this.screens.ajustes.cenario === 'quadra';
+    return this.cenarioAtivo === 'quadra';
   }
 
   private get noEstadio(): boolean {
-    return this.screens.ajustes.cenario === 'estadio';
+    return this.cenarioAtivo === 'estadio';
+  }
+
+  /**
+   * O cenario que vale AGORA.
+   *
+   * No amistoso e' o do menu. No circuito e' o da etapa — praia, ginasio,
+   * estadio — e o do menu fica guardado intacto por baixo, pra voltar quando
+   * o jogador sair do circuito. Escrever a etapa por cima do ajuste do menu
+   * apagaria a escolha de quem nunca pediu pra mudar ela.
+   */
+  private get cenarioAtivo(): Cenario {
+    return this.cenarioForcado ?? this.screens.ajustes.cenario;
   }
 
   /**
@@ -377,7 +408,13 @@ export class Game {
   // ==================================================================
 
   private ligarTelas(): void {
-    this.screens.aoJogar = () => this.comecarPartida();
+    this.screens.aoJogar = () => this.comecarAmistoso();
+    this.screens.aoAbrirCircuito = () => this.abrirCircuito();
+    this.screens.aoEscolherEtapa = (etapa) => this.escolherEtapa(etapa);
+    this.screens.aoAbandonarTorneio = () => this.abandonarTorneio();
+    this.screens.aoJogarPartidaDoCircuito = () => this.comecarPartidaDoCircuito();
+    this.screens.aoSeguirNoCircuito = () => this.seguirNoCircuito();
+    this.screens.aoVoltarDoCircuito = () => this.voltarDoCircuito();
     this.screens.aoContinuar = () => this.continuar();
     this.screens.aoSair = () => this.sairProMenu();
     this.screens.aoMudarAjustes = () => this.aplicarAjustes();
@@ -581,6 +618,21 @@ export class Game {
   }
 
   private sairProMenu(): void {
+    /**
+     * No circuito, sair no meio da partida e' DESISTIR, e desistir e' perder.
+     *
+     * Sem isso, pausar e sair toda vez que o placar apertasse deixaria o
+     * jogador repetir a partida ate' ganhar. O botao avisa antes — ver
+     * `Screens.rotuloDeSair`.
+     */
+    if (this.modo === 'circuito' && this.adversario && this.progresso.torneio) {
+      this.screens.mostrarPausa(false);
+      const { voce, ele } = this.placarDoCircuito();
+      this.state = 'over';
+      this.registrarNoCircuito(false, voce, ele);
+      return;
+    }
+
     this.screens.mostrarPausa(false);
     this.screens.esconderFim();
     this.hud.mostrar(false);
@@ -593,7 +645,171 @@ export class Game {
     if (!placar) return;
 
     this.state = 'over';
+
+    if (this.modo === 'circuito' && this.adversario && this.progresso.torneio) {
+      const { voce, ele } = this.placarDoCircuito();
+      this.registrarNoCircuito(venceu, voce, ele);
+      return;
+    }
+
     this.screens.mostrarFim(venceu, placar.home, placar.away);
+  }
+
+  // ==================================================================
+  // circuito
+  // ==================================================================
+
+  private salvarProgresso(): void {
+    guardar(this.armazem, this.progresso);
+  }
+
+  /** O placar visto do SEU lado — voce pode estar em casa ou fora. */
+  private placarDoCircuito(): { voce: number; ele: number } {
+    const p = this.minhaArena?.match.placar ?? { home: 0, away: 0 };
+    const emCasa = (this.player?.side ?? 'home') === 'home';
+    return emCasa ? { voce: p.home, ele: p.away } : { voce: p.away, ele: p.home };
+  }
+
+  private comecarAmistoso(): void {
+    this.sairDoModoCircuito();
+    this.comecarPartida();
+
+    /**
+     * O HUD so' le' nome no FOCO, e nao a cada quadro.
+     *
+     * `sairDoModoCircuito` ja' devolveu os bots a "CPU", mas o placar da tela
+     * continuava escrito com o ultimo adversario do torneio — o estado certo e
+     * o HUD errado, que e' o pior tipo de defeito: o teste do estado passa.
+     */
+    const arena = this.minhaArena;
+    if (arena) this.focar(arena);
+  }
+
+  /**
+   * Desfaz tudo o que o circuito pos no mundo.
+   *
+   * Cenario do menu de volta, adversarios de volta a "CPU", e a dificuldade do
+   * menu — esta ultima de graca, porque `comecarPartida` ja' chama
+   * `aplicarAjustes`, que reaplica ela em todo bot.
+   */
+  private sairDoModoCircuito(): void {
+    this.modo = 'amistoso';
+    this.adversario = null;
+    this.cenarioForcado = null;
+    this.screens.rotuloDeSair(false);
+    for (const arena of this.arenas) {
+      for (const atleta of [arena.home, arena.away]) {
+        if (atleta instanceof AIPlayer) atleta.nome = 'CPU';
+      }
+    }
+  }
+
+  private abrirCircuito(): void {
+    this.screens.mostrarMenu(false);
+    this.screens.mostrarChave(false);
+    this.screens.esconderFim();
+    this.hud.mostrar(false);
+    this.state = 'menu';
+    this.screens.mostrarCircuito(true, this.progresso.carreira, this.progresso.torneio);
+  }
+
+  private voltarDoCircuito(): void {
+    this.screens.mostrarCircuito(false);
+    this.sairDoModoCircuito();
+    // O mundo atras do menu volta pro cenario que o jogador escolheu.
+    this.aplicarCenario();
+    this.screens.mostrarMenu(true);
+  }
+
+  /**
+   * Continua o torneio desta etapa, ou abre um novo.
+   *
+   * A semente vem do relogio: cada torneio e' uma chave diferente. E ela vive
+   * DENTRO do torneio salvo, entao fechar a aba e voltar nao sorteia de novo.
+   */
+  private escolherEtapa(etapa: Etapa): void {
+    const t = this.progresso.torneio;
+    const andando = t !== null && !t.eliminado && !t.campeao;
+    if (!andando || t.etapa !== etapa) {
+      this.progresso = { ...this.progresso, torneio: novoTorneio(etapa, Date.now() >>> 0) };
+      this.salvarProgresso();
+    }
+    this.screens.mostrarCircuito(false);
+    this.screens.mostrarChave(true, this.progresso.torneio!);
+  }
+
+  private abandonarTorneio(): void {
+    this.progresso = { ...this.progresso, torneio: null };
+    this.salvarProgresso();
+    this.screens.mostrarCircuito(true, this.progresso.carreira, null);
+  }
+
+  private comecarPartidaDoCircuito(): void {
+    const t = this.progresso.torneio;
+    const ele = t ? adversarioAtual(t) : null;
+    if (!t || !ele) return;
+
+    this.modo = 'circuito';
+    this.adversario = ele;
+    this.cenarioForcado = DEFINICAO[t.etapa].local;
+    this.screens.mostrarChave(false);
+    this.screens.rotuloDeSair(true);
+
+    /**
+     * Voce joga do lado de CASA, e esta' dentro de uma quadra.
+     *
+     * No municipal o cenario e' a praia, onde da' pra estar andando fora de
+     * quadra — e ali `aplicarCenario` NAO poe ninguem pra dentro, porque na
+     * praia estar fora e' permitido. Sem isto a partida do torneio comecaria
+     * com voce assistindo da areia.
+     */
+    if (this.player && this.player.side !== 'home') this.sairDaQuadra();
+    if (!this.player) this.entrarNaQuadra(this.arenaEmFoco, 'home');
+
+    this.comecarPartida();
+
+    /**
+     * A forca do adversario vem DEPOIS de `comecarPartida`.
+     *
+     * Ela chama `aplicarAjustes`, que devolve todo bot a' dificuldade do menu.
+     * Aplicada antes, a forca do adversario seria apagada no mesmo quadro — e
+     * todo torneio seria jogado na dificuldade do amistoso, sem ninguem notar.
+     */
+    const arena = this.minhaArena;
+    if (!arena) return;
+    const oponente = arena.away;
+    if (oponente instanceof AIPlayer) {
+      oponente.definirHabilidade(habilidadeDe(ele.forca));
+      oponente.nome = ele.nome;
+    }
+    // Refaz o placar e os nomes do HUD, agora com o nome de verdade.
+    this.focar(arena);
+  }
+
+  private registrarNoCircuito(venceu: boolean, voce: number, ele: number): void {
+    const t = this.progresso.torneio;
+    if (!t || !this.adversario) return;
+
+    const saida = registrarPartida(t, this.progresso.carreira, venceu, { voce, ele });
+    this.progresso = { versao: 1, carreira: saida.carreira, torneio: saida.torneio };
+    this.salvarProgresso();
+
+    this.screens.mostrarFimDoCircuito(this.adversario.nome, voce, ele, saida.desfecho, t.etapa);
+  }
+
+  /**
+   * Depois do fim da partida: de volta pra chave.
+   *
+   * Sempre pra CHAVE, mesmo eliminado ou campeao — e' ali que se ve' onde voce
+   * caiu, ou o caminho ate' a taca. De la', o VOLTAR leva ao circuito.
+   */
+  private seguirNoCircuito(): void {
+    this.screens.esconderFim();
+    this.hud.mostrar(false);
+    this.state = 'menu';
+    const t = this.progresso.torneio;
+    if (t) this.screens.mostrarChave(true, t);
+    else this.abrirCircuito();
   }
 
   // ==================================================================
@@ -645,7 +861,13 @@ export class Game {
          * um lugar. O limite de quanto da' pra andar e' que muda por cenario,
          * e quem decide isso e' `aplicarCenario`.
          */
-        if (this.input.wasPressed('KeyQ')) this.sairDaQuadra();
+        /**
+         * No circuito nao se sai da quadra no meio da partida.
+         *
+         * Sair entrega o seu lado pra um bot — e um bot que termina a partida
+         * por voce ganharia (ou perderia) um jogo de torneio em seu nome.
+         */
+        if (this.input.wasPressed('KeyQ') && this.modo === 'amistoso') this.sairDaQuadra();
       } else {
         if (this.input.wasPressed('KeyE')) this.entrarNaQuadraMaisPerto();
 
@@ -656,7 +878,9 @@ export class Game {
 
       if (this.input.wasPressed('Escape')) this.pausar();
       else this.update(dt);
-    } else if (this.state === 'over' && this.input.wasPressed('KeyR')) {
+    } else if (this.state === 'over' && this.input.wasPressed('KeyR') && this.modo === 'amistoso') {
+      // So' no amistoso. No circuito, jogar de novo a partida que se perdeu
+      // apagaria a derrota — ver `Screens.mostrarFimDoCircuito`.
       this.comecarPartida();
     }
 

@@ -1415,7 +1415,48 @@ vazio — daria alarme falso. Vértice basta porque a única peça que era um
 triângulo gigante atravessando o campo, o gramado, é justamente a que a receita
 apaga.
 
+## O circuito: estado plano, sorteio com estado, e duas ordens que enganam
+
+`Circuito.ts` é lógica pura sobre **objetos planos** — nada de classe. Não é
+estilo: é o que torna a persistência trivial. Todo estado vai e volta de JSON
+sem perder nada, e o `localStorage` é JSON. E as funções devolvem **cópias** em
+vez de mexer no que entrou, então um erro no meio não deixa o progresso salvo
+pela metade.
+
+O sorteio guarda o **estado** dentro do torneio (`sorte`), e não a semente
+inicial. Guardar só a semente pareceria suficiente e não é: o torneio é salvo no
+meio, e ao voltar o sorteio tem que continuar de onde parou. Com a semente,
+recarregar a página sortearia de novo quem ganhou os jogos que você não jogou —
+e sua semifinal mudaria de adversário. O teste "salvar no meio e continuar"
+passa o torneio pelo JSON a cada rodada e exige o mesmo resultado de quem nunca
+salvou.
+
+Duas ordens enganaram, e as duas pelo mesmo motivo — o efeito certo acontece e
+é desfeito logo depois, calado:
+
+- **A força do adversário vem DEPOIS de `comecarPartida`.** Ela chama
+  `aplicarAjustes`, que devolve todo bot à dificuldade do menu. Aplicada antes,
+  a força seria apagada no mesmo quadro, e todo torneio seria jogado na
+  dificuldade do amistoso. A verificação que pega isso é numérica: o
+  `reactionDelay` do adversário na estreia do municipal tem que ser 0,324 (força
+  0,05), e não 0,18 (o normal do menu).
+- **O HUD só lê nome no foco.** Voltando do circuito para o amistoso, os bots já
+  se chamavam "CPU" de novo e o placar da tela continuava escrito "VINI RECIFE".
+  Estado certo, tela errada — o pior tipo, porque o teste do estado passa. Só
+  apareceu lendo o texto do elemento do HUD, e não o campo do objeto.
+
+E o circuito não tem "jogar de novo", nem `Q` para sair da quadra, nem saída
+grátis pela pausa: pausar e sair conta como derrota, e o botão diz isso antes de
+ser apertado. Cada uma dessas portas deixaria repetir a partida até ganhar.
+
 ## O que NÃO foi verificado
+
+**Uma partida de circuito jogada de verdade até o fim.** Este ambiente renderiza
+por software a ~1 fps com o estádio e a torcida, então o fluxo foi verificado
+forçando o placar (14 a 3 e um ponto) em vez de jogando. O caminho do fim da
+partida, o registro, a gravação, a tela de resultado e o recarregar da página
+foram exercitados de verdade; a dificuldade da rampa só se sente jogando.
+
 
 As poses foram conferidas em imagem, no enquadramento da câmera de jogo, e
 medidas por sonda — não por olho de animador. Elas **lêem** como o gesto certo à

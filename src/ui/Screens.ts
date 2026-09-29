@@ -1,4 +1,6 @@
 import { STORAGE_KEY } from '../config';
+import { DEFINICAO, adversarioAtual, type Carreira, type Desfecho, type Etapa, type Torneio } from '../match/Circuito';
+import { desenharCarreira, desenharChave, desenharEtapas } from './TelaCircuito';
 
 export type Dificuldade = 'facil' | 'normal' | 'dificil';
 
@@ -38,6 +40,18 @@ export class Screens {
   private fim = elemento('gameover');
   private tituloDoFim = elemento('go-titulo');
   private placarDoFim = elemento('go-placar');
+  private extraDoFim = elemento('go-extra');
+  private botaoDeNovo = elemento('btn-denovo');
+  private botaoDoCircuito = elemento('btn-go-circuito');
+
+  private circuito = elemento('circuito');
+  private carreira = elemento('carreira');
+  private etapas = elemento('etapas');
+  private chave = elemento('chave');
+  private chaveTitulo = elemento('chave-titulo');
+  private chaveRodada = elemento('chave-rodada');
+  private chaveArvore = elemento('chave-arvore');
+  private chaveProximo = elemento('chave-proximo');
 
   /**
    * A dificuldade e' um grupo de radios, e nao um <select>.
@@ -63,6 +77,18 @@ export class Screens {
   aoSair: (() => void) | null = null;
   aoMudarAjustes: ((ajustes: Ajustes) => void) | null = null;
 
+  /** Abriu a tela do circuito, pelo menu. */
+  aoAbrirCircuito: (() => void) | null = null;
+  /** Escolheu uma etapa: comeca um torneio, ou continua o que esta' andando. */
+  aoEscolherEtapa: ((etapa: Etapa) => void) | null = null;
+  aoAbandonarTorneio: (() => void) | null = null;
+  /** Na chave: vai pra quadra jogar a proxima. */
+  aoJogarPartidaDoCircuito: (() => void) | null = null;
+  /** Depois do fim de uma partida do circuito: de volta pra chave. */
+  aoSeguirNoCircuito: (() => void) | null = null;
+  /** Saiu da tela do circuito pro menu principal. */
+  aoVoltarDoCircuito: (() => void) | null = null;
+
   constructor() {
     this.carregar();
 
@@ -70,6 +96,12 @@ export class Screens {
     elemento('btn-voltar').addEventListener('click', () => this.aoContinuar?.());
     elemento('btn-sair').addEventListener('click', () => this.aoSair?.());
     elemento('btn-denovo').addEventListener('click', () => this.aoJogar?.());
+
+    elemento('btn-circuito').addEventListener('click', () => this.aoAbrirCircuito?.());
+    elemento('btn-circuito-voltar').addEventListener('click', () => this.aoVoltarDoCircuito?.());
+    elemento('btn-chave-jogar').addEventListener('click', () => this.aoJogarPartidaDoCircuito?.());
+    elemento('btn-chave-voltar').addEventListener('click', () => this.aoAbrirCircuito?.());
+    this.botaoDoCircuito.addEventListener('click', () => this.aoSeguirNoCircuito?.());
 
     for (const radio of this.radiosDificuldade) {
       radio.addEventListener('change', () => {
@@ -138,7 +170,8 @@ export class Screens {
    * qualquer esqueca de desligar.
    */
   private sincronizarVeu(): void {
-    const aberta = [this.menu, this.pausa, this.fim].some((el) => !el.classList.contains('hidden'));
+    const aberta = [this.menu, this.pausa, this.fim, this.circuito, this.chave]
+      .some((el) => !el.classList.contains('hidden'));
     document.body.classList.toggle('tela-aberta', aberta);
 
     // Fechou tudo: o botao que acabou de ser clicado nao pode ficar com o foco.
@@ -157,11 +190,101 @@ export class Screens {
     this.sincronizarVeu();
   }
 
+  /**
+   * O texto do botao de sair da pausa muda no circuito, e diz o preco.
+   *
+   * Sair no meio de uma partida de torneio conta como derrota — senao bastaria
+   * pausar e sair toda vez que o placar apertasse. Um botao que custa uma
+   * eliminacao tem que dizer isso ANTES de ser apertado.
+   */
+  rotuloDeSair(noCircuito: boolean): void {
+    elemento('btn-sair').textContent = noCircuito ? 'DESISTIR (CONTA COMO DERROTA)' : 'SAIR PRO MENU';
+  }
+
   mostrarFim(vencedorEhVoce: boolean, home: number, away: number): void {
     this.tituloDoFim.textContent = vencedorEhVoce ? 'VOCE VENCEU' : 'CPU VENCEU';
     this.tituloDoFim.classList.toggle('away', !vencedorEhVoce);
+    this.tituloDoFim.classList.remove('campeao');
     this.placarDoFim.textContent = `PLACAR FINAL ${home} x ${away}`;
+    this.extraDoFim.classList.add('hidden');
+    this.botaoDeNovo.classList.remove('hidden');
+    this.botaoDoCircuito.classList.add('hidden');
     this.fim.classList.remove('hidden');
+    this.sincronizarVeu();
+  }
+
+  /**
+   * O fim de uma partida do CIRCUITO.
+   *
+   * Nao ha' "jogar novamente" aqui, e isso e' regra, nao esquecimento: repetir
+   * a partida que se perdeu apagaria a derrota, e um torneio onde perder nao
+   * custa nada nao e' torneio. O unico caminho e' seguir — pra proxima rodada,
+   * ou pra fora dela.
+   */
+  mostrarFimDoCircuito(
+    adversario: string,
+    voce: number,
+    ele: number,
+    desfecho: Desfecho,
+    etapa: Etapa,
+  ): void {
+    const titulos = { avancou: 'VITORIA', eliminado: 'ELIMINADO', campeao: 'CAMPEAO!' } as const;
+    this.tituloDoFim.textContent = titulos[desfecho.tipo];
+    this.tituloDoFim.classList.toggle('away', desfecho.tipo === 'eliminado');
+    this.tituloDoFim.classList.toggle('campeao', desfecho.tipo === 'campeao');
+    this.placarDoFim.textContent = `VOCE ${voce} x ${ele} ${adversario}`;
+
+    const linhas: HTMLElement[] = [];
+    if (desfecho.pontosGanhos > 0) {
+      const l = document.createElement('span');
+      l.append('+');
+      const b = document.createElement('b');
+      b.textContent = String(desfecho.pontosGanhos);
+      l.append(b, ' pontos de ranking');
+      linhas.push(l);
+    }
+    if (desfecho.tipo === 'campeao') {
+      const l = document.createElement('span');
+      l.textContent = `Campeao do ${DEFINICAO[etapa].nome}`;
+      linhas.push(l);
+    }
+    if (desfecho.liberou) {
+      const l = document.createElement('span');
+      l.className = 'liberou';
+      l.textContent = `${DEFINICAO[desfecho.liberou].nome} LIBERADO`;
+      linhas.push(l);
+    }
+    this.extraDoFim.replaceChildren(...linhas.flatMap((l, i) =>
+      i === 0 ? [l] : [document.createElement('br'), l]));
+    this.extraDoFim.classList.toggle('hidden', linhas.length === 0);
+
+    this.botaoDoCircuito.textContent = desfecho.tipo === 'avancou' ? 'PROXIMA RODADA' : 'VOLTAR AO CIRCUITO';
+    this.botaoDeNovo.classList.add('hidden');
+    this.botaoDoCircuito.classList.remove('hidden');
+    this.fim.classList.remove('hidden');
+    this.sincronizarVeu();
+  }
+
+  mostrarCircuito(visivel: boolean, carreira?: Carreira, torneio?: Torneio | null): void {
+    if (visivel && carreira) {
+      desenharCarreira(this.carreira, carreira);
+      desenharEtapas(
+        this.etapas, carreira, torneio ?? null,
+        (e) => this.aoEscolherEtapa?.(e),
+        () => this.aoAbandonarTorneio?.(),
+      );
+    }
+    this.circuito.classList.toggle('hidden', !visivel);
+    this.sincronizarVeu();
+  }
+
+  mostrarChave(visivel: boolean, torneio?: Torneio): void {
+    if (visivel && torneio) {
+      desenharChave(this.chaveArvore, this.chaveProximo, this.chaveTitulo, this.chaveRodada, torneio);
+      // Sem adversario (campeao ou eliminado) nao ha' partida pra jogar.
+      elemento('btn-chave-jogar').classList.toggle('hidden', adversarioAtual(torneio) === null);
+    }
+    this.chave.classList.toggle('hidden', !visivel);
     this.sincronizarVeu();
   }
 

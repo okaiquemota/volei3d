@@ -58,7 +58,12 @@ export abstract class Athlete implements Tocador {
   private toquesVistos = 0;
 
   constructor(
-    readonly nome: string,
+    /**
+     * Mutavel por um motivo so': o CIRCUITO da' nome ao adversario. Os avisos
+     * de saque e de ponto ja' leem o nome daqui, entao renomear o bot faz
+     * "PONTO DE NANDO SAQUE" sair em todo lugar sem tocar no HUD.
+     */
+    public nome: string,
     readonly side: Side,
     private readonly cor: number,
     protected court: Court,

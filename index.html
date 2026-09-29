@@ -164,6 +164,7 @@
                 <label><input type="radio" name="skill" value="normal" checked /><span>NORMAL</span></label>
                 <label><input type="radio" name="skill" value="dificil" /><span>DIFICIL</span></label>
               </div>
+              <span class="ajuda">Vale pro amistoso. No circuito, quem decide e' o adversario.</span>
             </div>
 
             <div class="campo">
@@ -234,7 +235,12 @@
         <!-- Fora das colunas de proposito: a acao principal atravessa o
              cartao inteiro, e as duas colunas correm do topo sem um buraco de
              meia tela embaixo da mais curta. -->
-        <button id="btn-jogar" class="botao">JOGAR</button>
+        <!-- O circuito e' o jogo; o amistoso e' o treino. A ordem dos dois
+             botoes diz isso antes de qualquer texto. -->
+        <div class="acoes-menu">
+          <button id="btn-circuito" class="botao">CIRCUITO</button>
+          <button id="btn-jogar" class="botao secundario">AMISTOSO</button>
+        </div>
 
         <p class="rodape"><kbd>ESC</kbd> pausa &middot; <kbd>F3</kbd> desempenho
           &middot; <kbd>H</kbd> esconde as teclas<br />
@@ -242,6 +248,35 @@
             &middot; Cenario ESTADIO: &ldquo;Low Poly Football Stadium&rdquo; de ismeteren07
             &middot; os dois sob <a href="https://creativecommons.org/licenses/by/4.0/"
             target="_blank" rel="noopener">CC&nbsp;Attribution</a></span></p>
+      </div>
+    </div>
+
+    <!-- circuito: a carreira e as tres etapas -->
+    <div id="circuito" class="tela hidden">
+      <div class="cartao cartao-circuito">
+        <header class="cabeca">
+          <h2 class="titulo-menor">CIRCUITO</h2>
+          <p class="sub">Tres etapas em escada. Levante a taca pra abrir a proxima.</p>
+        </header>
+        <dl id="carreira" class="carreira"></dl>
+        <div id="etapas" class="etapas"></div>
+        <button id="btn-circuito-voltar" class="botao secundario">VOLTAR</button>
+      </div>
+    </div>
+
+    <!-- chave: o torneio em andamento -->
+    <div id="chave" class="tela hidden">
+      <div class="cartao cartao-chave">
+        <header class="cabeca">
+          <h2 id="chave-titulo" class="titulo-menor">MUNICIPAL</h2>
+          <p id="chave-rodada" class="sub">QUARTAS DE FINAL</p>
+        </header>
+        <div id="chave-arvore" class="arvore"></div>
+        <div id="chave-proximo" class="proximo"></div>
+        <div class="acoes-menu">
+          <button id="btn-chave-jogar" class="botao">JOGAR PARTIDA</button>
+          <button id="btn-chave-voltar" class="botao secundario">VOLTAR</button>
+        </div>
       </div>
     </div>
 
@@ -259,7 +294,10 @@
       <div class="cartao">
         <h2 id="go-titulo" class="titulo-menor">FIM DE JOGO</h2>
         <p id="go-placar" class="sub">PLACAR FINAL 0 x 0</p>
+        <!-- So' no circuito: o que a partida rendeu, e o que ela abriu. -->
+        <p id="go-extra" class="extra hidden"></p>
         <button id="btn-denovo" class="botao">JOGAR NOVAMENTE (R)</button>
+        <button id="btn-go-circuito" class="botao hidden">CONTINUAR</button>
       </div>
     </div>
   </div>

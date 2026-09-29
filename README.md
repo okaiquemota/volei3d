@@ -122,6 +122,50 @@ existe com um cursor solto pra apontar.
 
 ## Como o jogo funciona
 
+### O circuito
+
+O menu tem dois modos. **AMISTOSO** é a partida avulsa de sempre, na dificuldade
+que o menu diz. **CIRCUITO** é a carreira: três torneios em escada, e é o modo
+principal do jogo.
+
+| etapa | onde se joga | força dos adversários | por vitória | pelo título |
+|---|---|---|---|---|
+| **MUNICIPAL** | na praia | 0,05 – 0,40 | 10 | 30 |
+| **ESTADUAL** | no ginásio | 0,35 – 0,70 | 25 | 80 |
+| **MUNDIAL** | no estádio, com torcida | 0,65 – 1,00 | 60 | 200 |
+
+Cada torneio é uma chave eliminatória de oito: quartas, semi e final. Ganhar a
+final abre a etapa seguinte. Perder elimina — e **não há "jogar de novo"** a
+partida que se perdeu, nem sair no meio dela (pausar e sair conta como
+derrota, e o botão diz isso antes). Um torneio onde perder não custa nada não é
+torneio.
+
+A carreira guarda ranking, títulos por etapa, vitórias e derrotas, melhor
+sequência e saldo de pontos, e **sobrevive a fechar a aba** — um torneio pela
+metade continua de onde parou.
+
+Algumas decisões que dão forma a isso:
+
+- **A força é um número, não um degrau.** Cada adversário tem uma força de 0 a 1,
+  e a habilidade dele sai de uma interpolação que passa **exatamente** pelos três
+  presets afinados à mão (0 = fácil, 0,5 = normal, 1 = difícil). Três degraus
+  dariam adversários repetidos; a interpolação dá uma rampa.
+- **A rampa sai da chave, e não de regra nenhuma.** Você é o cabeça 1 e cruza
+  como numa chave de verdade (1x8, 4x5, 3x6, 2x7): estreia contra o mais fraco,
+  pega o do meio na semi e, se o favorito fizer o papel dele, o mais forte na
+  final. Na tela, o nível do próximo adversário sobe de 1 para 3 para 5 pontos.
+- **As faixas de força se sobrepõem.** O favorito do municipal (0,40) é mais
+  forte que o azarão do estadual (0,35). Sem isso subir de etapa seria um degrau,
+  e ganhar uma final não diria nada sobre o que vem depois.
+- **O palco cresce com o que está em jogo**: praia, ginásio, estádio. Reaproveita
+  os três cenários que já existiam — e o cenário do menu fica guardado por baixo,
+  intacto, para voltar quando você sai do circuito.
+- **Os jogos que você não joga são simulados**, com chance logística na diferença
+  de força, como num Elo: iguais têm 50%, 0,3 de diferença dá ~90%. Tem zebra,
+  mas a final não vira loteria.
+- **Os adversários têm nome, e são inventados.** Apelido de praia — TATU,
+  NANDO SAQUE, NINA PEIXINHO — e os avisos de saque e de ponto usam o nome.
+
 **Os atletas são um modelo.** *Ultimate Modular Men Pack*, de Quaternius (CC0),
 com as 24 animações que vêm nele. É uma **pele**, como a quadra: o `Motor`
 continua dizendo onde o corpo está e para onde ele olha, e o `Hitter` continua
@@ -388,10 +432,14 @@ src/
     Animador.ts         o AnimationMixer e as transições
     poses.ts            pulo, mergulho e os toques, escritos à mão
   match/Match.ts        placar, saque, toques, fim de jogo — lógica pura
+  match/Circuito.ts     torneios, chave e carreira — lógica pura
+  match/habilidade.ts   a habilidade de um adversário a partir da força
+  match/salvar.ts       o progresso no localStorage, à prova de falha
   ui/
     HUD.ts              placar, saque e avisos, em DOM
     Screens.ts          menu, pausa, fim de jogo, opções
     PerfMeter.ts        o painel do F3
+    TelaCircuito.ts     desenha o circuito e a chave a partir do estado
     style.css
 scripts/
   preparar-estadio.mjs  a receita que transforma o estádio cru em asset
@@ -658,6 +706,11 @@ O menu tem um controle de resolução (50% a 100%). O custo do quadro cresce com
 
 - Som: toque, quique na areia, apito. O `Audio.ts` do rpk.fps é a fundação.
 - Duplas, em vez de um contra um.
+- Final do circuito em **melhor de três sets** (21, 21, 15), como no vôlei de
+  praia de verdade. Hoje toda partida é um set de 15; mudar isso é mexer no
+  `Match`, que é lógica testada, e merece ser feito com calma.
+- Estatística por partida (aces, cortadas, defesas): o `Hitter` já sabe qual foi
+  a ação de cada toque, falta contar.
 - Mais quadras, e com gente diferente em cada uma.
 - Multiplayer de verdade: hoje as outras quadras são bots. As partes puras
   (`Match`, `Court`, `ballistics`, `Physics`) já rodariam num servidor Node sem

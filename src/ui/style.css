@@ -830,3 +830,208 @@ body.cenario-quadra .so-praia { display: none; }
   font-weight: 400;
 }
 .botao.secundario:hover { background: rgba(232, 230, 227, 0.1); }
+
+/* ======================================================================
+   CIRCUITO
+   ====================================================================== */
+
+/* Os dois botoes do menu, lado a lado. Empilham quando nao cabem. */
+.acoes-menu {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.7rem;
+  width: 100%;
+}
+.acoes-menu .botao { flex: 1 1 11rem; max-width: 16rem; }
+/* O `#btn-jogar` era o botao unico e tinha largura propria; agora divide a
+   linha com o CIRCUITO e segue a regra dos dois. */
+.acoes-menu #btn-jogar { max-width: 16rem; }
+
+.cartao-circuito, .cartao-chave { width: min(100%, 50rem); gap: 1.3rem; }
+
+/*
+ * A carreira em numeros.
+ *
+ * `dl` e nao um amontoado de `div`: e' rotulo e valor, que e' exatamente o que
+ * uma lista de definicao descreve. O numero vem grande e o rotulo pequeno, que
+ * e' a ordem de leitura de um placar — primeiro quanto, depois do que.
+ */
+.carreira {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: 0.6rem;
+  width: 100%;
+  margin: 0;
+}
+.carreira > div {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.7rem 0.5rem;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  background: rgba(255, 255, 255, 0.03);
+}
+.carreira dt { font-size: 0.7rem; letter-spacing: 0.12em; opacity: 0.6; }
+.carreira dd { margin: 0; font-size: 1.5rem; font-weight: 800; letter-spacing: 0.04em; }
+.carreira .destaque dd { color: var(--home); }
+
+/* As tres etapas. */
+.etapas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.8rem;
+  width: 100%;
+}
+
+/*
+ * Um cartao de etapa e' um BOTAO.
+ *
+ * O cartao inteiro e' clicavel, e nao so' um botaozinho dentro dele: numa
+ * tela de escolha, o alvo e' a coisa escolhida. Travado, ele continua la' —
+ * mostrar o que ainda nao se pode jogar e' metade do motivo de jogar.
+ */
+.etapa {
+  display: grid;
+  gap: 0.45rem;
+  align-content: start;
+  padding: 1rem 0.9rem;
+  text-align: left;
+  font: inherit;
+  color: var(--tinta);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  cursor: pointer;
+  transition: transform 0.1s, border-color 0.15s, background 0.15s;
+}
+.etapa:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: var(--home);
+  background: rgba(41, 112, 209, 0.12);
+}
+.etapa:disabled { cursor: not-allowed; opacity: 0.45; }
+.etapa .nome { font-size: 1.15rem; font-weight: 800; letter-spacing: 0.1em; }
+.etapa .onde { font-size: 0.78rem; opacity: 0.65; letter-spacing: 0.06em; }
+.etapa .estado { font-size: 0.78rem; letter-spacing: 0.08em; font-weight: 700; }
+.etapa .estado.andamento { color: var(--areia); }
+.etapa .estado.aberta { color: var(--home); }
+.etapa .tacas { font-size: 0.78rem; opacity: 0.8; }
+
+/* O torneio em andamento: e' o que o jogador veio fazer aqui, entao aparece. */
+.etapa.em-andamento { border-color: var(--areia); background: rgba(255, 240, 192, 0.07); }
+
+.etapa .abandonar {
+  justify-self: start;
+  margin-top: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  font: inherit;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: var(--tinta);
+  background: transparent;
+  border: 1px solid rgba(232, 230, 227, 0.25);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.etapa .abandonar:hover { border-color: var(--away); color: var(--away); }
+
+/*
+ * A chave.
+ *
+ * Tres colunas — quartas, semi, final — e cada confronto centrado na altura
+ * dos dois que o alimentam. `justify-content: space-around` faz isso sozinho:
+ * quatro caixas, duas, uma, todas distribuidas na mesma altura total.
+ *
+ * O titulo da rodada fica FORA dessa distribuicao. Dentro dela, o
+ * `space-around` tratava o titulo como mais uma caixa e o empurrava pra baixo
+ * junto — "SEMIFINAL" e "FINAL" desciam em escada, cada um numa altura.
+ */
+.arvore {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+  width: 100%;
+}
+.rodada {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 0.4rem;
+}
+.rodada .jogos {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: 0.6rem;
+}
+.rodada h4 {
+  margin: 0 0 0.2rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  opacity: 0.55;
+  font-weight: 700;
+}
+.rodada.atual h4 { color: var(--areia); opacity: 1; }
+
+.confronto {
+  display: grid;
+  border: 1px solid var(--borda);
+  border-radius: 5px;
+  overflow: hidden;
+  font-size: 0.78rem;
+  background: rgba(255, 255, 255, 0.03);
+}
+.confronto .lado {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.35rem 0.5rem;
+  white-space: nowrap;
+}
+.confronto .lado + .lado { border-top: 1px solid var(--borda); }
+.confronto .lado .n { overflow: hidden; text-overflow: ellipsis; }
+.confronto .lado.venceu { font-weight: 800; }
+.confronto .lado.perdeu { opacity: 0.4; }
+.confronto .lado.voce .n { color: var(--home); font-weight: 800; }
+.confronto.vazio { opacity: 0.35; }
+
+/* O proximo adversario: o cartao que diz o que vem agora. */
+.proximo {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.9rem;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  background: rgba(217, 77, 56, 0.08);
+}
+.proximo .rotulo { font-size: 0.7rem; letter-spacing: 0.14em; opacity: 0.65; }
+.proximo .quem { font-size: 1.5rem; font-weight: 800; letter-spacing: 0.08em; color: var(--away); }
+.proximo .onde { font-size: 0.78rem; opacity: 0.7; letter-spacing: 0.06em; }
+
+/* Nivel em cinco pontos. Le' mais rapido que um numero de 0 a 1. */
+.nivel { display: flex; gap: 0.3rem; }
+.nivel i {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: rgba(232, 230, 227, 0.18);
+}
+.nivel i.cheio { background: var(--away); }
+
+/* O que a partida rendeu no circuito, na tela de fim. */
+.extra {
+  margin: 0;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  line-height: 1.5;
+}
+.extra b { color: var(--home); }
+.extra .liberou { color: var(--areia); font-weight: 800; }
+.titulo-menor.campeao { color: var(--areia); }
+
+@media (max-width: 560px) {
+  /* Chave em tres colunas nao cabe no celular: vira uma so', rodada a rodada. */
+  .arvore { grid-template-columns: 1fr; }
+}
