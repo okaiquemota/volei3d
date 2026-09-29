@@ -264,7 +264,9 @@ manda a bola para trás" de "a CPU devolveu".
 **Não dá para medir fps neste ambiente.** Sob renderização por software o jogo
 roda a uns 2 fps por melhor que esteja, e qualquer conclusão tirada dali mede o
 SwiftShader. O que vale medir aqui: `renderer.info.render.calls`, `.triangles`,
-`info.programs.length` e `memory.geometries` — todos independentes de GPU.
+`info.programs.length` e `memory.geometries` — todos independentes de GPU. E o
+tempo de quadro COMPARADO entre duas configurações, que pega o que a contagem
+não pega (preenchimento, passes de tela cheia) — ver "Como medir o quadro".
 
 **Não espere o relógio.** O `dt` é limitado a 1/20 por quadro, então a 2 fps um
 minuto real vira um segundo de jogo. Avance o tempo de JOGO chamando o `update`:
@@ -1274,18 +1276,63 @@ três nomeados.
 O veredito foi "a sombra está muito dura". Eram dois defeitos somados, e
 consertar um só não resolveria:
 
-- **A borda.** O projeto usava `PCFShadowMap`, que não borra — `shadow.radius`
-  é ignorado nele. `PCFSoftShadowMap` não é saída: no r185 está depreciado e cai
-  em PCF sozinho, avisando no console. Quem borra de verdade é **`VSMShadowMap`**,
-  que guarda profundidade e profundidade ao quadrado e aceita `radius` e
-  `blurSamples`. O preço é vazamento de luz em geometria fina, que aqui não
-  existe: quem projeta sombra são corpos, postes e a fita da rede.
+- **A borda.** O `PCFShadowMap` estava com `radius` 1, e com raio 1 ele desenha
+  sombra de recorte. No r185 o PCF **usa** o `radius`: são cinco amostras num
+  disco de Vogel, giradas por pixel (`interleavedGradientNoise`), e o raio é em
+  texels do mapa. Com 4, a borda fica igual à de um VSM borrado na câmera de
+  jogo; com 7 já aparece o granulado do giro. `PCFSoftShadowMap` não é saída:
+  no r185 está depreciado e cai em PCF sozinho, avisando no console.
 - **A escuridão.** A sombra também era preta demais. Sol de praia tem o céu
   inteiro fazendo preenchimento, e nenhuma sombra ao ar livre chega a 100%.
   `shadow.intensity = 0.72` é a outra metade do conserto.
 
-E o `bias` de `-0,0008` teve que voltar a zero: ele existia para tapar o acne do
-PCF, e no VSM só descola a sombra do pé de quem a projeta.
+`bias` é o `-0,0008` de sempre do PCF, que tapa o acne na areia.
+
+## O VSM custava 90% do quadro, e nenhum número de desenho acusava
+
+A primeira resposta ao "sombra dura" foi `VSMShadowMap` com `radius` 6 e
+`blurSamples` 16, na crença (errada, ver acima) de que o PCF ignorava o raio. A
+borda ficou boa e o jogo ficou "extremamente mal otimizado", nas palavras de
+quem joga: o VSM **borra o mapa inteiro** — 2048 x 2048, em dois passes de 16
+amostras — a cada quadro, tenha sombra na tela ou não.
+
+Medido com o quadro terminado de verdade, no renderizador por software:
+
+| cenário | VSM 2048 r6 b16 | PCF 2048 r4 | sem sombra |
+|---|---|---|---|
+| praia | 1010 ms | 127 ms | 107 ms |
+| ginásio | 956 ms | 117 ms | 81 ms |
+| estádio | 1015 ms | 234 ms | 174 ms |
+
+O número absoluto é do SwiftShader; a **proporção** é o que vale, e ela diz que
+a sombra comia nove décimos do tempo. O que torna este defeito traiçoeiro: com
+VSM ou PCF, `renderer.info` mostra os MESMOS 184 desenhos e os mesmos 66 mil
+triângulos. O custo do VSM é de preenchimento (passes de tela cheia no mapa de
+sombra), e contagem de desenho não enxerga preenchimento.
+
+Regra que fica: **efeito de pós-processo ou de sombra se mede em tempo de
+quadro, nunca em contagem de desenho.** Ver "Como medir o quadro" abaixo.
+
+## Como medir o quadro, já que fps aqui não significa nada
+
+O fps deste ambiente é do SwiftShader, mas a comparação entre DUAS
+configurações da mesma cena, no mesmo ambiente, vale. A bancada:
+
+1. Pare o laço do jogo: `__VOLEI.loop = () => {}`. O `loop` se reagenda lendo
+   `this.loop`, então o quadro seguinte já agenda o vazio.
+2. Avance a lógica à mão (`g.update(1/60)`) e desenhe à mão (`g.render()`).
+3. **Force o quadro a terminar com `gl.readPixels` de um pixel.** `gl.finish()`
+   NÃO espera no Chrome: com ele o VSM "custava" 2 ms, o mesmo que sem sombra.
+   Só a leitura de volta obriga a GPU a acabar o que tem na fila.
+4. Mediana de quatro quadros, depois de um de aquecimento (o primeiro compila).
+
+Trocar o tipo de sombra no meio da bancada pede `shadow.map.dispose()`,
+`shadow.map = null` e `material.needsUpdate = true` em tudo — senão o mapa
+antigo, no formato do tipo anterior, continua sendo usado.
+
+O aviso `GPU stall due to ReadPixels` no console do navegador de teste **não é
+do jogo**: uma página que só pinta a tela de uma cor dá o mesmo aviso. Sem
+placa de vídeo, o Chrome lê o canvas de volta para montar a tela.
 
 ## Textura não conserta UV
 

@@ -728,7 +728,8 @@ disco no runner.
 
 ## Desempenho
 
-A cena é leve: cerca de 34 desenhos por quadro. Se o fps estiver ruim, **a
+A cena é leve: uns 180 desenhos por quadro na praia (três quadras, com a passada
+de sombra), uns 85 no ginásio e 115 no estádio. Se o fps estiver ruim, **a
 primeira pergunta não é sobre o jogo: é quem está desenhando.** O `F3` mostra o
 renderizador e acende em vermelho quando o navegador caiu para software
 (SwiftShader, llvmpipe, WARP). Nesse estado cada pixel sai da CPU e nenhuma
@@ -736,6 +737,17 @@ otimização de shader muda a ordem de grandeza.
 
 O menu tem um controle de resolução (50% a 100%). O custo do quadro cresce com a
 **área**: 70% de resolução são 49% dos pixels.
+
+**A sombra é PCF com borda macia, e não VSM.** Ela já foi VSM, pela borda, e
+custava perto de 90% do tempo de desenho: o VSM borra o mapa de sombra inteiro,
+2048 x 2048, duas vezes por quadro. O PCF do three r185 amacia a borda com o
+próprio `shadow.radius`, com a mesma cara na câmera de jogo, a uma fração do
+custo — medido, o quadro caiu para um oitavo na praia e no ginásio. A conta e a
+bancada estão no `CLAUDE.md`.
+
+O estádio é o cenário mais caro: a arquibancada tem 124 mil triângulos e a
+torcida mais 50 mil (1005 pessoas). É geometria, que placa de vídeo come fácil;
+num notebook sem placa dedicada, a praia e o ginásio rodam melhor.
 
 ---
 

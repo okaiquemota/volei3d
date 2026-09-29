@@ -211,19 +211,21 @@ export class Game {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = true;
     /**
-     * VSM, e nao PCF, por causa da BORDA.
+     * PCF, e NAO VSM — e a borda macia sai do `shadow.radius`.
      *
-     * O PCF deste projeto desenhava uma sombra de recorte, com a borda tao dura
-     * quanto a silhueta do atleta — e sombra dura le' como adesivo colado na
-     * areia, nao como corpo no sol. PCFSoftShadowMap nao resolve: no r185 ele
-     * esta' deprecado e cai em PCFShadowMap sozinho, avisando no console.
+     * A sombra ja' foi VSM, pra amaciar a borda, e o preco nao aparecia em lugar
+     * nenhum: o VSM BORRA o mapa inteiro, 2048 x 2048, em dois passes de 16
+     * amostras, todo quadro. Medido com o quadro terminado de verdade, era ~90%
+     * do tempo de desenho em qualquer cenario — 1010 ms contra 136 ms do PCF no
+     * renderizador por software, que exagera o numero mas nao a proporcao.
      *
-     * O VSM guarda profundidade e profundidade ao quadrado e BORRA o mapa de
-     * verdade, entao `radius` e `blurSamples` fazem efeito. O preco e'
-     * vazamento de luz em geometria fina, que aqui nao existe: quem projeta
-     * sombra sao corpos, postes e a fita da rede.
+     * E o motivo de ter ido pro VSM nao valia mais: no r185 o PCF usa o
+     * `radius` (cinco amostras num disco, giradas por pixel), e com raio 4 a
+     * borda fica igual a' do VSM na camera de jogo. O raio 1 e' que desenhava
+     * a sombra de recorte. `PCFSoftShadowMap` continua sem servir: esta'
+     * deprecado e cai no PCF sozinho, avisando no console.
      */
-    this.renderer.shadowMap.type = THREE.VSMShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
 
     // A anisotropia precisa estar definida ANTES de criar as texturas — elas
     // nascem em construirQuadra, logo abaixo.
@@ -365,16 +367,17 @@ export class Game {
     /**
      * O quanto a borda borra, e o quanto a sombra escurece.
      *
-     * `bias` volta a ZERO: o -0,0008 existia pra tapar o acne do PCF, e no VSM
-     * ele so' descola a sombra do pe' de quem a projeta.
+     * `radius` e' em TEXELS do mapa, e o disco do PCF tem cinco amostras: ate'
+     * 4 a borda fica lisa; em 7 ja' aparece o granulado do giro por pixel.
+     *
+     * `bias` e' o -0,0008 de sempre do PCF, que tapa o acne na areia.
      *
      * `intensity` e' a outra metade do "sombra dura": ela nao era so' de borda
      * afiada, era tambem preta demais. Sol de praia tem ceu inteiro fazendo
      * preenchimento, e nenhuma sombra ao ar livre chega a 100%.
      */
-    sol.shadow.bias = 0;
-    sol.shadow.radius = 6;
-    sol.shadow.blurSamples = 16;
+    sol.shadow.bias = -0.0008;
+    sol.shadow.radius = 4;
     sol.shadow.intensity = 0.72;
 
     this.scene.add(sol);
