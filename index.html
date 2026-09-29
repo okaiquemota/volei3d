@@ -164,7 +164,7 @@
                 <label><input type="radio" name="skill" value="normal" checked /><span>NORMAL</span></label>
                 <label><input type="radio" name="skill" value="dificil" /><span>DIFICIL</span></label>
               </div>
-              <span class="ajuda">Vale pro amistoso. No circuito, quem decide e' o adversario.</span>
+              <span class="ajuda">Vale pro amistoso contra a CPU. Contra um personagem, valem as notas dele.</span>
             </div>
 
             <div class="campo">
@@ -240,6 +240,7 @@
         <div class="acoes-menu">
           <button id="btn-circuito" class="botao">CIRCUITO</button>
           <button id="btn-jogar" class="botao secundario">AMISTOSO</button>
+          <button id="btn-adversarios" class="botao secundario">ADVERSARIOS</button>
         </div>
 
         <p class="rodape"><kbd>ESC</kbd> pausa &middot; <kbd>F3</kbd> desempenho
@@ -277,6 +278,22 @@
           <button id="btn-chave-jogar" class="botao">JOGAR PARTIDA</button>
           <button id="btn-chave-voltar" class="botao secundario">VOLTAR</button>
         </div>
+      </div>
+    </div>
+
+    <!-- adversarios: o elenco, as fichas, e o desafio -->
+    <div id="elenco" class="tela hidden">
+      <div class="cartao cartao-elenco">
+        <header class="cabeca">
+          <h2 class="titulo-menor">ADVERSARIOS</h2>
+          <p class="sub">Oito notas de 1 a 10. O 5 joga como a CPU no normal; o 10, como no dificil.</p>
+        </header>
+        <div id="elenco-abas" class="abas" role="tablist" aria-label="Etapa"></div>
+        <div class="elenco-corpo">
+          <div id="elenco-lista" class="elenco-lista"></div>
+          <div id="elenco-ficha" class="elenco-ficha"></div>
+        </div>
+        <button id="btn-elenco-voltar" class="botao secundario">VOLTAR</button>
       </div>
     </div>
 

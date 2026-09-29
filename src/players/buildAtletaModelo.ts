@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as clonarEsqueleto } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { ATHLETE } from '../config';
+import type { Aparencia } from '../match/personagens';
 import { montarClipes } from './poses';
 import urlDoAtleta from '../assets/atleta.glb?url';
 
@@ -20,6 +21,24 @@ import urlDoAtleta from '../assets/atleta.glb?url';
 
 /** O material que recebe a cor do time. E' o colete, que e' a peca mais visivel. */
 const MATERIAL_DO_TIME = 'Worker_Vest';
+
+/**
+ * Que material do modelo e' que peca da `Aparencia` dos personagens.
+ *
+ * Medido pelas caixas de cada material no modelo, e nao pelo nome, que engana:
+ * `Worker_Yellow` e' o capacete E as faixas do colete (as duas pecas pintadas
+ * juntas, que e' como um uniforme faz); `LightBrown` e' a camisa de manga por
+ * baixo do colete; `Brown` e' a calca. `Brown2` (bolsos e joelheiras) e as
+ * botas ficam como vieram — detalhe pequeno demais pra ler de longe.
+ */
+const PECA: Readonly<Record<string, keyof Omit<Aparencia, 'bigode'>>> = {
+  Skin: 'pele',
+  Worker_Vest: 'colete',
+  LightBrown: 'camisa',
+  Brown: 'calca',
+  Worker_Yellow: 'capacete',
+};
+const BIGODE = 'Moustache';
 
 export interface ModeloDoAtleta {
   /** O molde. Cada atleta recebe uma copia com esqueleto proprio. */
@@ -56,6 +75,8 @@ export function copiarModelo(molde: THREE.Object3D, cor: number): THREE.Object3D
     const lista = Array.isArray(malha.material) ? malha.material : [malha.material];
     const pintados = lista.map((m) => {
       const novo = (m as THREE.MeshStandardMaterial).clone();
+      // A cor que veio no modelo, guardada pra `vestirModelo(null)` devolver.
+      novo.userData.corOriginal = novo.color.getHex();
       if (novo.name === MATERIAL_DO_TIME) novo.color.setHex(cor);
       return novo;
     });
@@ -63,6 +84,35 @@ export function copiarModelo(molde: THREE.Object3D, cor: number): THREE.Object3D
   });
 
   return copia;
+}
+
+/**
+ * Veste uma copia com as cores de um personagem, ou devolve a roupa de sempre.
+ *
+ * `null` e' a CPU sem nome: as cores do modelo, com o colete do time. Mexe so'
+ * na COR dos materiais — que ja' sao por copia, desde `copiarModelo` — e na
+ * visibilidade do bigode. Nada de trocar material: material novo seria shader
+ * novo pra compilar no meio da partida.
+ */
+export function vestirModelo(copia: THREE.Object3D, aparencia: Aparencia | null, corDoTime: number): void {
+  copia.traverse((o) => {
+    const malha = o as THREE.Mesh;
+    if (!malha.isMesh) return;
+
+    for (const m of Array.isArray(malha.material) ? malha.material : [malha.material]) {
+      const material = m as THREE.MeshStandardMaterial;
+      if (material.name === BIGODE) {
+        material.visible = aparencia ? aparencia.bigode : true;
+        continue;
+      }
+      const peca = PECA[material.name];
+      if (!peca) continue;
+
+      if (aparencia) material.color.setHex(aparencia[peca]);
+      else if (material.name === MATERIAL_DO_TIME) material.color.setHex(corDoTime);
+      else material.color.setHex(material.userData.corOriginal as number);
+    }
+  });
 }
 
 /** Carrega o modelo. Uma vez, pro jogo inteiro. */

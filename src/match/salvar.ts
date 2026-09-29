@@ -1,4 +1,5 @@
-import { ETAPAS, novaCarreira, type Carreira, type Torneio } from './Circuito';
+import { ETAPAS, VOCE_ID, novaCarreira, type Carreira, type Retrospecto, type Torneio } from './Circuito';
+import { personagemPorId } from './personagens';
 
 /**
  * O progresso do circuito, guardado no navegador.
@@ -116,10 +117,28 @@ function sanear(bruto: unknown): Progresso {
     sequencia: numero('sequencia'),
     melhorSequencia: numero('melhorSequencia'),
     liberadas,
+    confrontos: confrontosValidos(salva.confrontos),
   };
 
   const torneio = torneioValido(bruto.torneio) ? (bruto.torneio as Torneio) : null;
   return { versao: 1, carreira, torneio };
+}
+
+/**
+ * O retrospecto contra cada personagem, so' com o que e' numero de verdade.
+ *
+ * Id que o elenco nao conhece mais FICA: nao atrapalha nada, e se o
+ * personagem voltar, a historia volta com ele.
+ */
+function confrontosValidos(x: unknown): Record<string, Retrospecto> {
+  const saida: Record<string, Retrospecto> = {};
+  if (!objeto(x)) return saida;
+  const contagem = (n: unknown): number =>
+    typeof n === 'number' && Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+  for (const [id, r] of Object.entries(x)) {
+    if (objeto(r)) saida[id] = { v: contagem(r.v), d: contagem(r.d) };
+  }
+  return saida;
 }
 
 function objeto(x: unknown): x is Record<string, unknown> {
@@ -134,7 +153,21 @@ function torneioValido(t: unknown): boolean {
   if (typeof t.sorte !== 'number') return false;
   // Toda rodada tem que ter confrontos com dois jogadores de verdade.
   return t.rodadas.every((r: unknown) => Array.isArray(r) && r.length > 0 && r.every((c: unknown) =>
-    objeto(c) && objeto(c.a) && objeto(c.b) && typeof c.a.id === 'string' && typeof c.b.id === 'string'));
+    objeto(c) && jogadorValido(c.a) && jogadorValido(c.b)));
+}
+
+/**
+ * Voce, ou um personagem que o elenco CONHECE.
+ *
+ * E' o que descarta os torneios de antes dos personagens (a CPU ali era
+ * "cpu-municipal-3", sem ficha nenhuma), e os de um personagem apagado do
+ * elenco depois do save. Continuar uma chave com um adversario sem ficha seria
+ * jogar contra ninguem — melhor perder o torneio em andamento que isso. A
+ * carreira fica.
+ */
+function jogadorValido(j: unknown): boolean {
+  if (!objeto(j) || typeof j.id !== 'string' || typeof j.nome !== 'string') return false;
+  return j.id === VOCE_ID || personagemPorId(j.id) !== null;
 }
 
 /**

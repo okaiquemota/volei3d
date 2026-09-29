@@ -3,7 +3,8 @@ import { AI, COURT, PLAYER } from '../config';
 import type { Ball, Tocador } from '../ball/Ball';
 import { Court, oposto, type Side } from '../world/Court';
 import { construirAtleta, type AtletaVisual } from './buildAthlete';
-import { copiarModelo, type ModeloDoAtleta } from './buildAtletaModelo';
+import { copiarModelo, vestirModelo, type ModeloDoAtleta } from './buildAtletaModelo';
+import type { Aparencia } from '../match/personagens';
 import { Animador, estadoDoMotor } from './Animador';
 import type { EstadoDoCorpo } from './animacoes';
 import { Hitter, type Acao } from './Hitter';
@@ -44,6 +45,15 @@ export abstract class Athlete implements Tocador {
 
   /** O corpo de modelo, quando ha' um. Null enquanto o atleta e' capsula. */
   private corpo: THREE.Object3D | null = null;
+
+  /**
+   * As cores de quem este atleta e', ou null pra roupa do time.
+   *
+   * Guardada, e nao so' aplicada: o modelo chega DEPOIS (carrega em segundo
+   * plano), e um personagem vestido enquanto ainda era capsula tem que
+   * continuar vestido quando o boneco aparecer.
+   */
+  private aparencia: Aparencia | null = null;
   private animador: Animador | null = null;
 
   /**
@@ -139,11 +149,19 @@ export abstract class Athlete implements Tocador {
 
     if (modelo) {
       this.corpo = copiarModelo(modelo.molde, this.cor);
+      vestirModelo(this.corpo, this.aparencia, this.cor);
       this.visual.root.add(this.corpo);
       this.animador = new Animador(this.corpo, modelo.animacoes);
     }
 
     this.visual.capsulas.visible = modelo === null;
+  }
+
+  /** Veste as cores de um personagem. `null` volta pra roupa do time. */
+  vestir(aparencia: Aparencia | null): void {
+    this.aparencia = aparencia;
+    this.visual.pintar(aparencia?.colete ?? this.cor);
+    if (this.corpo) vestirModelo(this.corpo, aparencia, this.cor);
   }
 
   /** Leva a posicao do motor pro objeto da cena. Chamar no fim do update. */

@@ -2,24 +2,14 @@ import {
   DEFINICAO, ETAPAS, NOMES_DAS_RODADAS, VOCE_ID, adversarioAtual, podeJogar,
   type Carreira, type Confronto, type Etapa, type Torneio,
 } from '../match/Circuito';
+import { personagemPorId } from '../match/personagens';
+import { el } from './dom';
+import { desenharFicha } from './TelaElenco';
 
 /**
  * Desenha as telas do circuito a partir do estado. So' desenha: nao decide
  * nada, nao guarda nada, e nao sabe que existe jogo rodando.
- *
- * Tudo e' `createElement` + `textContent`, e nunca `innerHTML` com texto
- * interpolado. Os nomes sao nossos hoje; o dia em que vierem de um save
- * editado a mao, uma string com `<` dentro nao pode virar HTML.
  */
-
-function el<K extends keyof HTMLElementTagNameMap>(
-  tag: K, classe = '', texto = '',
-): HTMLElementTagNameMap[K] {
-  const e = document.createElement(tag);
-  if (classe) e.className = classe;
-  if (texto) e.textContent = texto;
-  return e;
-}
 
 /** A carreira em numeros. */
 export function desenharCarreira(alvo: HTMLElement, c: Carreira): void {
@@ -135,6 +125,7 @@ export function desenharChave(
   titulo: HTMLElement,
   subtitulo: HTMLElement,
   torneio: Torneio,
+  carreira?: Carreira,
 ): void {
   const def = DEFINICAO[torneio.etapa];
   titulo.textContent = def.nome;
@@ -165,21 +156,16 @@ export function desenharChave(
   subtitulo.textContent = `${NOMES_DAS_RODADAS[torneio.rodada]} · ${def.onde}`;
 
   /**
-   * O nivel em cinco pontos, medido DENTRO da etapa, e nao no absoluto.
+   * A FICHA de quem vem, e nao so' o nome.
    *
-   * Na escala de 0 a 1 todo adversario do municipal teria um ponto so', e o do
-   * mundial cinco — a bolinha nao diria nada sobre o torneio que se esta'
-   * jogando. Relativo a' faixa da etapa, o azarao tem um e a final tem cinco,
-   * e da' pra ver a rampa.
+   * E' a diferenca entre "proximo: DANI CAJU" e saber que ela saca de viagem e
+   * corre como qualquer um — que muda o que se faz na recepcao. Sem ficha (um
+   * id que o elenco perdeu), fica o nome, que ainda diz contra quem se joga.
    */
-  const relativo = (ele.forca - def.forcaMin) / Math.max(1e-6, def.forcaMax - def.forcaMin);
-  const pontos = 1 + Math.round(relativo * 4);
-  const nivel = el('div', 'nivel');
-  for (let i = 0; i < 5; i++) nivel.append(el('i', i < pontos ? 'cheio' : ''));
-
+  const p = personagemPorId(ele.id);
   proximo.replaceChildren(
     el('span', 'rotulo', 'PROXIMO ADVERSARIO'),
-    el('span', 'quem', ele.nome),
-    nivel,
+    p ? desenharFicha(p, { retrospecto: carreira ? (carreira.confrontos[p.id] ?? null) : undefined })
+      : el('span', 'quem', ele.nome),
   );
 }

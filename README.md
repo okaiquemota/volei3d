@@ -124,15 +124,16 @@ existe com um cursor solto pra apontar.
 
 ### O circuito
 
-O menu tem dois modos. **AMISTOSO** é a partida avulsa de sempre, na dificuldade
-que o menu diz. **CIRCUITO** é a carreira: três torneios em escada, e é o modo
-principal do jogo.
+O menu tem três botões. **CIRCUITO** é a carreira: três torneios em escada, e é
+o modo principal do jogo. **AMISTOSO** é a partida avulsa de sempre, contra a CPU
+na dificuldade que o menu diz. **ADVERSÁRIOS** mostra o elenco inteiro, com a
+ficha de cada um, e deixa desafiar qualquer um deles num amistoso.
 
-| etapa | onde se joga | força dos adversários | por vitória | pelo título |
+| etapa | onde se joga | quem joga (geral) | por vitória | pelo título |
 |---|---|---|---|---|
-| **MUNICIPAL** | na praia | 0,05 – 0,40 | 10 | 30 |
-| **ESTADUAL** | no ginásio | 0,35 – 0,70 | 25 | 80 |
-| **MUNDIAL** | no estádio, com torcida | 0,65 – 1,00 | 60 | 200 |
+| **MUNICIPAL** | na praia | 8 personagens, de 1,9 a 4,1 | 10 | 30 |
+| **ESTADUAL** | no ginásio | 8 personagens, de 4,0 a 6,8 | 25 | 80 |
+| **MUNDIAL** | no estádio, com torcida | 8 personagens, de 6,6 a 9,4 | 60 | 200 |
 
 Cada torneio é uma chave eliminatória de oito: quartas, semi e final. Ganhar a
 final abre a etapa seguinte. Perder elimina — e **não há "jogar de novo"** a
@@ -141,30 +142,64 @@ derrota, e o botão diz isso antes). Um torneio onde perder não custa nada não
 torneio.
 
 A carreira guarda ranking, títulos por etapa, vitórias e derrotas, melhor
-sequência e saldo de pontos, e **sobrevive a fechar a aba** — um torneio pela
-metade continua de onde parou.
+sequência, saldo de pontos e o **retrospecto contra cada personagem**, e
+**sobrevive a fechar a aba** — um torneio pela metade continua de onde parou.
+
+### Os personagens
+
+São 24, oito por etapa, cada um com nome, frase, cores próprias no boneco e uma
+**ficha de oito notas de 1 a 10**:
+
+| nota | o que ela mexe em quadra |
+|---|---|
+| **FORÇA** | velocidade da cortada e do ataque, e o quanto ele procura cortar |
+| **SAQUE** | do balão alto (1) ao arco mais raso que passa a rede (10) |
+| **VELOCIDADE** | corrida: 5,6 m/s na nota 1, 6,5 (a sua) na 5, 7,4 na 10 |
+| **PULO** | salto: 0,62 m na nota 1, 0,85 (o seu) na 5, 1,08 na 10 |
+| **REFLEXO** | quanto demora pra reagir à sua batida, e pra sacar |
+| **DEFESA** | quanto a cortada que chega estraga o toque dele |
+| **PRECISÃO** | erro de mira: 2 m na nota 1, meio metro na 10 |
+| **LEITURA** | onde ele acha que a bola cai, se larga bola fora, e se arma a jogada |
+
+A escala tem âncora: **o 5 joga exatamente como a CPU no normal**, o 1 como no
+fácil, o 10 como no difícil — campo por campo, e tem teste pra isso. Então
+"força 8" quer dizer "corta mais forte que a CPU normal, quase como a difícil".
+
+O **geral** é a média das oito e decide o cabeça de chave. O **estilo**
+(ATACANTE, SACADOR, VELOCISTA, DEFENSOR, ESTRATEGISTA, COMPLETO, INICIANTE) é
+tirado das notas, nunca escrito à mão — assim ele acompanha qualquer ajuste.
+
+**Criar ou afinar um personagem é editar uma lista**: `src/match/personagens.ts`,
+constante `ELENCO`. Uma linha de notas, cinco cores, uma frase. O circuito
+sorteia dali, a ficha lê dali, a IA joga com o que estiver escrito, e o
+`npm test` avisa se uma nota saiu de 1 a 10, se um id repetiu ou se uma etapa
+ficou com menos de sete.
 
 Algumas decisões que dão forma a isso:
 
-- **A força é um número, não um degrau.** Cada adversário tem uma força de 0 a 1,
-  e a habilidade dele sai de uma interpolação que passa **exatamente** pelos três
-  presets afinados à mão (0 = fácil, 0,5 = normal, 1 = difícil). Três degraus
-  dariam adversários repetidos; a interpolação dá uma rampa.
+- **A ficha passa pelos presets medidos.** Os três níveis da IA foram afinados à
+  mão contra a quadra rodando; cada nota vira número por três âncoras (1, 5, 10)
+  que *são* esses níveis. Uma reta direta do fácil ao difícil cruzaria o meio num
+  ponto que ninguém testou.
+- **Cada nota mexe só no que é dela.** Subir a força de alguém não o deixa mais
+  rápido nem mais preciso — o teste confere nota por nota.
 - **A rampa sai da chave, e não de regra nenhuma.** Você é o cabeça 1 e cruza
   como numa chave de verdade (1x8, 4x5, 3x6, 2x7): estreia contra o mais fraco,
   pega o do meio na semi e, se o favorito fizer o papel dele, o mais forte na
-  final. Na tela, o nível do próximo adversário sobe de 1 para 3 para 5 pontos.
-- **As faixas de força se sobrepõem.** O favorito do municipal (0,40) é mais
-  forte que o azarão do estadual (0,35). Sem isso subir de etapa seria um degrau,
+  final.
+- **As faixas se sobrepõem.** O favorito do municipal (TUCA, 4,1) é mais forte
+  que o azarão do estadual (BETO, 4,0). Sem isso subir de etapa seria um degrau,
   e ganhar uma final não diria nada sobre o que vem depois.
 - **O palco cresce com o que está em jogo**: praia, ginásio, estádio. Reaproveita
   os três cenários que já existiam — e o cenário do menu fica guardado por baixo,
   intacto, para voltar quando você sai do circuito.
 - **Os jogos que você não joga são simulados**, com chance logística na diferença
-  de força, como num Elo: iguais têm 50%, 0,3 de diferença dá ~90%. Tem zebra,
-  mas a final não vira loteria.
-- **Os adversários têm nome, e são inventados.** Apelido de praia — TATU,
-  NANDO SAQUE, NINA PEIXINHO — e os avisos de saque e de ponto usam o nome.
+  de geral, como num Elo: iguais têm 50%, 2,7 pontos de diferença dão ~90%. Tem
+  zebra, mas a final não vira loteria.
+- **Os nomes são inventados, e o apelido é promessa.** NANDO SAQUE saca de
+  viagem, KIKO MANCHETE defende tudo, GUTO VENTO corre 7,4 m/s. Nome de atleta de
+  verdade seria colocar gente real perdendo pra um boneco de capacete.
+- **A cor do colete nunca é azul**, porque azul é o seu time — tem teste.
 
 **Os atletas são um modelo.** *Ultimate Modular Men Pack*, de Quaternius (CC0),
 com as 24 animações que vêm nele. É uma **pele**, como a quadra: o `Motor`
@@ -433,18 +468,20 @@ src/
     poses.ts            pulo, mergulho e os toques, escritos à mão
   match/Match.ts        placar, saque, toques, fim de jogo — lógica pura
   match/Circuito.ts     torneios, chave e carreira — lógica pura
-  match/habilidade.ts   a habilidade de um adversário a partir da força
+  match/personagens.ts  o ELENCO: 24 personagens e as notas deles
+  match/habilidade.ts   de notas de 1 a 10 pra números de jogo
   match/salvar.ts       o progresso no localStorage, à prova de falha
   ui/
     HUD.ts              placar, saque e avisos, em DOM
     Screens.ts          menu, pausa, fim de jogo, opções
     PerfMeter.ts        o painel do F3
     TelaCircuito.ts     desenha o circuito e a chave a partir do estado
+    TelaElenco.ts       a ficha de um personagem e a tela ADVERSÁRIOS
     style.css
 scripts/
   preparar-estadio.mjs  a receita que transforma o estádio cru em asset
   asset-report.mjs      quanto pesa cada asset, nos dois builds
-tests/                  balística, regras da partida, as poses e os assets
+tests/                  balística, regras, poses, assets, circuito e o elenco
 ```
 
 `ballistics`, `Match`, `Court` e `Hitter` **não tocam em nada de render** — nem
@@ -711,7 +748,11 @@ O menu tem um controle de resolução (50% a 100%). O custo do quadro cresce com
   `Match`, que é lógica testada, e merece ser feito com calma.
 - Estatística por partida (aces, cortadas, defesas): o `Hitter` já sabe qual foi
   a ação de cada toque, falta contar.
-- Mais quadras, e com gente diferente em cada uma.
+- Mais quadras, e com gente diferente em cada uma. Na praia do municipal, as
+  outras quadras poderiam ser os OUTROS jogos da chave, com os personagens de
+  verdade — hoje eles são simulados, e as quadras vizinhas são CPU sem nome.
+- Você também com ficha: pontos de treino ganhos no circuito pra subir as suas
+  notas.
 - Multiplayer de verdade: hoje as outras quadras são bots. As partes puras
   (`Match`, `Court`, `ballistics`, `Physics`) já rodariam num servidor Node sem
   mudança; o que falta é `Athlete` e `Ball` pararem de importar render.

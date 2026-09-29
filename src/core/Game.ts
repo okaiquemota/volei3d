@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { AI_SKILL, CAMERA, COLORS, COURT, ESTADIO, PASSEIO } from '../config';
+import { AI_SKILL, CAMERA, COLORS, COURT, ESTADIO, PASSEIO, type AiSkill } from '../config';
 import { Input } from './Input';
 import { Tempo } from './Tempo';
 import { CameraRig } from './CameraRig';
@@ -19,7 +19,7 @@ import { carregarEstadio, type ModeloDoEstadio } from '../world/buildEstadio';
 import {
   DEFINICAO, adversarioAtual, novoTorneio, registrarPartida, type Etapa, type Jogador,
 } from '../match/Circuito';
-import { habilidadeDe } from '../match/habilidade';
+import { personagemPorId, type Personagem } from '../match/personagens';
 import { armazemDoNavegador, carregar, guardar, type Progresso } from '../match/salvar';
 import { LIMITE_DA_PRAIA, PRAIA } from '../world/praia';
 import type { Side } from '../world/Court';
@@ -97,6 +97,14 @@ export class Game {
   private cenarioForcado: Cenario | null = null;
   /** O adversario da partida do circuito em curso. Null no amistoso. */
   private adversario: Jogador | null = null;
+
+  /**
+   * O personagem desafiado no AMISTOSO, pela tela de adversarios.
+   *
+   * Fica ate' o jogador voltar ao amistoso de sempre pelo menu: "jogar de novo"
+   * e o R repetem o desafio, que e' o que se quer depois de perder pra alguem.
+   */
+  private desafiado: Personagem | null = null;
 
   /** O chao do mundo. Guardado porque o cenario troca a cara dele. */
   private praia!: PraiaConstruida;
@@ -408,7 +416,11 @@ export class Game {
   // ==================================================================
 
   private ligarTelas(): void {
-    this.screens.aoJogar = () => this.comecarAmistoso();
+    this.screens.aoJogar = () => { this.desafiado = null; this.comecarAmistoso(); };
+    this.screens.aoJogarDeNovo = () => this.comecarAmistoso();
+    this.screens.aoAbrirElenco = () => this.abrirElenco();
+    this.screens.aoVoltarDoElenco = () => this.voltarDoElenco();
+    this.screens.aoDesafiar = (p) => this.desafiar(p);
     this.screens.aoAbrirCircuito = () => this.abrirCircuito();
     this.screens.aoEscolherEtapa = (etapa) => this.escolherEtapa(etapa);
     this.screens.aoAbandonarTorneio = () => this.abandonarTorneio();
@@ -562,11 +574,21 @@ export class Game {
   }
 
   private aplicarAjustes(): void {
-    // A dificuldade vale pra todos os bots da praia, inclusive os das quadras
-    // que o jogador so' assiste.
+    /**
+     * A dificuldade vale pra todos os bots da praia, inclusive os das quadras
+     * que o jogador so' assiste — MENOS os que sao um personagem.
+     *
+     * Personagem joga com a ficha dele. Antes de existir esta excecao, a forca
+     * do adversario do circuito tinha que ser aplicada DEPOIS de
+     * `comecarPartida`, porque esta funcao, chamada por ela, devolvia todo bot
+     * a' dificuldade do menu — e a ordem errada jogava o torneio inteiro no
+     * nivel do amistoso sem ninguem notar. Agora a ordem nao importa.
+     */
     for (const arena of this.arenas) {
       for (const atleta of [arena.home, arena.away]) {
-        if (atleta instanceof AIPlayer) atleta.definirHabilidade(AI_SKILL[this.screens.ajustes.dificuldade]);
+        if (atleta instanceof AIPlayer && !atleta.personagem) {
+          atleta.definirHabilidade(AI_SKILL[this.screens.ajustes.dificuldade]);
+        }
       }
     }
     this.aplicarCenario();
@@ -652,7 +674,9 @@ export class Game {
       return;
     }
 
-    this.screens.mostrarFim(venceu, placar.home, placar.away);
+    const arena = this.minhaArena;
+    const quem = arena ? this.oponenteNa(arena)?.nome ?? 'CPU' : 'CPU';
+    this.screens.mostrarFim(venceu, placar.home, placar.away, quem);
   }
 
   // ==================================================================
@@ -672,7 +696,16 @@ export class Game {
 
   private comecarAmistoso(): void {
     this.sairDoModoCircuito();
+
+    // Desafio e' um jogo contra ALGUEM: voce tem que estar numa quadra, e nao
+    // assistindo da areia. O amistoso de sempre deixa voce onde estiver.
+    if (this.desafiado && !this.player) this.entrarNaQuadra(this.arenaEmFoco, 'home');
+
     this.comecarPartida();
+
+    const arena = this.minhaArena;
+    if (!arena) return;
+    if (this.desafiado) this.oponenteNa(arena)?.assumir(this.desafiado, this.habilidadeDoMenu);
 
     /**
      * O HUD so' le' nome no FOCO, e nao a cada quadro.
@@ -681,16 +714,44 @@ export class Game {
      * continuava escrito com o ultimo adversario do torneio — o estado certo e
      * o HUD errado, que e' o pior tipo de defeito: o teste do estado passa.
      */
-    const arena = this.minhaArena;
-    if (arena) this.focar(arena);
+    this.focar(arena);
+  }
+
+  /** A habilidade da CPU sem nome: a dificuldade escolhida no menu. */
+  private get habilidadeDoMenu(): AiSkill {
+    return AI_SKILL[this.screens.ajustes.dificuldade];
+  }
+
+  /** O bot do outro lado da rede, na quadra onde voce esta'. */
+  private oponenteNa(arena: Arena): AIPlayer | null {
+    const meuLado = this.player?.side ?? 'home';
+    const outro = meuLado === 'home' ? arena.away : arena.home;
+    return outro instanceof AIPlayer ? outro : null;
+  }
+
+  private abrirElenco(): void {
+    this.screens.mostrarMenu(false);
+    this.screens.mostrarElenco(true, this.progresso.carreira);
+  }
+
+  private voltarDoElenco(): void {
+    this.screens.mostrarElenco(false);
+    this.screens.mostrarMenu(true);
+  }
+
+  /** Amistoso contra um personagem do elenco, escolhido na tela de adversarios. */
+  private desafiar(p: Personagem): void {
+    this.screens.mostrarElenco(false);
+    this.desafiado = p;
+    this.comecarAmistoso();
   }
 
   /**
    * Desfaz tudo o que o circuito pos no mundo.
    *
-   * Cenario do menu de volta, adversarios de volta a "CPU", e a dificuldade do
-   * menu — esta ultima de graca, porque `comecarPartida` ja' chama
-   * `aplicarAjustes`, que reaplica ela em todo bot.
+   * Cenario do menu de volta, e todo bot de volta a CPU sem nome: nome,
+   * dificuldade do menu, corpo e roupa de sempre. Inclusive o desafiado do
+   * amistoso anterior — quem desafia de novo veste ele outra vez.
    */
   private sairDoModoCircuito(): void {
     this.modo = 'amistoso';
@@ -699,7 +760,7 @@ export class Game {
     this.screens.rotuloDeSair(false);
     for (const arena of this.arenas) {
       for (const atleta of [arena.home, arena.away]) {
-        if (atleta instanceof AIPlayer) atleta.nome = 'CPU';
+        if (atleta instanceof AIPlayer) atleta.assumir(null, this.habilidadeDoMenu);
       }
     }
   }
@@ -735,7 +796,7 @@ export class Game {
       this.salvarProgresso();
     }
     this.screens.mostrarCircuito(false);
-    this.screens.mostrarChave(true, this.progresso.torneio!);
+    this.screens.mostrarChave(true, this.progresso.torneio!, this.progresso.carreira);
   }
 
   private abandonarTorneio(): void {
@@ -768,18 +829,13 @@ export class Game {
 
     this.comecarPartida();
 
-    /**
-     * A forca do adversario vem DEPOIS de `comecarPartida`.
-     *
-     * Ela chama `aplicarAjustes`, que devolve todo bot a' dificuldade do menu.
-     * Aplicada antes, a forca do adversario seria apagada no mesmo quadro — e
-     * todo torneio seria jogado na dificuldade do amistoso, sem ninguem notar.
-     */
     const arena = this.minhaArena;
     if (!arena) return;
-    const oponente = arena.away;
-    if (oponente instanceof AIPlayer) {
-      oponente.definirHabilidade(habilidadeDe(ele.forca));
+    const oponente = this.oponenteNa(arena);
+    if (oponente) {
+      // O save so' guarda torneio com personagem que o elenco conhece, entao o
+      // `null` aqui e' rede de baixo: joga a CPU do menu, com o nome da chave.
+      oponente.assumir(personagemPorId(ele.id), this.habilidadeDoMenu);
       oponente.nome = ele.nome;
     }
     // Refaz o placar e os nomes do HUD, agora com o nome de verdade.
@@ -808,7 +864,7 @@ export class Game {
     this.hud.mostrar(false);
     this.state = 'menu';
     const t = this.progresso.torneio;
-    if (t) this.screens.mostrarChave(true, t);
+    if (t) this.screens.mostrarChave(true, t, this.progresso.carreira);
     else this.abrirCircuito();
   }
 

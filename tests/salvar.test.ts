@@ -111,3 +111,42 @@ test('torneio corrompido some, e a carreira fica', () => {
   assert.equal(p.torneio, null);
   assert.equal(p.carreira.ranking, 30);
 });
+
+/**
+ * O torneio de ANTES dos personagens.
+ *
+ * A CPU ali era "cpu-municipal-3", sem ficha: continuar aquela chave seria
+ * jogar contra ninguem. Ele some ao carregar — e a carreira, que e' o que custa
+ * horas, fica inteira.
+ */
+test('torneio salvo antes dos personagens some, e a carreira fica', () => {
+  const velho = {
+    etapa: 'municipal', rodada: 0, eliminado: false, campeao: false, sorte: 9,
+    rodadas: [[
+      { a: { id: 'voce', nome: 'VOCE', forca: 0 }, b: { id: 'cpu-municipal-6', nome: 'TATU', forca: 0.05 }, vencedor: null, placar: null },
+      { a: { id: 'cpu-municipal-3', nome: 'BIA REDE', forca: 0.2 }, b: { id: 'cpu-municipal-2', nome: 'DUDA SOL', forca: 0.25 }, vencedor: null, placar: null },
+    ]],
+  };
+  const p = carregar(armazem({ [CHAVE]: JSON.stringify({
+    versao: 1, carreira: { ranking: 70, vitorias: 4, liberadas: ['municipal'] }, torneio: velho,
+  }) }));
+  assert.equal(p.torneio, null, 'chave sem ficha sobreviveu');
+  assert.equal(p.carreira.ranking, 70);
+  assert.deepEqual(p.carreira.confrontos, {}, 'retrospecto novo nao entrou vazio');
+});
+
+test('o retrospecto contra cada personagem vai e volta, e lixo nele e descartado', () => {
+  let torneio = novoTorneio('municipal', 5);
+  let carreira = novaCarreira();
+  ({ torneio, carreira } = registrarPartida(torneio, carreira, true, { voce: 15, ele: 8 }));
+  const a = armazem({});
+  assert.ok(guardar(a, { versao: 1, carreira, torneio }));
+  assert.deepEqual(carregar(a).carreira.confrontos, carreira.confrontos);
+
+  const p = carregar(armazem({ [CHAVE]: JSON.stringify({
+    versao: 1,
+    carreira: { confrontos: { tatu: { v: 2, d: -4 }, 'bia-rede': 'muito', 'duda-sol': { v: 1.7, d: 3 } } },
+    torneio: null,
+  }) }));
+  assert.deepEqual(p.carreira.confrontos, { tatu: { v: 2, d: 0 }, 'duda-sol': { v: 1, d: 3 } });
+});

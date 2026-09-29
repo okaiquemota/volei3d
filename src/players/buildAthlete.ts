@@ -23,6 +23,8 @@ export interface AtletaVisual {
   capsulas: THREE.Group;
   /** Ancora onde a bola fica presa no saque. Acompanha o corpo. */
   ancoraDeSaque: THREE.Object3D;
+  /** Troca a cor das capsulas. E' o colete de quem ainda nao tem modelo. */
+  pintar(cor: number): void;
   dispose(): void;
 }
 
@@ -97,6 +99,7 @@ export function construirAtleta(cor: number, alturaDaBolaNoSaque: number): Atlet
     root,
     capsulas,
     ancoraDeSaque,
+    pintar: (novaCor) => { material.color.setHex(novaCor); },
     dispose: () => {
       material.dispose();
       materialClaro.dispose();

@@ -1,33 +1,93 @@
-import { AI_SKILL, type AiSkill } from '../config';
+import { AI_SKILL, ATHLETE, ATRIBUTO, type AiSkill } from '../config';
+import type { Atributo, Notas } from './personagens';
 
 /**
- * A habilidade de um adversario a partir de UM numero: a forca, de 0 a 1.
+ * De notas de 1 a 10 pra numeros de jogo.
  *
- * O jogo tinha tres degraus — facil, normal, dificil — e um circuito precisa de
- * rampa: o terceiro adversario do torneio municipal tem que ser um pouco mais
- * duro que o segundo, e o do mundial bem mais que os dois. Tres degraus dariam
- * adversarios repetidos e saltos bruscos.
+ * A IA tinha tres degraus — facil, normal, dificil — e agora cada adversario e'
+ * uma FICHA: oito notas, cada uma mexendo no seu pedaco. Um sacador de 9 com
+ * forca 3 saca de viagem e corta fraco; nenhum dos tres presets fazia isso.
  *
- * A interpolacao passa PELO `normal`, em vez de ir numa reta do facil ao
- * dificil. Nao e' capricho: os tres presets foram afinados a mao e medidos (o
- * teto da defesa em 0,4, por exemplo, custou uma quadra congelada pra
- * descobrir), e uma reta direta cruzaria o meio num ponto que ninguem testou.
- * Assim a forca 0,5 E' o normal, campo por campo.
+ * A conta passa PELO `normal`, em vez de ir numa reta do facil ao dificil. Nao
+ * e' capricho: os tres presets foram afinados a mao e medidos (o teto da defesa
+ * em 0,4, por exemplo, custou uma quadra congelada pra descobrir), e uma reta
+ * direta cruzaria o meio num ponto que ninguem testou. Assim a nota 5 E' o
+ * normal, campo por campo, e os testes conferem isso.
  *
- * A forca e' presa em [0, 1]. Os presets sao os extremos medidos; extrapolar
+ * A nota e' presa em [1, 10]. Os presets sao os extremos medidos; extrapolar
  * alem deles poderia dar atraso negativo ou erro de mira negativo, que o resto
  * do codigo nao espera.
  */
-export function habilidadeDe(forca: number): AiSkill {
-  const f = Math.min(1, Math.max(0, forca));
 
-  const [de, para, t] = f <= 0.5
-    ? [AI_SKILL.facil, AI_SKILL.normal, f / 0.5]
-    : [AI_SKILL.normal, AI_SKILL.dificil, (f - 0.5) / 0.5];
+/** O que muda no CORPO. A cabeca e' a `AiSkill`; isto e' perna. */
+export interface Corpo {
+  /** Corrida, em m/s. */
+  velocidade: number;
+  /** Altura do pulo, em metros. */
+  pulo: number;
+}
 
-  const saida = {} as AiSkill;
-  for (const chave of Object.keys(de) as Array<keyof AiSkill>) {
-    saida[chave] = de[chave] + (para[chave] - de[chave]) * t;
+/** O corpo de sempre: o seu, e o de toda CPU sem nome. */
+export const CORPO_PADRAO: Readonly<Corpo> = {
+  velocidade: ATHLETE.moveSpeed,
+  pulo: ATHLETE.jumpHeight,
+};
+
+/**
+ * Qual nota manda em cada numero da IA.
+ *
+ * O tipo exige TODOS os campos da `AiSkill`: um campo novo na IA que ninguem
+ * ligou a atributo nenhum nao compila, em vez de ficar parado no valor de um
+ * preset sem ninguem perceber.
+ *
+ * Tres notas mandam em mais de um numero, e cada par tem motivo:
+ * - FORCA e' a batida e o GOSTO pela batida: quem crava forte procura a
+ *   cortada (`spikeChance`).
+ * - REFLEXO e' reagir e nao enrolar: o tempo parado antes do saque vai junto.
+ * - LEITURA e' ler a bola (onde cai, se cai fora) e ler a jogada (armar em dois
+ *   toques em vez de devolver de primeira).
+ */
+export const FONTE: Readonly<Record<keyof AiSkill, Atributo>> = {
+  attackForce: 'forca',
+  spikeChance: 'forca',
+  forcaDoSaque: 'saque',
+  reactionDelay: 'reflexo',
+  serveDelay: 'reflexo',
+  defesa: 'defesa',
+  aimError: 'precisao',
+  positionError: 'leitura',
+  margemDeFora: 'leitura',
+  chanceDeArmar: 'leitura',
+};
+
+/** Uma nota de 1 a 10, pelas ancoras das notas 1, 5 e 10. */
+export function naEscala(nota: number, ancoras: readonly [number, number, number]): number {
+  const [em1, em5, em10] = ancoras;
+  const x = Math.min(ATRIBUTO.maximo, Math.max(ATRIBUTO.minimo, nota));
+  return x <= 5
+    ? em1 + (em5 - em1) * ((x - 1) / 4)
+    : em5 + (em10 - em5) * ((x - 5) / 5);
+}
+
+export interface Ficha {
+  habilidade: AiSkill;
+  corpo: Corpo;
+}
+
+/** Tudo o que as notas de um personagem viram em quadra. */
+export function fichaDe(notas: Notas): Ficha {
+  const habilidade = {} as AiSkill;
+  for (const campo of Object.keys(FONTE) as Array<keyof AiSkill>) {
+    habilidade[campo] = naEscala(notas[FONTE[campo]], [
+      AI_SKILL.facil[campo], AI_SKILL.normal[campo], AI_SKILL.dificil[campo],
+    ]);
   }
-  return saida;
+
+  return {
+    habilidade,
+    corpo: {
+      velocidade: naEscala(notas.velocidade, ATRIBUTO.velocidade),
+      pulo: naEscala(notas.pulo, ATRIBUTO.pulo),
+    },
+  };
 }

@@ -36,6 +36,8 @@ está ligado, junto com `noUnusedLocals` e `noUnusedParameters`.
 - Geometria e colisores da quadra: `world/buildCourt.ts` — os dois saem dos
   mesmos números, de propósito.
 - Como a bola se move: `world/Physics.ts`. Leia o aviso antes de mexer.
+- Os adversários do circuito, as notas e as cores deles: `match/personagens.ts`
+  (a lista `ELENCO`). O que cada nota vira em número: `match/habilidade.ts`.
 - Como um toque é resolvido: `players/Hitter.ts`.
 - Regras: `match/Match.ts`. É lógica pura, tem teste, mexa com teste.
 - "Lógica pura" aqui quer dizer **sem nada de render** — sem `Mesh`,
@@ -1434,12 +1436,13 @@ salvou.
 Duas ordens enganaram, e as duas pelo mesmo motivo — o efeito certo acontece e
 é desfeito logo depois, calado:
 
-- **A força do adversário vem DEPOIS de `comecarPartida`.** Ela chama
-  `aplicarAjustes`, que devolve todo bot à dificuldade do menu. Aplicada antes,
-  a força seria apagada no mesmo quadro, e todo torneio seria jogado na
-  dificuldade do amistoso. A verificação que pega isso é numérica: o
-  `reactionDelay` do adversário na estreia do municipal tem que ser 0,324 (força
-  0,05), e não 0,18 (o normal do menu).
+- **A dificuldade do menu apagava o adversário.** `comecarPartida` chama
+  `aplicarAjustes`, que devolvia TODO bot à dificuldade do menu — então a ficha
+  do adversário tinha que entrar depois dela, ou o torneio inteiro era jogado no
+  nível do amistoso. Hoje `aplicarAjustes` pula quem tem `personagem`, e a ordem
+  deixou de importar. Se um dia alguém escrever outro caminho que "reseta os
+  bots", a mesma armadilha volta: bot com personagem joga com a ficha dele, e só
+  `AIPlayer.assumir(null, ...)` devolve ele à CPU sem nome.
 - **O HUD só lê nome no foco.** Voltando do circuito para o amistoso, os bots já
   se chamavam "CPU" de novo e o placar da tela continuava escrito "VINI RECIFE".
   Estado certo, tela errada — o pior tipo, porque o teste do estado passa. Só
@@ -1449,7 +1452,56 @@ E o circuito não tem "jogar de novo", nem `Q` para sair da quadra, nem saída
 grátis pela pausa: pausar e sair conta como derrota, e o botão diz isso antes de
 ser apertado. Cada uma dessas portas deixaria repetir a partida até ganhar.
 
+## Os personagens: a ficha é a IA, e não um enfeite em cima dela
+
+Os adversários do circuito são o `ELENCO` de `match/personagens.ts`: oito notas
+de 1 a 10 cada. `match/habilidade.ts` transforma notas em números de jogo por
+três âncoras por campo — nota 1, 5 e 10 — e as âncoras da cabeça **são** os
+presets `AI_SKILL`. Isso tem três consequências que os testes seguram:
+
+- **5 em tudo é a CPU normal, exatamente.** Se um preset mudar, o elenco inteiro
+  acompanha sem ninguém reescrever nota nenhuma.
+- **A tabela `FONTE` é tipada como `Record<keyof AiSkill, Atributo>`.** Um campo
+  novo na `AiSkill` que ninguém ligou a atributo não compila, em vez de ficar
+  parado num valor de preset.
+- **Cada nota mexe só no que é dela** (teste nota a nota). A ficha na tela diz
+  "velocidade 8"; se a força também mexesse na corrida, a ficha mentiria.
+
+O corpo virou dado por atleta: `Motor.corpo` (corrida e pulo). Antes era
+`ATHLETE` direto no `update`. Você e a CPU sem nome ficam no `CORPO_PADRAO`,
+que é o `ATHLETE` de sempre — nada mudou pra quem não é personagem.
+
+O `SAQUE` pediu um campo novo na IA, `forcaDoSaque`: ela sacava com a
+`attackForce`. Nos três presets os dois valores são iguais, de propósito — a
+CPU sem nome saca exatamente como antes.
+
+**Virar personagem é uma chamada só, `AIPlayer.assumir(p, semNome)`**: nome,
+habilidade, corpo e roupa juntos. Quatro chamadas soltas era pedir pra esquecer
+uma, e o defeito seria invisível — o VELOCISTA com nome e cor certos correndo
+como qualquer um.
+
+A roupa é COR de material, nunca material novo (material novo é shader novo pra
+compilar no meio da partida). Os materiais já são por cópia desde
+`copiarModelo`, que agora guarda a cor original em `userData.corOriginal` pra
+`vestirModelo(null)` devolver. Quem é qual peça foi MEDIDO pelas caixas de cada
+material no modelo, não pelo nome: `Worker_Yellow` é o capacete e as faixas do
+colete ao mesmo tempo, `LightBrown` é a camisa, `Brown` a calça.
+
+O save guarda o **id** do personagem na chave, e não a ficha. Ajustar uma nota
+vale até pro torneio salvo no meio. O outro lado disso: torneio com id que o
+elenco não conhece é descartado ao carregar (a carreira fica) — é o que limpa os
+saves de antes dos personagens, cuja CPU era `cpu-municipal-3`.
+
 ## O que NÃO foi verificado
+
+**O equilíbrio do elenco, jogando.** O que se mediu no navegador: a ficha entra
+inteira no bot (TITO ONDA com 6,86 m/s, 1,08 m de pulo, 0,14 s de reação, as
+cores dele e o nome no placar), ele corre de fato a 6,86 em quadra, e voltar ao
+amistoso devolve tudo — nome, corpo, dificuldade do menu, colete do time e
+bigode. O pulo de cada ficha foi medido no `Motor` em teste de Node, e não num
+rally, porque o bot só pula pra cortar e sem ninguém devolvendo a bola ele só
+saca. Se BIA REDE é mais difícil que KIKO MANCHETE para quem joga, só se sabe
+jogando.
 
 **Uma partida de circuito jogada de verdade até o fim.** Este ambiente renderiza
 por software a ~1 fps com o estádio e a torcida, então o fluxo foi verificado

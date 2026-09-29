@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { AI, AI_SKILL, BALL, PLAYER, type AiSkill } from '../config';
 import { randomInCircle } from '../core/math';
+import { CORPO_PADRAO, fichaDe } from '../match/habilidade';
+import type { Personagem } from '../match/personagens';
 import { oposto } from '../world/Court';
 import { Athlete } from './Athlete';
 import type { Acao } from './Hitter';
@@ -70,10 +72,44 @@ export class AIPlayer extends Athlete {
    */
   private readonly erroDeLeitura = new THREE.Vector2();
 
+  /**
+   * Quem este bot e'. Null e' a CPU sem nome, que joga na dificuldade do menu.
+   *
+   * Publico pra leitura: e' por ele que o `Game` sabe quais bots NAO devem
+   * receber a dificuldade do menu — um personagem joga com a ficha dele, e o
+   * menu mudando por baixo apagaria ela sem ninguem ver.
+   */
+  private _personagem: Personagem | null = null;
+  get personagem(): Personagem | null { return this._personagem; }
+
   definirHabilidade(habilidade: AiSkill): void {
     this.habilidade = habilidade;
     this.hitter.ruidoDeMira = habilidade.aimError;
     this.hitter.defesa = habilidade.defesa;
+  }
+
+  /**
+   * Vira um personagem do elenco, ou volta a ser a CPU sem nome.
+   *
+   * Tudo de uma vez, porque as quatro coisas andam juntas: o NOME (que o HUD e
+   * os avisos leem), a CABECA (a habilidade), as PERNAS (corrida e pulo) e a
+   * ROUPA. Uma delas esquecida daria o pior tipo de defeito — o VELOCISTA com
+   * nome e cor certos correndo como qualquer um.
+   */
+  assumir(p: Personagem | null, semNome: AiSkill): void {
+    this._personagem = p;
+    if (p) {
+      const ficha = fichaDe(p.notas);
+      this.nome = p.nome;
+      this.definirHabilidade(ficha.habilidade);
+      this.motor.definirCorpo(ficha.corpo);
+      this.vestir(p.visual);
+    } else {
+      this.nome = 'CPU';
+      this.definirHabilidade(semNome);
+      this.motor.definirCorpo(CORPO_PADRAO);
+      this.vestir(null);
+    }
   }
 
   override prepararSaque(): void {
@@ -119,8 +155,8 @@ export class AIPlayer extends Athlete {
     if (this.esperaDoSaque > 0) return;
 
     this.escolherAlvoDeAtaque(_alvo);
-    // A IA nao carrega: saca sempre com a forca da dificuldade.
-    if (this.hitter.sacar(this.ball, this.court, this, _alvo, this.habilidade.attackForce)) {
+    // A IA nao carrega: saca sempre com a mesma forca, a do SAQUE dela.
+    if (this.hitter.sacar(this.ball, this.court, this, _alvo, this.habilidade.forcaDoSaque)) {
       this.esperaDoSaque = this.habilidade.serveDelay;
     }
   }

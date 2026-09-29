@@ -1,6 +1,8 @@
 import { STORAGE_KEY } from '../config';
 import { DEFINICAO, adversarioAtual, type Carreira, type Desfecho, type Etapa, type Torneio } from '../match/Circuito';
+import type { Personagem } from '../match/personagens';
 import { desenharCarreira, desenharChave, desenharEtapas } from './TelaCircuito';
+import { TelaElenco } from './TelaElenco';
 
 export type Dificuldade = 'facil' | 'normal' | 'dificil';
 
@@ -52,6 +54,13 @@ export class Screens {
   private chaveRodada = elemento('chave-rodada');
   private chaveArvore = elemento('chave-arvore');
   private chaveProximo = elemento('chave-proximo');
+  private elenco = elemento('elenco');
+  private telaElenco = new TelaElenco(
+    elemento('elenco-abas'),
+    elemento('elenco-lista'),
+    elemento('elenco-ficha'),
+    (p) => this.aoDesafiar?.(p),
+  );
 
   /**
    * A dificuldade e' um grupo de radios, e nao um <select>.
@@ -72,7 +81,10 @@ export class Screens {
 
   ajustes: Ajustes = { ...PADRAO };
 
+  /** AMISTOSO no menu: contra a CPU sem nome, na dificuldade escolhida. */
   aoJogar: (() => void) | null = null;
+  /** JOGAR NOVAMENTE no fim do amistoso: o mesmo adversario de antes. */
+  aoJogarDeNovo: (() => void) | null = null;
   aoContinuar: (() => void) | null = null;
   aoSair: (() => void) | null = null;
   aoMudarAjustes: ((ajustes: Ajustes) => void) | null = null;
@@ -89,13 +101,21 @@ export class Screens {
   /** Saiu da tela do circuito pro menu principal. */
   aoVoltarDoCircuito: (() => void) | null = null;
 
+  /** Abriu a tela de adversarios, pelo menu. */
+  aoAbrirElenco: (() => void) | null = null;
+  aoVoltarDoElenco: (() => void) | null = null;
+  /** DESAFIAR na ficha: amistoso contra aquele personagem. */
+  aoDesafiar: ((p: Personagem) => void) | null = null;
+
   constructor() {
     this.carregar();
 
     elemento('btn-jogar').addEventListener('click', () => this.aoJogar?.());
     elemento('btn-voltar').addEventListener('click', () => this.aoContinuar?.());
     elemento('btn-sair').addEventListener('click', () => this.aoSair?.());
-    elemento('btn-denovo').addEventListener('click', () => this.aoJogar?.());
+    elemento('btn-denovo').addEventListener('click', () => this.aoJogarDeNovo?.());
+    elemento('btn-adversarios').addEventListener('click', () => this.aoAbrirElenco?.());
+    elemento('btn-elenco-voltar').addEventListener('click', () => this.aoVoltarDoElenco?.());
 
     elemento('btn-circuito').addEventListener('click', () => this.aoAbrirCircuito?.());
     elemento('btn-circuito-voltar').addEventListener('click', () => this.aoVoltarDoCircuito?.());
@@ -170,7 +190,7 @@ export class Screens {
    * qualquer esqueca de desligar.
    */
   private sincronizarVeu(): void {
-    const aberta = [this.menu, this.pausa, this.fim, this.circuito, this.chave]
+    const aberta = [this.menu, this.pausa, this.fim, this.circuito, this.chave, this.elenco]
       .some((el) => !el.classList.contains('hidden'));
     document.body.classList.toggle('tela-aberta', aberta);
 
@@ -201,8 +221,8 @@ export class Screens {
     elemento('btn-sair').textContent = noCircuito ? 'DESISTIR (CONTA COMO DERROTA)' : 'SAIR PRO MENU';
   }
 
-  mostrarFim(vencedorEhVoce: boolean, home: number, away: number): void {
-    this.tituloDoFim.textContent = vencedorEhVoce ? 'VOCE VENCEU' : 'CPU VENCEU';
+  mostrarFim(vencedorEhVoce: boolean, home: number, away: number, adversario = 'CPU'): void {
+    this.tituloDoFim.textContent = vencedorEhVoce ? 'VOCE VENCEU' : `${adversario} VENCEU`;
     this.tituloDoFim.classList.toggle('away', !vencedorEhVoce);
     this.tituloDoFim.classList.remove('campeao');
     this.placarDoFim.textContent = `PLACAR FINAL ${home} x ${away}`;
@@ -278,13 +298,20 @@ export class Screens {
     this.sincronizarVeu();
   }
 
-  mostrarChave(visivel: boolean, torneio?: Torneio): void {
+  mostrarChave(visivel: boolean, torneio?: Torneio, carreira?: Carreira): void {
     if (visivel && torneio) {
-      desenharChave(this.chaveArvore, this.chaveProximo, this.chaveTitulo, this.chaveRodada, torneio);
+      desenharChave(this.chaveArvore, this.chaveProximo, this.chaveTitulo, this.chaveRodada, torneio, carreira);
       // Sem adversario (campeao ou eliminado) nao ha' partida pra jogar.
       elemento('btn-chave-jogar').classList.toggle('hidden', adversarioAtual(torneio) === null);
     }
     this.chave.classList.toggle('hidden', !visivel);
+    this.sincronizarVeu();
+  }
+
+  /** A tela ADVERSARIOS. A carreira entra pro retrospecto de cada ficha. */
+  mostrarElenco(visivel: boolean, carreira?: Carreira): void {
+    if (visivel && carreira) this.telaElenco.mostrar(carreira);
+    this.elenco.classList.toggle('hidden', !visivel);
     this.sincronizarVeu();
   }
 

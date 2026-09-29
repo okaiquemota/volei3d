@@ -1,17 +1,21 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { AI_SKILL, type AiSkill } from '../src/config';
-import { habilidadeDe } from '../src/match/habilidade';
+import { AI_SKILL, ATRIBUTO, type AiSkill } from '../src/config';
+import { CORPO_PADRAO, FONTE, fichaDe } from '../src/match/habilidade';
+import { ATRIBUTOS, type Atributo, type Notas } from '../src/match/personagens';
 
 /**
  * O que estes testes protegem:
  *
- * Os tres presets foram afinados a mao e medidos contra a quadra rodando. A
- * forca de um adversario do circuito tem que CAIR EXATAMENTE neles nos pontos
- * 0, 0,5 e 1 — senao o "adversario normal" do circuito joga diferente do
- * "normal" do amistoso, e ninguem sabe por que.
+ * Os tres presets foram afinados a mao e medidos contra a quadra rodando. Uma
+ * ficha de personagem tem que CAIR EXATAMENTE neles nas notas 1, 5 e 10 —
+ * senao o "adversario 5 em tudo" joga diferente da CPU normal do amistoso, e
+ * o elenco inteiro sai desafinado sem ninguem saber por que.
  */
+
+const tudo = (nota: number): Notas =>
+  Object.fromEntries(ATRIBUTOS.map((a) => [a, nota])) as Notas;
 
 const igual = (a: AiSkill, b: AiSkill): void => {
   for (const k of Object.keys(b) as Array<keyof AiSkill>) {
@@ -19,37 +23,81 @@ const igual = (a: AiSkill, b: AiSkill): void => {
   }
 };
 
-test('nos pontos 0, 0,5 e 1 a forca E o preset', () => {
-  igual(habilidadeDe(0), AI_SKILL.facil);
-  igual(habilidadeDe(0.5), AI_SKILL.normal);
-  igual(habilidadeDe(1), AI_SKILL.dificil);
+test('nas notas 1, 5 e 10 a ficha E o preset, e o corpo de 5 e o de sempre', () => {
+  igual(fichaDe(tudo(1)).habilidade, AI_SKILL.facil);
+  igual(fichaDe(tudo(5)).habilidade, AI_SKILL.normal);
+  igual(fichaDe(tudo(10)).habilidade, AI_SKILL.dificil);
+
+  assert.deepEqual(fichaDe(tudo(5)).corpo, CORPO_PADRAO);
+  assert.deepEqual(fichaDe(tudo(1)).corpo, { velocidade: ATRIBUTO.velocidade[0], pulo: ATRIBUTO.pulo[0] });
+  assert.deepEqual(fichaDe(tudo(10)).corpo, { velocidade: ATRIBUTO.velocidade[2], pulo: ATRIBUTO.pulo[2] });
 });
 
-test('a forca fica presa entre os extremos medidos', () => {
-  igual(habilidadeDe(-3), AI_SKILL.facil);
-  igual(habilidadeDe(7), AI_SKILL.dificil);
+test('a nota fica presa entre 1 e 10', () => {
+  igual(fichaDe(tudo(-3)).habilidade, AI_SKILL.facil);
+  igual(fichaDe(tudo(40)).habilidade, AI_SKILL.dificil);
 });
 
 /**
- * Mais forca nunca piora nada.
+ * Nenhuma nota enfeite.
  *
- * Cada campo tem um sentido: reacao e erros CAEM com a forca, chance de cortar
- * e defesa SOBEM. Se algum campo andasse ao contrario no meio da rampa, um
- * adversario "mais forte" poderia errar mais — e o circuito ficaria mais facil
- * justo na final.
+ * Um atributo que nao mexe em nada seria o pior tipo de mentira da ficha: o
+ * jogador escolhe desafiar o VELOCISTA pela velocidade, e ela nao existe.
  */
-test('mais forca nunca piora nenhum atributo', () => {
-  const sentido = (k: keyof AiSkill): number =>
-    Math.sign(AI_SKILL.dificil[k] - AI_SKILL.facil[k]);
+test('toda nota mexe em alguma coisa', () => {
+  for (const a of ATRIBUTOS) {
+    const baixo = fichaDe({ ...tudo(5), [a]: 1 });
+    const alto = fichaDe({ ...tudo(5), [a]: 10 });
+    assert.notDeepEqual(baixo, alto, `${a} nao muda nada na quadra`);
+  }
+});
 
-  for (let f = 0; f < 1; f += 0.05) {
-    const antes = habilidadeDe(f);
-    const depois = habilidadeDe(f + 0.05);
-    for (const k of Object.keys(antes) as Array<keyof AiSkill>) {
-      const s = sentido(k);
-      if (s === 0) continue;
-      assert.ok((depois[k] - antes[k]) * s >= -1e-9,
-        `${k} anda ao contrario entre ${f.toFixed(2)} e ${(f + 0.05).toFixed(2)}`);
+/**
+ * E cada nota mexe SO' no que e' dela.
+ *
+ * Subir a forca de alguem nao pode deixar ele mais rapido ou mais preciso. Se
+ * deixasse, a ficha diria uma coisa e a quadra outra.
+ */
+test('cada nota mexe so no que e dela', () => {
+  const base = fichaDe(tudo(5));
+  for (const a of ATRIBUTOS) {
+    const mexido = fichaDe({ ...tudo(5), [a]: 9 });
+    for (const campo of Object.keys(FONTE) as Array<keyof AiSkill>) {
+      if (FONTE[campo] === a) continue;
+      assert.equal(mexido.habilidade[campo], base.habilidade[campo], `${a} mexeu em ${campo}`);
+    }
+    if (a !== 'velocidade') assert.equal(mexido.corpo.velocidade, base.corpo.velocidade, `${a} mexeu na corrida`);
+    if (a !== 'pulo') assert.equal(mexido.corpo.pulo, base.corpo.pulo, `${a} mexeu no pulo`);
+  }
+});
+
+/**
+ * Nota mais alta nunca piora nada.
+ *
+ * Cada campo tem um sentido: reacao e erros CAEM, forca, defesa e chance de
+ * cortar SOBEM. Se algum andasse ao contrario no meio da escala, subir a nota
+ * de alguem poderia deixar ele pior — e o personagem "10 em reflexo" reagiria
+ * mais devagar que o de 8.
+ */
+test('nota mais alta nunca piora nenhum numero', () => {
+  const sentido = (k: keyof AiSkill): number => Math.sign(AI_SKILL.dificil[k] - AI_SKILL.facil[k]);
+
+  for (const a of ATRIBUTOS) {
+    for (let nota = 1; nota < 10; nota++) {
+      const antes = fichaDe({ ...tudo(5), [a]: nota });
+      const depois = fichaDe({ ...tudo(5), [a]: nota + 1 });
+      for (const k of Object.keys(FONTE) as Array<keyof AiSkill>) {
+        const s = sentido(k);
+        assert.ok((depois.habilidade[k] - antes.habilidade[k]) * s >= -1e-9,
+          `${k} anda ao contrario com ${a} entre ${nota} e ${nota + 1}`);
+      }
+      assert.ok(depois.corpo.velocidade >= antes.corpo.velocidade);
+      assert.ok(depois.corpo.pulo >= antes.corpo.pulo);
     }
   }
+});
+
+test('a tabela FONTE so aponta pra atributos que existem', () => {
+  const existentes = new Set<Atributo>(ATRIBUTOS);
+  for (const [campo, a] of Object.entries(FONTE)) assert.ok(existentes.has(a), `${campo} aponta pra ${a}`);
 });

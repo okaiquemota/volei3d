@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ATHLETE, MERGULHO } from '../config';
 import { damp, dampFactor } from '../core/math';
+import { CORPO_PADRAO, type Corpo } from '../match/habilidade';
 
 const _alvo = new THREE.Vector3();
 const _limitado = new THREE.Vector3();
@@ -48,7 +49,21 @@ export class Motor {
   /** 0 de pe', 1 deitado. E' so' visual, e por isso e' amaciado. */
   private deitado = 0;
 
+  /**
+   * Quanto este corpo corre e pula.
+   *
+   * Era `ATHLETE` direto, igual pra todo mundo. Virou campo porque os
+   * personagens do circuito tem corpo proprio — o VELOCISTA corre mais, o
+   * ATACANTE pula mais — e o motor e' o unico que sabe usar esses numeros.
+   * Voce e toda CPU sem nome ficam no padrao, que e' o `ATHLETE` de sempre.
+   */
+  private corpo: Corpo = { ...CORPO_PADRAO };
+
   constructor(private limitarArea: LimitarArea) {}
+
+  definirCorpo(corpo: Corpo): void {
+    this.corpo = { ...corpo };
+  }
 
   /** Direcao desejada em espaco de MUNDO (ja' relativa a' camera). */
   moverPara(direcao: THREE.Vector3): void {
@@ -175,7 +190,7 @@ export class Motor {
      * viraria o jeito normal de andar.
      */
     const controlando = this.livre;
-    _alvo.copy(controlando ? this.direcaoDesejada : _ZERO).multiplyScalar(ATHLETE.moveSpeed);
+    _alvo.copy(controlando ? this.direcaoDesejada : _ZERO).multiplyScalar(this.corpo.velocidade);
 
     const taxa = this.voando ? MERGULHO.arrastoNoAr
       : this.tempoDeLevantar > 0 ? MERGULHO.arrastoNoChao
@@ -191,7 +206,7 @@ export class Motor {
     // Coyote time: o pulo pedido logo depois de sair do chao ainda vale. E' o
     // que separa "pulei tarde" de "o jogo comeu meu pulo".
     if (this.pediuPulo && this.livre && this.tempoForaDoChao <= ATHLETE.coyoteTime) {
-      this.velocidadeVertical = Math.sqrt(2 * ATHLETE.gravity * ATHLETE.jumpHeight);
+      this.velocidadeVertical = Math.sqrt(2 * ATHLETE.gravity * this.corpo.pulo);
       this.tempoForaDoChao = ATHLETE.coyoteTime + 1;
       this.noChao = false;
     }

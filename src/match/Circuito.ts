@@ -1,4 +1,5 @@
 import { MATCH } from '../config';
+import { elencoDaEtapa, geral, nivel, personagemPorId } from './personagens';
 
 /**
  * O CIRCUITO: tres torneios em escada, e a carreira de quem joga eles.
@@ -35,9 +36,6 @@ interface DefinicaoDaEtapa {
    */
   local: Local;
   onde: string;
-  /** Forca do adversario mais fraco e do mais forte da chave. Ver `habilidadeDe`. */
-  forcaMin: number;
-  forcaMax: number;
   /** Pontos de ranking por partida vencida, e o bonus de levantar a taca. */
   porVitoria: number;
   porTitulo: number;
@@ -46,42 +44,31 @@ interface DefinicaoDaEtapa {
 /**
  * A escada.
  *
- * As faixas de forca SE SOBREPOEM de proposito: o favorito do municipal (0,40)
- * e' mais forte que o azarao do estadual (0,35). Sem sobreposicao, subir de
- * etapa seria um degrau — o primeiro jogo do estadual ficaria sempre mais
- * dificil que a final do municipal, e ganhar a final nao ensinaria nada sobre
- * o que vem depois.
- *
- * O mundial termina em 1,0, que e' o `dificil` inteiro. A final dele e' o
- * adversario mais forte que este jogo sabe fazer.
+ * Quem joga em cada etapa, e o quanto cada um joga, nao mora aqui: e' o
+ * ELENCO (`personagens.ts`). Aqui fica so' o que e' do torneio — onde, e
+ * quanto vale.
  */
 export const DEFINICAO: Readonly<Record<Etapa, DefinicaoDaEtapa>> = {
-  municipal: { nome: 'MUNICIPAL', local: 'areia', onde: 'NA PRAIA', forcaMin: 0.05, forcaMax: 0.40, porVitoria: 10, porTitulo: 30 },
-  estadual: { nome: 'ESTADUAL', local: 'quadra', onde: 'NO GINASIO', forcaMin: 0.35, forcaMax: 0.70, porVitoria: 25, porTitulo: 80 },
-  mundial: { nome: 'MUNDIAL', local: 'estadio', onde: 'NO ESTADIO', forcaMin: 0.65, forcaMax: 1.00, porVitoria: 60, porTitulo: 200 },
+  municipal: { nome: 'MUNICIPAL', local: 'areia', onde: 'NA PRAIA', porVitoria: 10, porTitulo: 30 },
+  estadual: { nome: 'ESTADUAL', local: 'quadra', onde: 'NO GINASIO', porVitoria: 25, porTitulo: 80 },
+  mundial: { nome: 'MUNDIAL', local: 'estadio', onde: 'NO ESTADIO', porVitoria: 60, porTitulo: 200 },
 };
 
-/**
- * Os adversarios. Inventados, e com apelido de praia.
- *
- * Nome de atleta de verdade aqui seria colocar gente real perdendo pra um
- * boneco de capacete. Vinte e quatro nomes pra sete vagas por torneio: da'
- * pra jogar os tres sem repetir quase ninguem.
- */
-const NOMES = [
-  'TATU', 'BIA REDE', 'NANDO SAQUE', 'KIKO MANCHETE', 'LU BLOQUEIO', 'DUDA SOL',
-  'TITO ONDA', 'RAFA COCO', 'NINA PEIXINHO', 'BETO MARE', 'JUCA DUNA', 'LIA CONCHA',
-  'DUDU FAROL', 'PEPE SALINA', 'MARI CORAL', 'GABI SIRI', 'ZECA JANGADA', 'TUCA MAROLA',
-  'BRUNA BOIA', 'NICO BRISA', 'LECA AREIA', 'VINI RECIFE', 'DANI CAJU', 'GUTO VENTO',
-] as const;
+/** Vagas de CPU numa chave de oito. O elenco de cada etapa precisa de tantas. */
+export const VAGAS_DA_CPU = 7;
 
 export const VOCE_ID = 'voce';
 
+/**
+ * Um lugar na chave.
+ *
+ * Da CPU, o `id` e' o do PERSONAGEM, e a ficha dele nao e' copiada pra ca': e'
+ * lida do elenco na hora. Assim um ajuste de nota vale ate' pro torneio que ja'
+ * estava salvo no meio — e o save continua pequeno.
+ */
 export interface Jogador {
   id: string;
   nome: string;
-  /** De 0 a 1. Sem sentido pra voce: sua forca e' a sua mao. */
-  forca: number;
 }
 
 export interface Confronto {
@@ -113,6 +100,19 @@ export interface Carreira {
   sequencia: number;
   melhorSequencia: number;
   liberadas: Etapa[];
+  /**
+   * Voce contra cada personagem, pelo id: vitorias e derrotas.
+   *
+   * E' o que faz um nome virar rival. Perder pra BIA REDE na semifinal e
+   * reencontrar ela no torneio seguinte com "1 DERROTA" na ficha e' outra
+   * partida — a mesma IA, com historia.
+   */
+  confrontos: Record<string, Retrospecto>;
+}
+
+export interface Retrospecto {
+  v: number;
+  d: number;
 }
 
 export const NOMES_DAS_RODADAS = ['QUARTAS DE FINAL', 'SEMIFINAL', 'FINAL'] as const;
@@ -128,6 +128,7 @@ export function novaCarreira(): Carreira {
     sequencia: 0,
     melhorSequencia: 0,
     liberadas: ['municipal'],
+    confrontos: {},
   };
 }
 
@@ -150,8 +151,10 @@ export function podeJogar(c: Carreira, etapa: Etapa): boolean {
 /**
  * Monta a chave de oito.
  *
- * Voce e' o cabeca de chave 1, e os sete da CPU entram por forca, do 2 (o mais
- * forte) ao 8 (o mais fraco). O cruzamento e' o de chave de verdade:
+ * Sete personagens do elenco da etapa, sorteados pela sorte do proprio
+ * torneio, e ordenados pelo GERAL: voce e' o cabeca de chave 1, e os sete
+ * entram do 2 (o mais forte) ao 8 (o mais fraco). O cruzamento e' o de chave de
+ * verdade:
  *
  *   1x8  4x5  |  3x6  2x7
  *
@@ -161,30 +164,43 @@ export function podeJogar(c: Carreira, etapa: Etapa): boolean {
  * regra especial pra isso.
  */
 export function novoTorneio(etapa: Etapa, semente: number): Torneio {
-  const def = DEFINICAO[etapa];
   const t: Torneio = { etapa, rodadas: [], rodada: 0, eliminado: false, campeao: false, sorte: semente >>> 0 };
 
-  // Sete nomes do pool, embaralhados pela sorte do proprio torneio.
-  const pool = [...NOMES];
+  // Embaralha o elenco da etapa pela sorte do torneio e pega sete.
+  const pool = elencoDaEtapa(etapa);
+  if (pool.length < VAGAS_DA_CPU) {
+    throw new Error(`o elenco do ${etapa} tem ${pool.length} personagens, e a chave precisa de ${VAGAS_DA_CPU}`);
+  }
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(sortear(t) * (i + 1));
     [pool[i], pool[j]] = [pool[j]!, pool[i]!];
   }
 
-  const voce: Jogador = { id: VOCE_ID, nome: 'VOCE', forca: 0 };
-  // Cabeca 2 e' o mais forte (forcaMax), cabeca 8 o mais fraco (forcaMin).
-  const cpu: Jogador[] = pool.slice(0, 7).map((nome, i) => ({
-    id: `cpu-${etapa}-${i}`,
-    nome,
-    forca: def.forcaMax - (def.forcaMax - def.forcaMin) * (i / 6),
-  }));
-  const cabeca = [voce, ...cpu];   // cabeca[0] = 1, cabeca[7] = 8
+  // Cabeca 2 e' o mais forte, cabeca 8 o mais fraco. O desempate pelo id so'
+  // existe pra ordem nao depender do embaralhamento quando dois empatam.
+  const escolhidos = pool.slice(0, VAGAS_DA_CPU)
+    .sort((a, b) => geral(b) - geral(a) || a.id.localeCompare(b.id));
+
+  const voce: Jogador = { id: VOCE_ID, nome: 'VOCE' };
+  const cabeca: Jogador[] = [voce, ...escolhidos.map((p) => ({ id: p.id, nome: p.nome }))];
 
   const par = (x: number, y: number): Confronto =>
     ({ a: cabeca[x - 1]!, b: cabeca[y - 1]!, vencedor: null, placar: null });
 
   t.rodadas.push([par(1, 8), par(4, 5), par(3, 6), par(2, 7)]);
   return t;
+}
+
+/**
+ * O nivel de um jogador da chave, de 0 a 1, lido do elenco.
+ *
+ * Um id que o elenco nao conhece (personagem apagado depois do save) conta
+ * como mediano, e nao derruba a simulacao — mas o save ja' descarta torneio
+ * assim ao carregar, entao isto e' so' a rede de baixo.
+ */
+function nivelDe(j: Jogador): number {
+  const p = personagemPorId(j.id);
+  return p ? nivel(p) : 0.5;
 }
 
 /** Contra quem voce joga agora. Null se o torneio acabou pra voce. */
@@ -198,20 +214,22 @@ export function adversarioAtual(t: Torneio): Jogador | null {
 /**
  * Um jogo entre dois da CPU, decidido sem jogar.
  *
- * A chance e' logistica na diferenca de forca, como num rating Elo: iguais tem
- * 50%, e 0,3 de diferenca da' uns 90% pro mais forte. Tem que haver ZEBRA —
+ * A chance e' logistica na diferenca de nivel (o GERAL levado a 0-1), como num
+ * rating Elo: iguais tem 50%, e 0,3 de diferenca — 2,7 pontos de GERAL — da'
+ * uns 90% pro mais forte. Tem que haver ZEBRA —
  * uma chave onde o favorito sempre passa e' uma chave previsivel desde o
  * sorteio — mas nao a ponto de a final ser loteria.
  */
 function simular(t: Torneio, c: Confronto): void {
-  const chanceDeA = 1 / (1 + Math.pow(10, (c.b.forca - c.a.forca) / 0.3));
+  const nivelA = nivelDe(c.a);
+  const nivelB = nivelDe(c.b);
+  const chanceDeA = 1 / (1 + Math.pow(10, (nivelB - nivelA) / 0.3));
   const aGanha = sortear(t) < chanceDeA;
   const vence = aGanha ? c.a : c.b;
-  const perde = aGanha ? c.b : c.a;
 
   // O placar e' so' pra chave ter cara de chave: quanto maior a diferenca,
   // mais largo.
-  const folga = Math.abs(vence.forca - perde.forca);
+  const folga = Math.abs(nivelA - nivelB);
   const dele = Math.round(Math.min(MATCH.pointsToWin - 2, Math.max(3, 12 - folga * 14 + sortear(t) * 3)));
   c.vencedor = vence.id;
   c.placar = [MATCH.pointsToWin, dele];
@@ -256,6 +274,8 @@ export function registrarPartida(
   // A carreira anda com o que aconteceu em quadra, venca ou perca.
   c.pontosFeitos += placar.voce;
   c.pontosSofridos += placar.ele;
+  const contra = c.confrontos[eleId] ?? { v: 0, d: 0 };
+  c.confrontos[eleId] = voceVenceu ? { v: contra.v + 1, d: contra.d } : { v: contra.v, d: contra.d + 1 };
 
   // Os outros jogos da rodada.
   for (const conf of rodada) if (conf !== meu) simular(t, conf);

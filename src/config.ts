@@ -514,6 +514,15 @@ export interface AiSkill {
    * existir carga: o jogador ganhou uma alavanca, o adversario nao mudou.
    */
   attackForce: number;
+  /**
+   * Forca do saque, de 0 a 1: e' a carga que a IA nao segura.
+   *
+   * Nos tres presets e' igual a `attackForce` — a IA sempre sacou com a forca
+   * do ataque, e separar os dois nao mudou nada nela. Separado existe pro
+   * atributo SAQUE dos personagens: o sacador de viagem que nao sabe cortar e o
+   * atacante que saca de balao sao dois adversarios diferentes.
+   */
+  forcaDoSaque: number;
   /** Erro de posicionamento ao perseguir a bola, em metros. */
   positionError: number;
   /** Erro de mira ao devolver, em metros no chao. */
@@ -562,10 +571,39 @@ export interface AiSkill {
 }
 
 export const AI_SKILL: Record<'facil' | 'normal' | 'dificil', AiSkill> = {
-  facil: { reactionDelay: 0.34, positionError: 1.15, aimError: 2.0, spikeChance: 0.2, serveDelay: 1.4, attackForce: 0.15, chanceDeArmar: 0.35, defesa: 0, margemDeFora: 0.85 },
-  normal: { reactionDelay: 0.18, positionError: 0.55, aimError: 1.1, spikeChance: 0.45, serveDelay: 1.1, attackForce: 0.3, chanceDeArmar: 0.7, defesa: 0.2, margemDeFora: 0.4 },
-  dificil: { reactionDelay: 0.08, positionError: 0.22, aimError: 0.5, spikeChance: 0.7, serveDelay: 0.8, attackForce: 0.55, chanceDeArmar: 0.9, defesa: 0.4, margemDeFora: 0.15 },
+  facil: { reactionDelay: 0.34, positionError: 1.15, aimError: 2.0, spikeChance: 0.2, serveDelay: 1.4, attackForce: 0.15, forcaDoSaque: 0.15, chanceDeArmar: 0.35, defesa: 0, margemDeFora: 0.85 },
+  normal: { reactionDelay: 0.18, positionError: 0.55, aimError: 1.1, spikeChance: 0.45, serveDelay: 1.1, attackForce: 0.3, forcaDoSaque: 0.3, chanceDeArmar: 0.7, defesa: 0.2, margemDeFora: 0.4 },
+  dificil: { reactionDelay: 0.08, positionError: 0.22, aimError: 0.5, spikeChance: 0.7, serveDelay: 0.8, attackForce: 0.55, forcaDoSaque: 0.55, chanceDeArmar: 0.9, defesa: 0.4, margemDeFora: 0.15 },
 };
+
+/**
+ * Os ATRIBUTOS dos personagens: notas de 1 a 10, e o que elas mexem no corpo.
+ *
+ * Cada nota vira numero de jogo por tres ancoras — o valor na nota 1, na 5 e
+ * na 10 — e interpolacao reta entre elas. Pra tudo que e' cabeca (reflexo,
+ * mira, leitura...) as ancoras SAO os presets de cima: 1 e' o `facil`, 5 o
+ * `normal`, 10 o `dificil`, campo por campo. Um personagem com 5 em tudo joga
+ * exatamente como a CPU no normal, e ha' teste pra isso — e' o que impede um
+ * elenco inteiro de sair desafinado sem ninguem notar.
+ *
+ * O CORPO nao tinha preset, porque ate' aqui todo mundo corria e pulava igual.
+ * As ancoras abaixo tem o 5 no valor de sempre (o seu, e o de toda CPU), e os
+ * extremos a uns 14% (corrida) e 27% (pulo) pra cada lado:
+ *
+ * - corrida: 7,4 m/s cobre a meia quadra (8 m) em 1,1 s; 5,6 m/s, em 1,4 s. A
+ *   diferenca e' a de chegar ou nao numa largada no canto.
+ * - pulo: a cortada da IA precisa da bola a 1,75 m acima dos pes, no ar. Com
+ *   0,62 m de pulo o contato fica 23 cm mais baixo que o normal e a rede come
+ *   parte da batida; com 1,08, ele bate de cima pra baixo.
+ */
+export const ATRIBUTO = {
+  minimo: 1,
+  maximo: 10,
+  /** Corrida, em m/s, nas notas 1, 5 e 10. */
+  velocidade: [5.6, ATHLETE.moveSpeed, 7.4],
+  /** Altura do pulo, em metros, nas notas 1, 5 e 10. */
+  pulo: [0.62, ATHLETE.jumpHeight, 1.08],
+} as const;
 
 export const AI = {
   /** Distancia ate' o alvo em que a IA para de correr. */

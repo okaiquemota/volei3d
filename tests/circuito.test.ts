@@ -3,8 +3,12 @@ import assert from 'node:assert/strict';
 
 import {
   DEFINICAO, ETAPAS, VOCE_ID, adversarioAtual, novaCarreira, novoTorneio, podeJogar,
-  registrarPartida, type Carreira, type Torneio,
+  registrarPartida, type Carreira, type Jogador, type Torneio,
 } from '../src/match/Circuito';
+import { geral, personagemPorId } from '../src/match/personagens';
+
+/** O GERAL de quem esta' na chave, lido do elenco. */
+const geralDe = (j: Jogador): number => geral(personagemPorId(j.id)!);
 
 /**
  * O que estes testes protegem:
@@ -52,8 +56,9 @@ test('voce estreia contra o mais fraco e a forca sobe rodada a rodada', () => {
   for (const etapa of ETAPAS) {
     const t = novoTorneio(etapa, 7);
     const estreia = adversarioAtual(t)!;
-    assert.ok(Math.abs(estreia.forca - DEFINICAO[etapa].forcaMin) < 1e-9,
-      `${etapa}: estreia contra forca ${estreia.forca}, esperado ${DEFINICAO[etapa].forcaMin}`);
+    const daCpu = t.rodadas[0]!.flatMap((c) => [c.a, c.b]).filter((j) => j.id !== VOCE_ID);
+    const maisFraco = Math.min(...daCpu.map(geralDe));
+    assert.equal(geralDe(estreia), maisFraco, `${etapa}: a estreia nao e contra o mais fraco da chave`);
 
     // Da' pra testar a rampa sem depender de zebra: a MEDIA das forcas que
     // voce enfrenta, em muitas chaves, tem que subir a cada rodada.
@@ -63,13 +68,54 @@ test('voce estreia contra o mais fraco e a forca sobe rodada a rodada', () => {
       let torneio = novoTorneio(etapa, s);
       let carreira = novaCarreira();
       for (let r = 0; r < 3; r++) {
-        soma[r]! += adversarioAtual(torneio)!.forca;
+        soma[r]! += geralDe(adversarioAtual(torneio)!);
         if (r < 2) ({ torneio, carreira } = registrarPartida(torneio, carreira, true, GANHEI));
       }
     }
     const [q, sf, f] = soma.map((x) => x / N) as [number, number, number];
-    assert.ok(q < sf && sf < f, `${etapa}: forca media ${q.toFixed(2)} / ${sf.toFixed(2)} / ${f.toFixed(2)} nao sobe`);
+    assert.ok(q < sf && sf < f, `${etapa}: geral medio ${q.toFixed(2)} / ${sf.toFixed(2)} / ${f.toFixed(2)} nao sobe`);
   }
+});
+
+/** A chave de uma etapa so' tem gente daquela etapa, e gente que o elenco conhece. */
+test('a chave sai do elenco da etapa', () => {
+  for (const etapa of ETAPAS) {
+    for (let s = 0; s < 30; s++) {
+      for (const c of novoTorneio(etapa, s).rodadas[0]!) {
+        for (const j of [c.a, c.b]) {
+          if (j.id === VOCE_ID) continue;
+          const p = personagemPorId(j.id);
+          assert.ok(p, `${j.id} nao existe no elenco`);
+          assert.equal(p.etapa, etapa, `${p.nome} e do ${p.etapa}, caiu no ${etapa}`);
+          assert.equal(j.nome, p.nome);
+        }
+      }
+    }
+  }
+});
+
+/**
+ * O retrospecto: o que faz um nome virar rival.
+ *
+ * Conta so' as SUAS partidas, e contra quem voce jogou de verdade — os jogos
+ * simulados da CPU nao entram.
+ */
+test('cada partida sua entra no retrospecto contra aquele personagem', () => {
+  let torneio = novoTorneio('estadual', 31);
+  let carreira = novaCarreira();
+  const primeiro = adversarioAtual(torneio)!;
+  ({ torneio, carreira } = registrarPartida(torneio, carreira, true, GANHEI));
+  const segundo = adversarioAtual(torneio)!;
+  ({ carreira } = registrarPartida(torneio, carreira, false, PERDI));
+
+  assert.deepEqual(carreira.confrontos, {
+    [primeiro.id]: { v: 1, d: 0 },
+    [segundo.id]: { v: 0, d: 1 },
+  });
+
+  // Um torneio novo com o mesmo adversario soma, nao recomeca.
+  ({ carreira } = registrarPartida(novoTorneio('estadual', 31), carreira, false, PERDI));
+  assert.deepEqual(carreira.confrontos[primeiro.id], { v: 1, d: 1 });
 });
 
 test('ganhar tres vezes e ser campeao, e cada rodada e um adversario novo', () => {
@@ -186,7 +232,7 @@ test('o favorito ganha quase sempre, mas nao sempre', () => {
     const { torneio } = registrarPartida(novoTorneio('municipal', s), novaCarreira(), true, GANHEI);
     for (const c of torneio.rodadas[0]!) {
       if (c.a.id === VOCE_ID) continue;
-      const favorito = c.a.forca >= c.b.forca ? c.a : c.b;
+      const favorito = geralDe(c.a) >= geralDe(c.b) ? c.a : c.b;
       if (c.vencedor === favorito.id) favoritoPassou++;
       total++;
     }

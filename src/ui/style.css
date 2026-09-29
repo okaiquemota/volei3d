@@ -995,30 +995,173 @@ body.cenario-quadra .so-praia { display: none; }
 .confronto .lado.voce .n { color: var(--home); font-weight: 800; }
 .confronto.vazio { opacity: 0.35; }
 
-/* O proximo adversario: o cartao que diz o que vem agora. */
+/* O proximo adversario: o rotulo, e a ficha dele embaixo. */
 .proximo {
   display: grid;
   justify-items: center;
-  gap: 0.35rem;
+  gap: 0.5rem;
   width: 100%;
-  padding: 0.9rem;
-  border: 1px solid var(--borda);
-  border-radius: var(--raio);
-  background: rgba(217, 77, 56, 0.08);
 }
 .proximo .rotulo { font-size: 0.7rem; letter-spacing: 0.14em; opacity: 0.65; }
 .proximo .quem { font-size: 1.5rem; font-weight: 800; letter-spacing: 0.08em; color: var(--away); }
-.proximo .onde { font-size: 0.78rem; opacity: 0.7; letter-spacing: 0.06em; }
 
-/* Nivel em cinco pontos. Le' mais rapido que um numero de 0 a 1. */
-.nivel { display: flex; gap: 0.3rem; }
-.nivel i {
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 50%;
-  background: rgba(232, 230, 227, 0.18);
+/* ======================================================================
+   PERSONAGENS: a ficha, e a tela ADVERSARIOS
+   ====================================================================== */
+
+/*
+ * A ficha.
+ *
+ * A borda da esquerda e' o colete do personagem: e' a cor que se ve' do outro
+ * lado da rede, e amarrar as duas e' o que faz a ficha e o boneco serem a
+ * mesma pessoa.
+ */
+.ficha {
+  display: grid;
+  gap: 0.9rem;
+  width: 100%;
+  padding: 1rem 1.1rem;
+  text-align: left;
+  border: 1px solid var(--borda);
+  border-left: 4px solid var(--cor, var(--away));
+  border-radius: var(--raio);
+  background: rgba(255, 255, 255, 0.035);
 }
-.nivel i.cheio { background: var(--away); }
+.ficha-cabeca {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.9rem;
+}
+.boneco { width: 3.2rem; height: 5.1rem; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45)); }
+.ficha-quem { display: grid; gap: 0.25rem; }
+.ficha-estilo { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.16em; opacity: 0.6; }
+.ficha-nome { margin: 0; font-size: 1.35rem; font-weight: 800; letter-spacing: 0.08em; line-height: 1.1; }
+.ficha-frase { margin: 0; font-size: 0.8rem; line-height: 1.35; opacity: 0.65; }
+
+/* O GERAL grande e sozinho: e' o numero que se compara de relance. */
+.ficha-geral {
+  display: grid;
+  justify-items: center;
+  padding: 0.45rem 0.75rem;
+  border-radius: var(--raio);
+  background: rgba(255, 255, 255, 0.06);
+}
+.ficha-geral b { font-size: 1.9rem; font-weight: 800; line-height: 1; }
+.ficha-geral span { margin-top: 0.2rem; font-size: 0.6rem; letter-spacing: 0.16em; opacity: 0.6; }
+
+/*
+ * As oito notas em DUAS colunas, e nunca tres.
+ *
+ * Com `auto-fit` a ficha da chave, que e' mais larga, abria tres colunas e a
+ * ordem virava "forca, saque, velocidade / pulo, reflexo...": o par corpo-cabeca
+ * se perdia. Duas colunas fixas leem igual nas duas telas; no celular, uma.
+ */
+.ficha-notas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 1.4rem;
+  margin: 0;
+}
+.nota {
+  display: grid;
+  grid-template-columns: 6.2rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+  cursor: help;
+}
+.nota dt { font-size: 0.66rem; letter-spacing: 0.12em; opacity: 0.75; }
+.nota dd { display: flex; align-items: center; gap: 0.5rem; margin: 0; }
+.nota dd b { width: 1.4rem; font-size: 0.85rem; text-align: right; color: var(--nota); }
+
+/* Quatro tons e nao um degrade: de relance, "fraco / ok / bom / elite". */
+.nota.baixa { --nota: #e0806a; }
+.nota.media { --nota: #e8c36a; }
+.nota.alta { --nota: #8fd06f; }
+.nota.elite { --nota: #45d0a0; }
+
+.barra { flex: 1; display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; }
+.barra i { height: 0.5rem; border-radius: 1px; background: rgba(232, 230, 227, 0.12); }
+.barra i.cheio { background: var(--nota); }
+
+.ficha-retrospecto { margin: 0; font-size: 0.72rem; letter-spacing: 0.1em; opacity: 0.7; }
+.ficha-retrospecto.vantagem { color: #8fd06f; opacity: 1; }
+.ficha-retrospecto.desvantagem { color: var(--alerta); opacity: 1; }
+.ficha .botao { justify-self: center; max-width: 24rem; white-space: nowrap; }
+
+/* A tela ADVERSARIOS: abas por etapa, lista a' esquerda, ficha a' direita. */
+.cartao-elenco { width: min(100%, 58rem); gap: 1.1rem; }
+
+.abas {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  width: min(100%, 30rem);
+  padding: 2px;
+  background: rgba(232, 230, 227, 0.06);
+  border: 1px solid rgba(232, 230, 227, 0.16);
+  border-radius: 5px;
+}
+.aba {
+  padding: 0.5rem 0.3rem;
+  font: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  color: var(--tinta);
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  opacity: 0.55;
+  cursor: pointer;
+}
+.aba:hover { background: rgba(232, 230, 227, 0.08); opacity: 0.85; }
+.aba[aria-selected='true'] { background: var(--home); color: #fff; opacity: 1; font-weight: 700; }
+
+.elenco-corpo {
+  display: grid;
+  grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+  width: 100%;
+}
+.elenco-lista { display: grid; gap: 0.3rem; }
+
+.item-elenco {
+  display: grid;
+  grid-template-columns: 1.1rem 0.6rem minmax(0, 1fr) auto;
+  column-gap: 0.55rem;
+  align-items: center;
+  padding: 0.45rem 0.6rem;
+  font: inherit;
+  text-align: left;
+  color: var(--tinta);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--borda);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.item-elenco .pos { grid-row: 1 / 3; font-size: 0.7rem; opacity: 0.45; }
+.item-elenco .cor { grid-row: 1 / 3; width: 0.6rem; height: 1.6rem; border-radius: 2px; }
+.item-elenco .n {
+  overflow: hidden;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.item-elenco .e { grid-column: 3; font-size: 0.6rem; letter-spacing: 0.12em; opacity: 0.5; }
+.item-elenco .g { grid-column: 4; grid-row: 1 / 3; font-size: 1.05rem; }
+.item-elenco:hover { border-color: rgba(232, 230, 227, 0.35); }
+.item-elenco[aria-pressed='true'] { border-color: var(--home); background: rgba(41, 112, 209, 0.14); }
+
+@media (max-width: 700px) {
+  .elenco-corpo { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .ficha-notas { grid-template-columns: 1fr; }
+}
 
 /* O que a partida rendeu no circuito, na tela de fim. */
 .extra {
