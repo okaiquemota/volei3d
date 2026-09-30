@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ESTADIO, COLORS, MATCH } from '../config';
+import { ESTADIO, COLORS, COURT, MATCH, REDE } from '../config';
 import { Ball } from '../ball/Ball';
 import { LigacaoDoRally, Match, type EventosDaPartida } from '../match/Match';
 import { AIPlayer } from '../players/AI';
@@ -8,6 +8,8 @@ import type { Athlete } from '../players/Athlete';
 import { Human } from '../players/Human';
 import { Court, sinalDe, type Side } from './Court';
 import { construirQuadra, type Colisores } from './buildCourt';
+import { construirRede, type RedeConstruida } from './buildRede';
+import { TecidoDaRede } from './tecidoDaRede';
 import { construirPlacas, type PlacasConstruidas } from './buildPlacas';
 import { construirTorcida, type TorcidaConstruida } from './buildTorcida';
 import { BORDA_DA_LAJE } from './encaixarQuadra';
@@ -37,6 +39,17 @@ export class Arena {
 
   /** Tudo que e' desenhado desta arena pendura aqui. */
   readonly raiz = new THREE.Group();
+
+  /**
+   * O pano da rede e o desenho dele.
+   *
+   * Fora do `desenhoDaQuadra` de proposito: aquele some quando a quadra e' de
+   * modelo, e a rede reage a' bola nos tres cenarios.
+   */
+  readonly tecido = new TecidoDaRede();
+  private readonly desenhoDaRede: RedeConstruida;
+  /** Onde cada corpo estava, em z local, no quadro anterior. Ver `encostarNaRede`. */
+  private readonly zAnterior = new WeakMap<object, number>();
 
   /** Os dois lados. Qualquer um pode ser humano ou bot. */
   home: Athlete;
@@ -89,6 +102,10 @@ export class Arena {
     this.desenhoDaQuadra = quadra.root;
     this.colisores = quadra.colisores;
     this.descartaveis.push(...quadra.descartaveis);
+
+    this.desenhoDaRede = construirRede(this.court, this.tecido);
+    this.raiz.add(this.desenhoDaRede.root);
+    this.descartaveis.push(this.desenhoDaRede);
 
     this.ball = new Ball(this.court, this.colisores);
     this.raiz.add(this.ball.mesh);
@@ -337,8 +354,68 @@ export class Arena {
     this.home.update(dt);
     this.away.update(dt);
     this.ball.update(dt);
+    this.sentirARede(dt);
     this.atualizarMarcadores();
     this.animarTorcida(dt);
+  }
+
+  /**
+   * O que encostou na rede neste quadro, passado pro pano.
+   *
+   * A bola manda a FORMA (o pano segue o afundamento que a fisica calculou) e
+   * a batida na fita manda um TRANCO. Os corpos empurram e passam a
+   * velocidade deles. Depois o pano anda sozinho — e dorme quando assenta, que
+   * e' quase sempre: a rede parada nao custa nada.
+   */
+  private sentirARede(dt: number): void {
+    const contato = this.ball.naRede;
+    if (contato.batidaNaFita !== 0) {
+      this.tecido.cutucar(contato.xDaFita, COURT.netHeight, 0.9, contato.batidaNaFita * 0.5);
+      contato.batidaNaFita = 0;
+    }
+
+    for (const atleta of [this.home, this.away]) {
+      this.encostarNaRede(atleta, atleta.posicao, !atleta.motor.noChao, dt);
+    }
+
+    this.tecido.update(dt);
+
+    // A forma da bola vem DEPOIS do passo do pano, e antes do desenho: se
+    // viesse antes, o pano relaxava a barriga no mesmo quadro e a bola
+    // aparecia 10 cm pra dentro da malha. No quadro seguinte o pano parte
+    // dessa forma, e quando a bola solta ele volta balancando.
+    if (contato.lado !== 0) this.tecido.afundar(contato.x, contato.y, contato.afundamento, -contato.lado);
+    this.desenhoDaRede.atualizar();
+  }
+
+  /**
+   * Um corpo perto da rede: tronco e cabeca, e as maos quando esta' no ar.
+   *
+   * Publico porque o banhista tambem encosta — e ele nao e' atleta de arena
+   * nenhuma; quem sabe dele e' o `Game`. `pes` e' a posicao do corpo em
+   * mundo, com y na altura dos pes (a do pulo). `quem` e' so' a chave pra
+   * lembrar onde aquele corpo estava no quadro anterior.
+   *
+   * A velocidade sai do DESLOCAMENTO entre dois quadros, e nao do motor. O
+   * motor zera a velocidade no eixo em que o corpo bate no limite — e o limite
+   * de quem joga e' justamente o vao da rede. Lida do motor, a velocidade de
+   * quem chega correndo seria zero exatamente no quadro do encontrao.
+   */
+  encostarNaRede(quem: object, pes: THREE.Vector3, noAr: boolean, dt: number): void {
+    const local = this.court.paraLocal(pes, _local);
+    const antes = this.zAnterior.get(quem);
+    this.zAnterior.set(quem, local.z);
+    if (Math.abs(local.z) > REDE.corpo.alcance || Math.abs(local.x) > REDE.meiaLargura + 0.5) return;
+
+    const lado = local.z < 0 ? -1 : 1;
+    // Um salto de posicao (entrou na quadra, voltou pro saque) nao e' encontrao.
+    const bruta = antes === undefined || dt <= 0 ? 0 : (local.z - antes) / dt;
+    const vz = Math.abs(bruta) > 12 ? 0 : REDE.corpo.repasse * bruta;
+    const { tronco, cabeca, maos } = REDE.corpo;
+
+    this.tecido.encostar(local.x, local.y + tronco.altura, local.z, tronco.raio, vz);
+    this.tecido.encostar(local.x, local.y + cabeca.altura, local.z, cabeca.raio, vz);
+    if (noAr) this.tecido.encostar(local.x, local.y + maos.altura, local.z - lado * maos.frente, maos.raio, vz);
   }
 
   /**

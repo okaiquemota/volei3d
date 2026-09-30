@@ -84,12 +84,124 @@ export const BALL = {
 export const SURFACE = {
   /** Areia: quique curto, a bola morre rapido. */
   sand: { restitution: 0.415, tangential: 0.65 },
-  /** Rede: praticamente mata a bola. */
+  /**
+   * A SAIA invisivel abaixo da rede: praticamente mata a bola.
+   *
+   * A malha e a fita nao usam mais isto — elas cedem, e moram em `REDE`.
+   */
   net: { restitution: 0.05, tangential: 0.6 },
   /** Poste: duro, devolve. */
   post: { restitution: 0.55, tangential: 0.8 },
   /** Fora do campo: so' precisa resolver o ponto. */
   out: { restitution: 0.35, tangential: 0.5 },
+} as const;
+
+/**
+ * A rede como corpo que CEDE, e nao como parede.
+ *
+ * Era uma caixa de 8 cm de espessura com restituicao 0,05: a bola batia e caia
+ * morta, de uma vez, contra um plano que nao se mexia. Rede de verdade e' pano:
+ * a bola afunda, a malha estufa, segura, e devolve a bola cansada pro lado de
+ * onde ela veio. E a fita de cima e' um cabo esticado — bola que raspa nela
+ * quica e pode cair de qualquer lado.
+ *
+ * DUAS coisas separadas moram aqui, e a separacao e' o que protege a IA:
+ *
+ * - a BOLA contra a rede e' uma conta fechada (mola + amortecedor contra o
+ *   plano da rede, e um cilindro na fita), que so' depende do estado da bola.
+ *   A previsao da IA (`preverQueda`) so' simula o voo livre, entao nada aqui
+ *   pode desencontrar dela;
+ * - o TECIDO que se ve' e' uma simulacao a parte, empurrada pela bola e pelos
+ *   corpos. Ele desenha, e nao devolve nada pra bola.
+ */
+export const REDE = {
+  /**
+   * De poste a poste, e nao so' a largura da quadra.
+   *
+   * A caixa antiga tinha os 8 m da quadra, e sobravam 70 cm de vao ate' cada
+   * poste — um buraco na altura da rede por onde a bola passava. Rede de
+   * verdade e o modelo do ginasio vao ate' o poste; o poste esta' a 4,7 m do
+   * centro, com 6 cm de raio.
+   */
+  meiaLargura: COURT.width / 2 + COURT.postOffset - COURT.postRadius - 0.04,
+
+  /**
+   * A malha contra a bola: aceleracao por metro de afundamento, e freio.
+   *
+   * MEDIDOS, e nao tirados da formula do oscilador. A conta continua (fator de
+   * amortecimento 0,7 com rigidez 1000 e freio 45) prometia 29 cm de barriga
+   * pra uma cortada de 20 m/s, e o passo de 1/100 s entregou 17: com o freio
+   * aplicado em pedacos de um centesimo, cada passo corta mais velocidade do
+   * que a exponencial cortaria. Varridos no passo de verdade, 600 e 30 dao:
+   *
+   *   24 m/s: afunda 37 cm, fica 0,16 s na malha, volta com 5% da velocidade
+   *   34 m/s: afunda 52 cm (o fundo e' 60)
+   *    8 m/s: afunda 13 cm
+   *
+   * Os 5% sao o mesmo "rede mata a bola" da caixa antiga, so' que agora com o
+   * caminho do meio — afundar, segurar e soltar.
+   */
+  rigidez: 600,
+  amortecimento: 30,
+  /** O quanto a malha segura o deslize da bola por ela, por segundo. */
+  atrito: 6,
+  /** Dali pra frente a malha nao cede mais: vira parede. */
+  afundamentoMaximo: 0.6,
+
+  /**
+   * A fita do topo, um cabo esticado: quica mais que a malha, e desvia.
+   *
+   * A bola que raspa na fita perde pouco do deslize (0,85) e ganha um quique
+   * pra cima — e' o "bola na fita" que cai do outro lado ou volta.
+   */
+  fita: { raio: 0.035, restituicao: 0.3, tangencial: 0.85 },
+
+  /** O pano que se ve'. So' desenho: nao toca na bola. */
+  tecido: {
+    /** Pontos da malha: 37 x 6 da' um a cada 25 cm por 20 cm. */
+    colunas: 37,
+    linhas: 6,
+    /**
+     * Velocidade da onda no pano, em m/s, nos dois sentidos.
+     *
+     * A FITA e a CORDA de baixo sao cabos esticados entre os postes, e cabo
+     * esticado segura pela TENSAO ao longo dele — nao por uma ancora no
+     * plano. A primeira versao ancorava a fita com forca, e o tranco numa ponta
+     * morria antes de andar dois metros (0,9 mm a 6 m de distancia): a rede
+     * parecia um monte de retalhos. Com os cabos mais tensos que a malha, a
+     * onda corre pela fita de um poste ao outro em ~0,7 s.
+     */
+    onda: 7,
+    ondaDaFita: 14,
+    ondaDaBase: 10,
+    /** O que puxa cada ponto de volta pro plano. Fraco: quem segura e' a tensao. */
+    ancora: 20,
+    ancoraDaFita: 40,
+    ancoraDaBase: 30,
+    /** Freio do pano, por segundo. Baixo o bastante pra balancar duas ou tres vezes. */
+    amortecimento: 3,
+    /** Raio em que a bola deforma o pano em volta do ponto de contato. */
+    raioDaBola: 0.45,
+  },
+
+  /**
+   * Os corpos contra a rede.
+   *
+   * O atleta nunca chega a menos de 35 cm do plano da rede (`Court.NET_GAP`),
+   * entao o tronco quase nao encosta: o que aparece e' o TRANCO de quem chega
+   * correndo ou pula colado nela — a velocidade do corpo em direcao a' rede vira
+   * velocidade do pano, pela fracao `repasse`.
+   */
+  corpo: {
+    /** Esferas do corpo, a partir dos pes: altura do centro e raio. */
+    tronco: { altura: 1.15, raio: 0.4 },
+    cabeca: { altura: 1.65, raio: 0.2 },
+    /** As maos so' contam no ar, um palmo a' frente do corpo, na direcao da rede. */
+    maos: { altura: 2.25, raio: 0.22, frente: 0.25 },
+    /** Mais longe que isto do plano, o corpo nao tem nada com a rede. */
+    alcance: 0.9,
+    repasse: 0.45,
+  },
 } as const;
 
 export const ATHLETE = {

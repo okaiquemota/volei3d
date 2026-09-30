@@ -977,6 +977,11 @@ export class Game {
       this.girarACamera();
       this.banhista.update(dtJogo);
       this.atualizarPasseio();
+      // Quem passeia tambem esbarra na rede: ela reage a qualquer corpo, e nao
+      // so' a quem esta' jogando.
+      for (const arena of this.arenasVivas) {
+        arena.encostarNaRede(this.banhista, this.banhista.posicao, !this.banhista.motor.noChao, dtJogo);
+      }
     }
 
     // A roda aproxima e afasta nos DOIS modos. O que muda e' o que ela mexe:

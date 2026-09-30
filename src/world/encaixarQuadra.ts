@@ -39,6 +39,17 @@ const PECAS = {
 } as const;
 
 /**
+ * A rede do modelo, pelo nome — pra quem precisa esconder ela.
+ *
+ * Ela continua sendo a regua do encaixe (o topo dela vira a altura da nossa
+ * rede), mas nao e' mais desenhada: a rede que se ve' nos tres cenarios e' o
+ * pano que reage a' bola (`buildRede`). A do modelo e' rigida, e as duas
+ * juntas no mesmo lugar seriam uma rede parada atravessada por uma que se
+ * mexe.
+ */
+export const REDE_DO_MODELO = PECAS.rede;
+
+/**
  * O que sai do modelo, e por que.
  *
  * A regra geral e' nao mexer: o modelo vem inteiro, e a laje, os bancos e os

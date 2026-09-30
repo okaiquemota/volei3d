@@ -1,12 +1,15 @@
 import * as THREE from 'three';
-import { COLORS, COURT } from '../config';
+import { COLORS, COURT, REDE } from '../config';
 import { AABB } from '../core/math';
 import { Court } from './Court';
-import { criarRede } from './textures';
 import { POUSO_NA_AREIA } from './chao';
 
 /**
- * Geometria da quadra: linhas, rede e postes.
+ * Geometria da quadra: linhas e postes.
+ *
+ * A REDE nao esta' aqui desde que virou pano (`buildRede` + `TecidoDaRede`):
+ * esta' em todos os cenarios, e este desenho some quando a quadra e' de modelo.
+ * Daqui sai so' a saia invisivel embaixo dela.
  *
  * A AREIA nao esta' aqui — ela e' o chao do mundo, e vive em `buildBeach`.
  * Uma laje de 400 m por quadra seria tres lajes coplanares numa praia de tres
@@ -22,7 +25,7 @@ import { POUSO_NA_AREIA } from './chao';
  */
 
 export interface Colisores {
-  /** Malha da rede + a saia invisivel abaixo dela. */
+  /** A saia invisivel abaixo da malha. A malha e a fita sao de `REDE`, e cedem. */
   rede: AABB[];
   /** Postes: (x, raio, altura). Cilindro vertical, testado no plano XZ. */
   postes: Array<{ x: number; raio: number; altura: number }>;
@@ -70,36 +73,7 @@ export function construirQuadra(court: Court): QuadraConstruida {
     root.add(fundo);
   }
 
-  // ---------------------------------------------------------------- rede
-  const texRede = guardar(criarRede());
-  texRede.repeat.set(28, 4);
-
-  const matRede = guardar(new THREE.MeshStandardMaterial({
-    map: texRede,
-    // Alpha TEST, nao blend: a rede nao precisa de translucidez, e o teste
-    // evita o problema de ordenacao contra a bola atras dela.
-    alphaTest: 0.4,
-    transparent: false,
-    side: THREE.DoubleSide,
-    roughness: 0.9,
-    metalness: 0,
-  }));
-
-  const malhaCentroY = COURT.netHeight - COURT.netDepth / 2;
-  const geoMalha = guardar(new THREE.BoxGeometry(COURT.width, COURT.netDepth, COURT.netThickness));
-  const malha = new THREE.Mesh(geoMalha, matRede);
-  malha.position.y = malhaCentroY;
-  root.add(malha);
-
-  rede.push(AABB.fromCenterSize(0, malhaCentroY, 0, COURT.width, COURT.netDepth, COURT.netThickness));
-
-  // Faixa branca do topo.
-  const geoFaixa = guardar(new THREE.BoxGeometry(COURT.width, 0.07, COURT.netThickness + 0.01));
-  const faixa = new THREE.Mesh(geoFaixa, matLinha);
-  faixa.position.y = COURT.netHeight - 0.035;
-  faixa.castShadow = true;
-  root.add(faixa);
-
+  // ---------------------------------------------------------------- saia
   /**
    * "Saia" invisivel abaixo da malha.
    *
@@ -110,7 +84,7 @@ export function construirQuadra(court: Court): QuadraConstruida {
    */
   const saiaAltura = Math.max(0.01, COURT.netHeight - COURT.netDepth);
   if (saiaAltura > 0.02) {
-    rede.push(AABB.fromCenterSize(0, saiaAltura / 2, 0, COURT.width, saiaAltura, COURT.netThickness));
+    rede.push(AABB.fromCenterSize(0, saiaAltura / 2, 0, REDE.meiaLargura * 2, saiaAltura, COURT.netThickness));
   }
 
   // ---------------------------------------------------------------- postes

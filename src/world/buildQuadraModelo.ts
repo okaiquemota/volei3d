@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { COLORS } from '../config';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { BORDA_DA_QUADRA, PISO_DE_JOGO, encaixarNoCampo, tirarEnfeites } from './encaixarQuadra';
+import { BORDA_DA_QUADRA, PISO_DE_JOGO, REDE_DO_MODELO, encaixarNoCampo, tirarEnfeites } from './encaixarQuadra';
 import { EMPURRAO_DA_PELE, empurrarParaFrente } from './chao';
 import urlDaQuadra from '../assets/quadra.glb?url';
 
@@ -36,6 +36,9 @@ export async function carregarQuadraModelo(): Promise<ModeloDaQuadra> {
   const molde = gltf.scene;
   tirarEnfeites(molde);
   encaixarNoCampo(molde);
+  // Escondida DEPOIS do encaixe: ela e' a regua da altura. Ver `REDE_DO_MODELO`.
+  const redeDoModelo = molde.getObjectByName(REDE_DO_MODELO);
+  if (redeDoModelo) redeDoModelo.visible = false;
 
   const geometrias = new Set<THREE.BufferGeometry>();
   const materiais = new Set<THREE.Material>();

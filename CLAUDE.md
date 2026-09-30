@@ -1539,6 +1539,71 @@ vale até pro torneio salvo no meio. O outro lado disso: torneio com id que o
 elenco não conhece é descartado ao carregar (a carreira fica) — é o que limpa os
 saves de antes dos personagens, cuja CPU era `cpu-municipal-3`.
 
+## A rede é pano: a bola manda na forma, o pano não manda na bola
+
+A rede era uma caixa de 8 cm com restituição 0,05: a bola batia e caía morta
+contra um plano parado. Agora são DOIS sistemas, e a separação é o que protege a
+regra de cima (previsão = simulação):
+
+- **A bola contra a rede é uma conta fechada**, em `Physics.resolverRede`: a
+  malha é uma mola com amortecedor contra o plano z = 0 (a bola afunda, é
+  freada e devolvida cansada, em vários passos), e a fita é um cilindro deitado
+  no topo (a bola quica nela e pode cair de qualquer lado). Só depende do
+  estado da bola. A previsão da IA (`preverQueda`) só simula o voo livre, então
+  nada aqui a desencontra — a IA relê a bola depois do contato, como sempre fez.
+- **O pano que se vê é outra simulação** (`TecidoDaRede`, lógica pura, com
+  teste): uma membrana 37 x 6 que se move só em z. A bola impõe a forma (o funil
+  segue o afundamento que a física calculou), os corpos empurram, e o pano
+  **não devolve nada** para a bola. Há teste para isso.
+
+O único estado que a malha guarda entre passos é o **lado de entrada**
+(`ContatoNaRede.lado`, na `Ball`). Com a rede estufada, o centro da bola pode
+estar do outro lado do plano e ainda ser uma bola que veio deste — a mola tem
+que empurrar de volta para cá. Decidido na entrada, vale até a bola sair.
+
+Três defeitos apareceram no caminho, todos nos testes, nenhum na tela:
+
+- **A bola a 34 m/s atravessava a rede.** Ela anda 34 cm por passo, mais que o
+  próprio diâmetro, e pulava de um lado ao outro do plano sem nunca estar
+  encostada. A caixa antiga tinha o mesmo furo. Quando o passo anda mais que um
+  raio em z, a física o refaz em oito pedaços e a bola para no primeiro que
+  encosta (`encostaNaRede`). O teste lança a 34 m/s em cinco alturas.
+- **A fita ancorada ao plano matava a onda.** Com âncora forte, um tranco numa
+  ponta chegava a 6 m com 0,9 mm: a rede parecia retalhos. Cabo esticado segura
+  pela TENSÃO ao longo dele; a fita e a corda de baixo ganharam onda própria
+  (14 e 10 m/s) e âncora fraca. O limite de estabilidade é o da fita: com passo
+  de 1/100 s, `ondaDaFita` muito acima de ~20 m/s faz o pano explodir.
+- **O motor zera a velocidade de quem bate no limite** — e o limite de quem
+  joga é o vão da rede (`Court.NET_GAP`). Lida do motor, a velocidade de quem
+  chega correndo seria zero exatamente no quadro do encontrão. A arena mede a
+  velocidade pelo deslocamento entre quadros (`Arena.encostarNaRede`).
+
+E dois ajustes que só a medida acertou:
+
+- **Rigidez e freio da malha são MEDIDOS no passo de 1/100 s**, não tirados da
+  fórmula do oscilador. A conta contínua (1000 e 45, fator 0,7) prometia 29 cm
+  de barriga para 20 m/s; o passo entregou 17, porque o freio aplicado em
+  pedaços de um centésimo corta mais por passo que a exponencial. Varridos no
+  passo de verdade, 600 e 30 dão 37 cm a 24 m/s e 5% de volta. Mexer no passo
+  da bola desafina isto, e o teste "a malha devolve a bola cansada" acusa.
+- **A forma da bola entra no pano DEPOIS do passo dele e antes do desenho.**
+  Antes, o pano relaxava a barriga no mesmo quadro e a bola aparecia 10 cm para
+  dentro da malha. E o funil é achatado no centro (1 − d²): o ponto da grade
+  mais perto da bola fica a até 16 cm dela, e um funil pontudo deixava a malha
+  40% mais rasa que a bola.
+
+Na partida entre bots quase nada disso aparece — em três minutos de jogo, uma
+bola na malha em três quadras: a IA mira com folga por cima da fita. A rede
+reage de verdade é ao ataque errado de quem joga.
+
+A malha vai **de poste a poste** (`REDE.meiaLargura`, 4,6 m), e não só os 8 m da
+quadra: sobrava um vão de 70 cm ao lado de cada ponta, na altura da rede, por
+onde a bola passava. O modelo do ginásio também vai até o poste.
+
+A rede de pano mora fora do `desenhoDaQuadra`, porque esse some nos cenários de
+modelo, e está nos três. A rede do modelo é **escondida depois do encaixe**, e
+não removida: o topo dela é a régua da altura em `encaixarNoCampo`.
+
 ## O que NÃO foi verificado
 
 **O equilíbrio do elenco, jogando.** O que se mediu no navegador: a ficha entra

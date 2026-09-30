@@ -201,6 +201,20 @@ Algumas decisões que dão forma a isso:
   verdade seria colocar gente real perdendo pra um boneco de capacete.
 - **A cor do colete nunca é azul**, porque azul é o seu time — tem teste.
 
+### A rede
+
+A rede é pano, e não parede. A bola que entra na malha afunda (uma cortada de
+24 m/s afunda uns 35 cm), é segurada e volta cansada para o lado de onde veio.
+A bola que raspa na fita quica e pode cair de qualquer lado. A malha estufa onde
+a bola entra, o tranco corre pela fita até os postes, e ela balança e volta. Os
+corpos também contam: quem chega correndo ou pula colado na rede a empurra, e
+isso vale para você andando pela praia.
+
+Por baixo são duas contas separadas: a da bola, fechada e determinística
+(mola e amortecedor contra o plano da rede, e um cilindro na fita), e a do pano,
+que só desenha. O pano não empurra a bola — é o que mantém a previsão da IA
+batendo com a bola de verdade.
+
 **Os atletas são um modelo.** *Ultimate Modular Men Pack*, de Quaternius (CC0),
 com as 24 animações que vêm nele. É uma **pele**, como a quadra: o `Motor`
 continua dizendo onde o corpo está e para onde ele olha, e o `Hitter` continua
@@ -444,7 +458,9 @@ src/
     praia.ts            onde ficam as quadras — só dado, sem código
     buildBeach.ts       o chão: um só, pro mundo inteiro
     Court.ts            a única fonte de verdade sobre geometria de jogo
-    buildCourt.ts       linhas, rede e postes — e os colisores junto
+    buildCourt.ts       linhas, postes e a saia da rede — e os colisores junto
+    buildRede.ts        o desenho da rede: malha e fita seguindo o pano
+    tecidoDaRede.ts     o pano da rede, uma membrana simulada — lógica pura
     Physics.ts          o integrador da bola e as colisões
     Markers.ts          os anéis de queda e de mira, no chão
     textures.ts         areia, rede e bola desenhadas em canvas 2D

@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { BALL } from '../config';
 import { preverQueda } from '../core/ballistics';
-import { MAX_SUBPASSOS, PASSO, simularBola, type TipoDeContato } from '../world/Physics';
+import {
+  MAX_SUBPASSOS, PASSO, novoContatoNaRede, simularBola, type ContatoNaRede, type TipoDeContato,
+} from '../world/Physics';
 import type { Colisores } from '../world/buildCourt';
 import type { Court, Side } from '../world/Court';
 import { criarBola } from '../world/textures';
@@ -38,6 +40,14 @@ export class Ball {
 
   private acumulador = 0;
   private dormindo = false;
+
+  /**
+   * A bola dentro da malha da rede: de que lado entrou e quanto afunda.
+   *
+   * E' estado da BOLA porque a mola da rede depende dele de um passo pro
+   * outro. A arena le' pra deformar o pano.
+   */
+  readonly naRede: ContatoNaRede = novoContatoNaRede();
 
   /** Ultimo agente que tocou. Null no saque, antes do primeiro toque. */
   ultimoTocador: Tocador | null = null;
@@ -83,6 +93,13 @@ export class Ball {
     this.velocidade.set(0, 0, 0);
     this.acumulador = 0;
     this.dormindo = false;
+    this.sairDaRede();
+  }
+
+  /** Esquece o contato com a malha. Bola que foi pra outro lugar nao esta' nela. */
+  private sairDaRede(): void {
+    this.naRede.lado = 0;
+    this.naRede.afundamento = 0;
   }
 
   /** Prende a bola na mao do sacador. */
@@ -91,6 +108,7 @@ export class Ball {
     this.velocidade.set(0, 0, 0);
     this.dormindo = false;
     this.esquecerToques();
+    this.sairDaRede();
   }
 
   soltar(): void {
@@ -136,7 +154,7 @@ export class Ball {
       this.acumulador -= PASSO;
 
       const contato = simularBola(
-        this.mesh.position, this.velocidade, this.court, this.colisores, PASSO, _contato,
+        this.mesh.position, this.velocidade, this.court, this.colisores, PASSO, _contato, this.naRede,
       );
 
       if (contato === 'chao' || contato === 'fora') {
