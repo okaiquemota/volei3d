@@ -657,6 +657,13 @@ notebooks — a ação principal do jogo cai abaixo da dobra. O `minmax(0, 1fr)`
 obrigatório: um item de grid não encolhe abaixo do próprio conteúdo sem
 `min-height: 0`, e aí o `1fr` não serve pra nada.
 
+A interface nova não tem mais cartão, e a regra continua valendo em dois
+lugares: o fim de jogo centra com `align-content: safe center` (centro puro
+transbordaria pros dois lados e a faixa do resultado sumiria pro alto), e a
+linha do mosaico do menu é `minmax(auto, 1fr)` — ali o piso tem que ser o
+conteúdo, e não zero, senão o mosaico, que tem altura mínima, passa por cima do
+rodapé em vez de a tela rolar.
+
 ## A câmera de jogo tem DOIS enquadramentos, e não um zoom
 
 A roda mexia num multiplicador que escalava altura e distância **juntas**, de
@@ -1699,7 +1706,58 @@ A rede de pano mora fora do `desenhoDaQuadra`, porque esse some nos cenários de
 modelo, e está nos três. A rede do modelo é **escondida depois do encaixe**, e
 não removida: o topo dela é a régua da altura em `encaixarNoCampo`.
 
+## A interface nova: seis coisas que só apareceram rodando
+
+A interface foi refeita inteira no idioma de jogo de corrida (ver *A interface*
+no README). O desenho foi a parte fácil; estas seis não se veem lendo o CSS.
+
+**`animation-fill-mode: both` mata o foco.** Os blocos entram com uma animação
+de `transform`, e animação terminada com `forwards` continua mandando na
+propriedade — o `translateY` do foco nunca mais aparecia. Toda entrada aqui é
+`backwards`: vale durante o atraso, e depois some.
+
+**Fechar a pausa no `keydown` do Esc re-pausa o jogo.** O `Input` do jogo viu o
+mesmo Esc; se a pausa fechasse ali, o laço acordaria em "jogando" com o Esc
+ainda marcado como apertado neste quadro, e pausaria de novo. A navegação dos
+menus clica o VOLTAR no `requestAnimationFrame` seguinte: o laço do jogo roda
+antes (ele se reagendou no quadro anterior) e limpa a tecla no fim dele.
+
+**Tecla com foco num botão não chega ao jogo — inclusive a que aperta o
+botão.** O `Input` ignora teclado quando o foco está num controle (é o que deixa
+o Espaço apertar botão e não pular). O R do JOGAR DE NOVO morava no laço do jogo
+e ficou mudo justamente quando o botão dele estava selecionado. Ele mudou pra
+tela de fim (`Navegacao.registrar`), e as teclas de função passam sempre — o F3
+tem que abrir com o menu aberto.
+
+**Amaciar não é voar.** A primeira transição do menu pro jogo só devolvia a
+câmera pra pose do menu e deixava o amaciamento da câmera de jogo trazer ela.
+Aquele amaciamento é feito pra seguir um atleta; do outro lado da quadra ele
+levava mais de dois segundos, com o relógio do saque correndo. Virou um voo de
+duração fixa (1,3 s, smoothstep) até onde a câmera de jogo quer estar *agora*
+— e no relógio, não no `dt` do jogo: o `dt` tem teto de 1/20, e no navegador de
+teste, a ~2 fps, o voo levava 13 s.
+
+**O Vite não resolve pacote dentro de `url()` de CSS.** `url('@fontsource/...')`
+sai no build exatamente assim, apontando pra nada. As fontes são referenciadas
+por caminho relativo até `node_modules` (`fontes.css`), e só os woff2 latinos:
+o CSS pronto do pacote puxa woff E woff2, e o arquivo único embutiria os dois.
+
+**Botão dentro de botão não existe.** O cartão de etapa era um `<button>` com
+o ABANDONAR dentro. Agora o cartão é um `<article>`, o botão de jogar se estica
+por cima dele com um `::after` (o cartão inteiro continua sendo o alvo) e o
+ABANDONAR fica por cima dos dois.
+
+Um detalhe de ambiente: `npm install` de pacote novo apaga o que não está no
+`package.json`, e o Playwright e o sharp dos roteiros de conferência não estão.
+`npm install --no-save playwright sharp` devolve os dois sem sujar o projeto.
+
 ## O que NÃO foi verificado
+
+**A interface num jogador de verdade, e numa GPU de verdade.** Conferida em
+imagem em 1920×1080, 1600×900, 1366×768, 1280×560 e 800×640, e o teclado foi
+percorrido tela a tela por roteiro (setas, Enter, Esc, Q/E, R, o Esc duplo da
+pausa). O custo do `backdrop-filter` dos blocos do menu não foi medido numa GPU
+real — aqui tudo é software. Controle de videogame não é suportado.
 
 **O equilíbrio do elenco, jogando.** O que se mediu no navegador: a ficha entra
 inteira no bot (TITO ONDA com 6,86 m/s, 1,08 m de pulo, 0,14 s de reação, as

@@ -53,6 +53,7 @@ npm run build:single # dist/volei3d.html — joga com duplo clique, offline
 | Voltar a câmera pra você | `Tab` |
 | Reiniciar | `R`, na tela de fim de jogo |
 | Pausar / desempenho | `Esc` / `F3` |
+| Andar pelos menus | Setas, `Enter` confirma, `Esc` volta, `Q`/`E` troca a etapa nos adversários |
 | Esconder o manual de teclas | `H` |
 
 As duas barras ficam no alto, logo abaixo do placar. `TOQUE` é o quanto *este*
@@ -67,14 +68,20 @@ logo à frente do jogador, atrás do próprio corpo dele. Ela lista **só teclas
 o rally funciona está no menu, em **COMO JOGAR**, que é texto pra ler uma vez.
 `H` esconde a legenda, e a preferência fica guardada.
 
-O menu, a pausa e o fim de jogo são cartões sobre a praia, e o HUD apaga atrás
-deles: as telas são translúcidas de propósito, e sem isso o placar e a dica de
-saque atravessavam o véu e apareciam por cima do "VOCÊ VENCEU".
+**A interface é de jogo, e não de formulário.** O menu é um mosaico de blocos à
+esquerda — CIRCUITO grande, AMISTOSO e ADVERSÁRIOS largos, AJUSTES e COMO JOGAR
+menores — sobre a praia de verdade, com a câmera dando uma volta lenta em torno
+da quadra. Ao começar uma partida a câmera **voa** de lá até atrás de você em
+1,3 s. O placar em quadra é de transmissão de TV, com a bolinha de quem saca; o
+ponto atravessa a tela numa faixa na cor de quem fez; o fim de jogo é uma faixa
+torta com VITÓRIA, DERROTA ou CAMPEÃO (com confete). Ver *A interface* em
+*Decisões que valem explicar*.
 
-**O teclado é do menu quando há menu.** Com o foco num controle, a tecla é do
-controle — as setas andam pelo grupo de dificuldade e pelo slider, o espaço
-aperta o botão. O `Tab` é do navegador enquanto uma tela está aberta (é o único
-jeito de alcançar "CONTINUAR" sem mouse) e volta a ser "voltar pra minha quadra"
+**O teclado anda pelos menus como num console.** As setas movem a seleção pelo
+**espaço** da tela (a seta pra direita vai pro bloco que está à direita), `Enter`
+confirma, `Esc` volta, e passar o mouse por cima também seleciona — uma seleção
+só. Nos AJUSTES as setas pros lados mudam o valor. O `Tab` continua sendo do
+navegador enquanto uma tela está aberta, e volta a ser "voltar pra minha quadra"
 assim que ela fecha.
 
 **No saque, a carga muda o arco.** Um toque manda um balão de 2 s de voo; a
@@ -491,12 +498,14 @@ src/
   match/habilidade.ts   de notas de 1 a 10 pra números de jogo
   match/salvar.ts       o progresso no localStorage, à prova de falha
   ui/
-    HUD.ts              placar, saque e avisos, em DOM
-    Screens.ts          menu, pausa, fim de jogo, opções
+    HUD.ts              placar de transmissão, saque e avisos, em DOM
+    Screens.ts          menu, sub-telas, pausa, fim de jogo, ajustes
+    navegacao.ts        setas, Enter e Esc nos menus, pela posição na tela
     PerfMeter.ts        o painel do F3
     TelaCircuito.ts     desenha o circuito e a chave a partir do estado
-    TelaElenco.ts       a ficha de um personagem e a tela ADVERSÁRIOS
-    style.css
+    TelaElenco.ts       as cartas, a ficha e a tela ADVERSÁRIOS
+    style.css           tokens, componentes, HUD e telas
+    fontes.css          Barlow e Barlow Condensed, empacotadas
 scripts/
   preparar-estadio.mjs  a receita que transforma o estádio cru em asset
   asset-report.mjs      quanto pesa cada asset, nos dois builds
@@ -642,6 +651,31 @@ para cima (uma torção no antebraço e no punho, que `apontar` sozinho não dá
 bola segue o osso da palma: parado ou andando pela linha de fundo, ela fica
 apoiada. Essa espera é uma **camada** — só braços e peito, misturada com peso 10
 contra 1 por cima do `Idle`/`Walk`, que continuam mandando nas pernas.
+
+### A interface: festival de praia, e não planilha
+
+A primeira interface era um cartão cinza no meio da tela, em fonte monoespaçada:
+funcionava, e parecia a tela de configuração de um jogo, não um jogo. A atual
+segue o idioma de jogo de corrida e de esporte — Forza Horizon mais que GTA —
+porque é o que combina com uma praia ao sol:
+
+- **Tipografia condensada em itálico** (Barlow Condensed) nos títulos, botões e
+  números, e Barlow no texto corrido. Vêm do npm e não de um CDN: o jogo abre
+  offline, e o arquivo único embute as nove variações (~200 kB).
+- **Uma paleta de pôr do sol** — rosa, laranja, ouro — pra ação principal e pros
+  destaques, e o azul e o vermelho dos times só onde é time.
+- **O "selecionado" tem sempre a mesma cara**: branco cheio, texto escuro. Bloco,
+  opção, aba, item da pausa. Quem aprende numa tela lê as outras.
+- **Botão é paralelogramo**, recortado com `clip-path` e não inclinado com `skew`:
+  a forma corre, o texto fica reto.
+- **A praia viva atrás de tudo.** O véu é escuro à esquerda, onde o menu mora, e
+  aberto à direita, onde a câmera gira devagar em volta da quadra.
+
+Duas famílias de tela: as do **jogo** (menu, circuito, chave, adversários,
+pausa, fim), que o `Game` abre e fecha porque só ele sabe o estado, e as
+**sub-telas** (ajustes, como jogar), que o `Screens` abre por cima de quem as
+chamou e fecha devolvendo a ela — COMO JOGAR abre do menu e da pausa, e o VOLTAR
+sabe pra onde.
 
 ### Um estádio de futebol vira arena de vôlei cortando 73% dele
 

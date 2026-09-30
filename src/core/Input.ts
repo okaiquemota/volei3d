@@ -155,7 +155,9 @@ export class Input {
      * apertava botao nenhum. Um menu que so' funciona com mouse e' um menu
      * quebrado pra metade de quem chega nele.
      */
-    if (focoEmControle()) return;
+    // Tecla de funcao (F3) nao e' de controle nenhum, e o medidor tem que
+    // abrir com o foco num botao do menu tambem.
+    if (focoEmControle() && !/^F\d+$/.test(e.code)) return;
 
     /**
      * Espaco e setas sao sempre do jogo (pular e correr); o TAB depende.

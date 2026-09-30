@@ -3,8 +3,8 @@ import {
   type Carreira, type Confronto, type Etapa, type Torneio,
 } from '../match/Circuito';
 import { personagemPorId } from '../match/personagens';
-import { el } from './dom';
-import { desenharFicha } from './TelaElenco';
+import { chip, el, icone } from './dom';
+import { APARENCIA_DE_VOCE, desenharBoneco, desenharFicha } from './TelaElenco';
 
 /**
  * Desenha as telas do circuito a partir do estado. So' desenha: nao decide
@@ -25,20 +25,21 @@ export function desenharCarreira(alvo: HTMLElement, c: Carreira): void {
     ['SALDO DE PONTOS', saldo > 0 ? `+${saldo}` : String(saldo), false],
   ];
 
-  alvo.replaceChildren(...itens.map(([rotulo, valor, destaque]) => {
+  alvo.replaceChildren(...itens.map(([rotulo, valor, destaque], i) => {
     const d = el('div', destaque ? 'destaque' : '');
+    d.style.setProperty('--i', String(i));
     d.append(el('dt', '', rotulo), el('dd', '', valor));
     return d;
   }));
 }
 
 /**
- * As tres etapas.
+ * As tres etapas, como cartoes de campeonato.
  *
  * Cada uma diz uma de quatro coisas: travada, aberta, em andamento, ou ja'
  * ganha (quantas vezes). E so' um torneio anda por vez: com um em curso, as
- * outras etapas ficam paradas ate' ele acabar — quem entra num torneio joga ele
- * ate' o fim, ou abandona.
+ * outras ficam paradas ate' ele acabar — quem entra num torneio joga ele ate'
+ * o fim, ou abandona.
  */
 export function desenharEtapas(
   alvo: HTMLElement,
@@ -49,43 +50,59 @@ export function desenharEtapas(
 ): void {
   const andando = torneio && !torneio.eliminado && !torneio.campeao ? torneio : null;
 
-  alvo.replaceChildren(...ETAPAS.map((etapa) => {
+  alvo.replaceChildren(...ETAPAS.map((etapa, i) => {
     const def = DEFINICAO[etapa];
     const aberta = podeJogar(c, etapa);
     const estaAqui = andando?.etapa === etapa;
     const outraAndando = andando !== null && !estaAqui;
 
-    const cartao = el('button', 'etapa');
-    cartao.type = 'button';
+    const cartao = el('article', `etapa ${etapa}`);
+    cartao.style.setProperty('--i', String(i));
+    if (!aberta || outraAndando) cartao.classList.add('travada');
     if (estaAqui) cartao.classList.add('em-andamento');
-    cartao.disabled = !aberta || outraAndando;
 
-    cartao.append(el('span', 'nome', def.nome), el('span', 'onde', def.onde));
+    cartao.append(
+      el('span', 'etapa-num', String(i + 1).padStart(2, '0')),
+      el('span', 'etapa-local', def.onde),
+      el('span', 'etapa-nome', def.nome),
+      el('span', 'etapa-premio', `+${def.porVitoria} de ranking por vitoria, +${def.porTitulo} pela taca`),
+    );
+    if (!aberta) cartao.append(icone('cadeado', 'etapa-cadeado'));
 
-    let estado: HTMLElement;
+    /**
+     * O botao que da' o clique ao cartao inteiro. E' ele quem recebe o foco, e
+     * o rotulo dele e' o estado — "JOGAR", "CONTINUAR · SEMIFINAL" — que e'
+     * exatamente o que o Enter vai fazer.
+     */
+    const botao = el('button', 'etapa-jogar');
+    botao.type = 'button';
+    botao.disabled = !aberta || outraAndando;
     if (!aberta) {
       const anterior = ETAPAS[ETAPAS.indexOf(etapa) - 1];
-      estado = el('span', 'estado', `VENCA O ${DEFINICAO[anterior!].nome} PRA ABRIR`);
+      botao.append(chip(`VENCA O ${DEFINICAO[anterior!].nome}`, 'escuro', 'cadeado'));
     } else if (estaAqui) {
-      estado = el('span', 'estado andamento', `CONTINUAR · ${NOMES_DAS_RODADAS[andando.rodada]}`);
+      botao.append(chip(`CONTINUAR · ${NOMES_DAS_RODADAS[andando.rodada]}`, '', 'play'));
     } else if (outraAndando) {
-      estado = el('span', 'estado', 'TERMINE O TORNEIO EM ANDAMENTO');
+      botao.append(chip('TERMINE O TORNEIO EM ANDAMENTO', 'escuro'));
     } else {
-      estado = el('span', 'estado aberta', 'JOGAR');
+      botao.append(chip('JOGAR', '', 'play'));
     }
-    cartao.append(estado);
+    botao.addEventListener('click', () => aoEscolher(etapa));
 
+    const rodape = el('div', 'etapa-rodape');
+    rodape.append(botao);
     if (c.titulos[etapa] > 0) {
-      cartao.append(el('span', 'tacas', `${c.titulos[etapa]}x CAMPEAO`));
+      const tacas = el('span', 'etapa-tacas');
+      tacas.append(icone('trofeu'), `${c.titulos[etapa]}x CAMPEAO`);
+      rodape.append(tacas);
     }
+    cartao.append(rodape);
 
-    cartao.addEventListener('click', () => aoEscolher(etapa));
-
+    // Fora do botao grande, e por cima dele: abandonar nao e' continuar.
     if (estaAqui) {
       const sair = el('button', 'abandonar', 'ABANDONAR');
       sair.type = 'button';
-      // O clique nao pode subir pro cartao: abandonar nao e' continuar.
-      sair.addEventListener('click', (ev) => { ev.stopPropagation(); aoAbandonar(); });
+      sair.addEventListener('click', aoAbandonar);
       cartao.append(sair);
     }
 
@@ -113,6 +130,13 @@ function caixa(c: Confronto | null): HTMLElement {
   return box;
 }
 
+/** Um jogo na sua vaga: a caixa centrada numa meia altura do par. */
+function vaga(c: Confronto | null): HTMLElement {
+  const v = el('div', 'vaga');
+  v.append(caixa(c));
+  return v;
+}
+
 /**
  * A chave e o proximo adversario.
  *
@@ -135,11 +159,20 @@ export function desenharChave(
     const coluna = el('div', 'rodada');
     if (r === torneio.rodada && !torneio.eliminado && !torneio.campeao) coluna.classList.add('atual');
 
-    // Titulo e jogos em blocos SEPARADOS: o titulo fica no alto, alinhado
-    // entre as tres colunas, e so' os jogos se distribuem na altura.
+    // Os jogos em PARES: cada par desenha o colchete que leva os dois
+    // vencedores pro jogo da rodada seguinte. A final nao tem par.
     const jogos = el('div', 'jogos');
     const daRodada = torneio.rodadas[r];
-    for (let i = 0; i < tamanhos[r]!; i++) jogos.append(caixa(daRodada?.[i] ?? null));
+    const n = tamanhos[r]!;
+    if (n === 1) {
+      jogos.append(vaga(daRodada?.[0] ?? null));
+    } else {
+      for (let i = 0; i < n; i += 2) {
+        const par = el('div', 'par');
+        par.append(vaga(daRodada?.[i] ?? null), vaga(daRodada?.[i + 1] ?? null));
+        jogos.append(par);
+      }
+    }
     coluna.append(el('h4', '', nome), jogos);
     return coluna;
   }));
@@ -147,25 +180,34 @@ export function desenharChave(
   const ele = adversarioAtual(torneio);
   if (!ele) {
     subtitulo.textContent = torneio.campeao ? 'CAMPEAO' : 'ELIMINADO';
-    proximo.replaceChildren(el('span', 'rotulo', torneio.campeao
-      ? 'A TACA E SUA'
-      : 'FIM DO TORNEIO PRA VOCE'));
+    proximo.replaceChildren(
+      el('span', 'proximo-rotulo', 'FIM DO TORNEIO'),
+      el('span', 'proximo-fim', torneio.campeao ? 'A TACA E SUA' : 'FIM DA LINHA PRA VOCE'),
+    );
     return;
   }
 
   subtitulo.textContent = `${NOMES_DAS_RODADAS[torneio.rodada]} · ${def.onde}`;
 
   /**
-   * A FICHA de quem vem, e nao so' o nome.
+   * O VS e a FICHA de quem vem, e nao so' o nome.
    *
    * E' a diferenca entre "proximo: DANI CAJU" e saber que ela saca de viagem e
    * corre como qualquer um — que muda o que se faz na recepcao. Sem ficha (um
    * id que o elenco perdeu), fica o nome, que ainda diz contra quem se joga.
    */
   const p = personagemPorId(ele.id);
+  const versus = el('div', 'versus');
+  const voce = el('div', 'versus-lado');
+  voce.append(desenharBoneco(APARENCIA_DE_VOCE), el('span', 'versus-nome voce', 'VOCE'));
+  const outro = el('div', 'versus-lado');
+  if (p) outro.append(desenharBoneco(p.visual));
+  outro.append(el('span', 'versus-nome', ele.nome));
+  versus.append(voce, el('span', 'versus-vs', 'VS'), outro);
+
   proximo.replaceChildren(
-    el('span', 'rotulo', 'PROXIMO ADVERSARIO'),
-    p ? desenharFicha(p, { retrospecto: carreira ? (carreira.confrontos[p.id] ?? null) : undefined })
-      : el('span', 'quem', ele.nome),
+    el('span', 'proximo-rotulo', 'PROXIMO ADVERSARIO'),
+    versus,
+    ...(p ? [desenharFicha(p, { retrospecto: carreira ? (carreira.confrontos[p.id] ?? null) : undefined })] : []),
   );
 }

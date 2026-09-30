@@ -8,96 +8,105 @@
   <link rel="stylesheet" href="/src/ui/style.css" />
 </head>
 <body>
+  <!--
+    Os icones, uma vez so'. Cada tela usa com <svg><use href="#i-..."/></svg>,
+    e o TypeScript tambem (ver `icone` em dom.ts). Traco em `currentColor`: o
+    icone pega a cor do texto em volta, e muda junto no foco.
+  -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-trofeu" viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 3.5h10V9a5 5 0 0 1-10 0V3.5z"/><path d="M17 5h3v1.5a3.5 3.5 0 0 1-3.2 3.5M7 5H4v1.5A3.5 3.5 0 0 0 7.2 10"/></symbol>
+      <symbol id="i-bola" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3c3 2.2 4.6 5.6 4.4 9.2M12 12c3.3-1.8 7-1.7 8.8.2M12 12c.2 3.8-1.8 7.2-5 8.6M12 12c-3.4-1.9-5.4-5.2-5.3-8.6"/></symbol>
+      <symbol id="i-gente" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.6 2.7-6 6-6s6 2.4 6 6"/><circle cx="17" cy="9" r="2.6"/><path d="M15.6 14.2c3 .3 5.4 2.5 5.4 5.8"/></symbol>
+      <symbol id="i-ajustes" viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
+      <symbol id="i-teclado" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h1M9.5 10h1M13 10h1M16.5 10h1M7 14h10"/></symbol>
+      <symbol id="i-cadeado" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-esq" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+      <symbol id="i-dir" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+      <symbol id="i-estrela" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" fill="currentColor" stroke="none"/></symbol>
+    </defs>
+  </svg>
+
   <!-- `draggable=false` e' a segunda tranca do arraste nativo: o `dragstart` e'
        cancelado no Input, e isto impede o navegador de sequer comecar. -->
   <canvas id="viewport" draggable="false"></canvas>
 
-  <!-- ================= HUD ================= -->
+  <!-- ================================ HUD ================================ -->
   <div id="hud" class="hidden">
-    <!--
-      O mundo lento tem que SE VER, e nao so' se sentir: sem isto o jogador nao
-      sabe se o poder pegou ou se o jogo engasgou.
-
-      PRIMEIRO filho do HUD de proposito: assim o veu tinge o que esta' atras —
-      a praia — e passa por baixo de placar, barras e legenda, que precisam ler
-      igual com ele ligado ou desligado.
-    -->
+    <!-- O mundo lento tem que SE VER. Primeiro filho: o veu tinge a praia e
+         passa por baixo de placar e barras, que leem igual com ele ligado. -->
     <div id="lento"></div>
 
-    <!-- topo: placar e quem saca -->
+    <!-- topo: o placar de transmissao, o poder, o aviso de quadra e as barras -->
     <div id="hud-top">
-      <div id="scoreboard">
-        <span class="lado home" id="home-name">VOCE</span>
-        <span class="pontos" id="home-score">0</span>
-        <span class="sep">:</span>
-        <span class="pontos" id="away-score">0</span>
-        <span class="lado away" id="away-name">CPU</span>
+      <div id="scoreboard" class="placar">
+        <div class="placar-time home">
+          <span id="saque-home" class="placar-saque" title="saque"></span>
+          <span class="placar-nome" id="home-name">VOCE</span>
+        </div>
+        <div class="placar-pontos">
+          <span class="pontos" id="home-score">0</span>
+          <span class="pontos" id="away-score">0</span>
+        </div>
+        <div class="placar-time away">
+          <span class="placar-nome" id="away-name">CPU</span>
+          <span id="saque-away" class="placar-saque" title="saque"></span>
+        </div>
       </div>
-      <div id="serve-line">SAQUE: VOCE</div>
+      <div class="placar-faixa">
+        <span id="serve-line">SAQUE VOCE</span>
+        <span class="placar-meta">PRIMEIRO A 15</span>
+      </div>
 
-      <!-- A barra do poder de camera lenta. Mora com o placar, e nao com as
-           barras de toque: aquelas sao leitura DESTE contato e vivem meio
-           segundo; esta e' um recurso que atravessa o set, como o placar. -->
+      <!-- O poder de camera lenta mora com o placar: e' recurso do set, e nao
+           leitura deste contato como as duas barras de baixo. -->
       <div id="tempo" class="hidden">
         <kbd class="larga">SHIFT</kbd>
         <div id="tempo-trilho"><div id="tempo-fill"></div></div>
       </div>
 
-      <!-- qual quadra a camera mostra (so' ao assistir) -->
-      <div id="quadra-atual" class="hidden"></div>
+      <div id="quadra-atual" class="hidden">
+        <span class="rotulo">ASSISTINDO</span><b id="quadra-nome"></b>
+        <kbd class="larga">TAB</kbd><span>VOLTAR</span>
+      </div>
 
-      <!--
-        As duas barras e o aviso do golpe, empilhados aqui EM FLUXO.
-
-        Ficavam soltos num `top: 13vmin` proprio, e por isso a barra do poder,
-        que nasceu depois, caiu em cima deles: o topo do HUD cresceu e o numero
-        magico nao sabia disso. Como ultimo filho do bloco do placar, o cluster
-        comeca onde o de cima acabar, seja la' quantas linhas ele tenha.
-
-        Os tres filhos continuam soltos DENTRO daqui, cada um no seu lugar fixo:
-        esconder a FORCA nao pode puxar o TOQUE pra cima.
-      -->
+      <!-- As duas barras e o aviso do golpe. Altura zero: cada filho tem lugar
+           FIXO pendurado aqui, e esconder a FORCA nao puxa o TOQUE pra cima. -->
       <div id="medidores">
-        <!-- barra de forca do ataque -->
         <div id="carga" class="hidden">
+          <span class="medidor-rotulo">FORCA</span>
           <div id="carga-trilho"><div id="carga-fill"></div></div>
-          <span>FORCA</span>
         </div>
-
-        <!-- janela do toque: sobe enquanto a bola vem pro corpo -->
         <div id="toque" class="hidden">
+          <span class="medidor-rotulo">TOQUE</span>
           <div id="toque-trilho"><div id="toque-fill"></div></div>
-          <span>TOQUE</span>
         </div>
-
-        <!-- como saiu o ultimo toque -->
         <div id="toque-aviso"></div>
       </div>
     </div>
 
+    <!-- centro: o aviso do ponto, uma faixa atravessando a tela -->
+    <div id="announcement">
+      <span id="aviso-motivo" class="aviso-motivo"></span>
+      <span id="aviso-texto" class="aviso-texto"></span>
+    </div>
 
-    <div id="dica-praia" class="hidden"></div>
-
-    <!-- centro: aviso do ponto -->
-    <div id="announcement"></div>
-
-    <!-- centro: aviso de acao (so' aparece no saque do jogador) -->
-    <div id="action-hint" class="hidden">SEGURE e SOLTE para SACAR</div>
+    <!-- baixo: o que fazer agora. Saque, ou o que ha' em volta na areia. -->
+    <div id="action-hint" class="prompt-grande hidden">
+      <kbd class="larga">CLIQUE</kbd>
+      <span>SEGURE E SOLTE PRA SACAR</span>
+      <b id="saque-contagem" class="contagem">8</b>
+    </div>
+    <div id="dica-praia" class="prompt-grande hidden">
+      <kbd id="dica-tecla" class="larga">E</kbd>
+      <span id="dica-texto"></span>
+    </div>
 
     <!--
-      Lateral: a legenda de teclas.
-
-      So' TECLAS. O que cada barra significa e como o rally funciona esta' no
-      menu, em COMO JOGAR: e' texto que se le' UMA vez, e enquanto morou aqui
-      transformou um canto da tela em parede de texto que ninguem relia.
-    -->
-    <!--
-      A legenda de teclas: uma FAIXA no rodape, deitada.
-
-      Era um painel de pe' na lateral esquerda, e ali ele disputava com a
-      quadra: a camera enquadra o campo no meio da tela, e o campo e' largo. No
-      rodape a faixa ocupa a unica parte do quadro em que nunca acontece nada —
-      a areia logo a' frente do jogador, atras do proprio corpo dele.
+      A legenda de teclas: uma faixa no rodape. E' o unico lugar do quadro onde
+      nunca acontece nada — a areia logo a' frente do jogador, atras do corpo
+      dele. So' TECLAS: o porque de cada coisa esta' em COMO JOGAR.
     -->
     <aside id="manual">
       <div class="grupo-teclas">
@@ -106,20 +115,17 @@
           <li><span class="k"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span class="o">correr</span></li>
           <li><span class="k"><kbd class="larga">ESPACO</kbd></span><span class="o">pular</span></li>
           <li><span class="k"><kbd class="larga">MOUSE</kbd></span><span class="o">mirar</span></li>
-          <li><span class="k"><kbd>CLIQUE</kbd><i>/</i><kbd>E</kbd></span><span class="o">passar</span></li>
-          <li><span class="k"><kbd>SEGURAR</kbd></span><span class="o">carregar e atacar</span></li>
-          <li><span class="k"><kbd>DIREITO</kbd><i>/</i><kbd>R</kbd></span><span class="o">levantar</span></li>
+          <li><span class="k"><kbd class="larga">CLIQUE</kbd><i>/</i><kbd>E</kbd></span><span class="o">passar</span></li>
+          <li><span class="k"><kbd class="larga">SEGURAR</kbd></span><span class="o">carregar e atacar</span></li>
+          <li><span class="k"><kbd class="larga">DIREITO</kbd><i>/</i><kbd>R</kbd></span><span class="o">levantar</span></li>
           <li><span class="k"><kbd>C</kbd></span><span class="o">mergulhar</span></li>
           <li><span class="k"><kbd>F</kbd></span><span class="o">forcar o ataque</span></li>
           <li><span class="k"><kbd class="larga">SHIFT</kbd></span><span class="o">camera lenta</span></li>
           <li><span class="k"><kbd class="larga">RODA</kbd></span><span class="o">ombro ou tatica</span></li>
         </ul>
       </div>
-
-      <!-- Sair da quadra vale nos tres cenarios: na praia se anda na areia, no
-           estadio se anda no piso da arena. O que so' existe com MAIS DE UMA
-           quadra sao as tres ultimas, e sao elas que somem — tecla que nao faz
-           nada na tela e' pior do que tecla nenhuma. -->
+      <!-- Sair da quadra vale nos tres cenarios. O que so' existe com MAIS DE
+           UMA quadra some — tecla que nao faz nada e' pior que tecla nenhuma. -->
       <div class="grupo-teclas">
         <h2>FORA DA QUADRA</h2>
         <ul class="teclas">
@@ -128,12 +134,9 @@
           <li class="so-praia"><span class="k"><kbd>[</kbd><kbd>]</kbd></span><span class="o">assistir outra</span></li>
           <li class="so-praia"><span class="k"><kbd class="larga">TAB</kbd></span><span class="o">voltar pra voce</span></li>
         </ul>
-      </div>
-
-      <div class="grupo-teclas">
         <h2>JOGO</h2>
         <ul class="teclas">
-          <li><span class="k"><kbd>ESC</kbd></span><span class="o">pausa</span></li>
+          <li><span class="k"><kbd class="larga">ESC</kbd></span><span class="o">pausa</span></li>
           <li><span class="k"><kbd>F3</kbd></span><span class="o">desempenho</span></li>
           <li><span class="k"><kbd>H</kbd></span><span class="o">esconde isto</span></li>
         </ul>
@@ -141,182 +144,250 @@
     </aside>
   </div>
 
-  <!-- ================= TELAS ================= -->
+  <!-- =============================== TELAS =============================== -->
   <div id="screens">
-    <!-- menu inicial -->
-    <div id="menu" class="tela">
-      <div class="cartao cartao-largo">
-        <header class="cabeca">
-          <h1 class="titulo">VOLEI <span class="tres">3D</span></h1>
-          <p class="sub">Volei de praia &middot; tres quadras &middot; 15 pontos</p>
-        </header>
+    <!-- O veu das telas: escuro a' esquerda, onde mora o menu, e aberto a'
+         direita, onde a camera mostra a praia. Um so', atras de todas. -->
+    <div id="veu"></div>
 
-        <div class="colunas">
-          <section class="coluna">
-            <h3 class="secao">PARTIDA</h3>
-
-            <div class="campo">
-              <span class="rotulo">DIFICULDADE</span>
-              <!-- Segmentado, e nao um <select>: sao tres opcoes curtas, e ver
-                   as tres de uma vez e' a diferenca entre escolher e adivinhar. -->
-              <div id="opt-skill" class="segmento" role="radiogroup" aria-label="Dificuldade">
-                <label><input type="radio" name="skill" value="facil" /><span>FACIL</span></label>
-                <label><input type="radio" name="skill" value="normal" checked /><span>NORMAL</span></label>
-                <label><input type="radio" name="skill" value="dificil" /><span>DIFICIL</span></label>
-              </div>
-              <span class="ajuda">Vale pro amistoso contra a CPU. Contra um personagem, valem as notas dele.</span>
-            </div>
-
-            <div class="campo">
-              <span class="rotulo">CENARIO</span>
-              <div id="opt-cenario" class="segmento" role="radiogroup" aria-label="Cenario">
-                <label><input type="radio" name="cenario" value="areia" checked /><span>AREIA</span></label>
-                <label><input type="radio" name="cenario" value="quadra" /><span>QUADRA</span></label>
-                <label><input type="radio" name="cenario" value="estadio" /><span>ESTADIO</span></label>
-              </div>
-            </div>
-
-            <label class="campo">
-              <span class="rotulo">RESOLUCAO <b id="opt-res-valor">100%</b></span>
-              <input id="opt-res" type="range" min="50" max="100" step="10" value="100" />
-              <span class="ajuda">Menos resolucao, mais quadros por segundo.</span>
-            </label>
-          </section>
-
-          <section class="coluna">
-            <h3 class="secao">COMO JOGAR</h3>
-            <dl class="explica">
-              <dt>OS TRES TOQUES</dt>
-              <dd>Dois toques armam em casa, o terceiro cruza. Bola baixa e'
-                manchete, na cabeca levantamento, no ar cortada. Com a bola em
-                cima e sem tempo de segurar, <b>F</b> manda por cima da rede
-                assim mesmo: sai fraco, mas sai.</dd>
-
-              <dt>A BARRA <b>TOQUE</b></dt>
-              <dd>Sobe enquanto a bola vem pro seu corpo. Cheia, o toque sai
-                inteiro; na ponta do braco a mira espalha e a bola pode
-                <b>queimar</b>. Bola rapida cobra sozinha.</dd>
-
-              <dt>A BARRA <b>FORCA</b></dt>
-              <dd>Varre e tem uma <b>zona</b> perto do fim: solte ali e a batida
-                sai forte e reta. Antes sai fraca, depois sai torta, e no fim
-                escapa sozinha.</dd>
-
-              <dt>O <b>MERGULHO</b></dt>
-              <dd>Com <b>C</b> voce joga o corpo na direcao que estiver andando
-                e alcanca mais de um metro alem do normal — inclusive rasteiro.
-                No voo o teclado nao manda e depois voce fica caido quase um
-                segundo: e' o preco. O toque sai sozinho assim que o corpo
-                alcanca, e sai sempre manchete.</dd>
-
-              <dt>A <b>CAMERA LENTA</b></dt>
-              <dd>Segure <b>SHIFT</b> e o mundo anda a 35% — a barra de FORCA
-                junto, que e' o ponto: e' tempo comprado pra acertar a zona ou
-                salvar uma bola que ja' passou. A carga dura 2,5 segundos e
-                demora 9 pra voltar, entao e' pra <b>um</b> toque.<br><br>
-                E' com o <b>mergulho</b> que ela rende mais: o voo dura 0,42 s,
-                tempo de ver mas nao de decidir. Em camera lenta ele passa de um
-                segundo vivido, e da' pra escolher o lado.</dd>
-
-              <dt>A REDE E A MIRA</dt>
-              <dd>De pe' a rede trava a batida em 16 m/s; <b>pulando</b>, 20. A
-                mira alcanca <b>alem das linhas</b>: mirar na linha e' aposta, e
-                toda batida espalha um pouco.</dd>
-
-              <dt>OS DOIS ENQUADRAMENTOS</dt>
-              <dd>A roda anda entre a camera de <b>ombro</b>, colada atras de
-                voce, e a <b>tatica</b>, alta e atras — a unica que mostra o
-                campo adversario por cima da fita. Ombro le' melhor a bola;
-                tatica le' melhor o campo.</dd>
-            </dl>
-          </section>
+    <!-- ---------------------------------------------------------- menu -->
+    <section id="menu" class="tela tela-menu">
+      <header class="topo">
+        <div class="marca">
+          <h1 class="logo"><span class="logo-volei">VOLEI</span><span class="logo-3d">3D</span></h1>
+          <p class="logo-sub">CIRCUITO DE PRAIA</p>
         </div>
+        <div id="perfil" class="perfil"></div>
+      </header>
 
-        <!-- Fora das colunas de proposito: a acao principal atravessa o
-             cartao inteiro, e as duas colunas correm do topo sem um buraco de
-             meia tela embaixo da mais curta. -->
-        <!-- O circuito e' o jogo; o amistoso e' o treino. A ordem dos dois
-             botoes diz isso antes de qualquer texto. -->
-        <div class="acoes-menu">
-          <button id="btn-circuito" class="botao">CIRCUITO</button>
-          <button id="btn-jogar" class="botao secundario">AMISTOSO</button>
-          <button id="btn-adversarios" class="botao secundario">ADVERSARIOS</button>
+      <!-- O circuito e' o jogo; o amistoso e' o treino. O tamanho dos blocos
+           diz isso antes de qualquer texto. -->
+      <nav class="mosaico" aria-label="Menu principal">
+        <button id="btn-circuito" class="tile tile-hero tile-sol" type="button" data-principal style="--i:0">
+          <svg class="tile-arte"><use href="#i-trofeu" /></svg>
+          <span class="tile-topo">MODO CARREIRA</span>
+          <span class="tile-titulo">CIRCUITO</span>
+          <span id="tile-circuito-desc" class="tile-desc">Tres etapas em escada. Levante a taca pra abrir a proxima.</span>
+          <span id="tile-circuito-status" class="tile-status"></span>
+        </button>
+        <button id="btn-jogar" class="tile tile-mar" type="button" style="--i:1">
+          <svg class="tile-arte"><use href="#i-bola" /></svg>
+          <span class="tile-topo">PARTIDA RAPIDA</span>
+          <span class="tile-titulo">AMISTOSO</span>
+          <span id="tile-amistoso-desc" class="tile-desc"></span>
+        </button>
+        <button id="btn-adversarios" class="tile tile-roxo" type="button" style="--i:2">
+          <svg class="tile-arte"><use href="#i-gente" /></svg>
+          <span class="tile-topo">ELENCO</span>
+          <span class="tile-titulo">ADVERSARIOS</span>
+          <span class="tile-desc">24 personagens, oito notas cada. Desafie qualquer um.</span>
+        </button>
+        <button class="tile tile-menor" type="button" data-tela="ajustes" style="--i:3">
+          <svg class="tile-arte"><use href="#i-ajustes" /></svg>
+          <span class="tile-titulo">AJUSTES</span>
+          <span id="tile-ajustes-desc" class="tile-desc"></span>
+        </button>
+        <button class="tile tile-menor" type="button" data-tela="comojogar" style="--i:4">
+          <svg class="tile-arte"><use href="#i-teclado" /></svg>
+          <span class="tile-titulo">COMO JOGAR</span>
+          <span class="tile-desc">Toques, barras, mergulho e controles</span>
+        </button>
+      </nav>
+
+      <footer class="rodape">
+        <div class="prompts">
+          <span class="prompt"><kbd class="larga">SETAS</kbd>NAVEGAR</span>
+          <span class="prompt"><kbd class="larga">ENTER</kbd>SELECIONAR</span>
+          <span class="prompt"><kbd>F3</kbd>DESEMPENHO</span>
         </div>
+        <!-- CC-BY exige credito VISIVEL: mora aqui, pequeno, e nao so' no README. -->
+        <p class="credito">Cenario QUADRA: &ldquo;Volleyball court&rdquo; de Konstantin
+          &middot; ESTADIO: &ldquo;Low Poly Football Stadium&rdquo; de ismeteren07
+          &middot; <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC&nbsp;BY</a></p>
+      </footer>
+    </section>
 
-        <p class="rodape"><kbd>ESC</kbd> pausa &middot; <kbd>F3</kbd> desempenho
-          &middot; <kbd>H</kbd> esconde as teclas<br />
-          <span class="credito">Cenario QUADRA: &ldquo;Volleyball court&rdquo; de Konstantin
-            &middot; Cenario ESTADIO: &ldquo;Low Poly Football Stadium&rdquo; de ismeteren07
-            &middot; os dois sob <a href="https://creativecommons.org/licenses/by/4.0/"
-            target="_blank" rel="noopener">CC&nbsp;Attribution</a></span></p>
+    <!-- ------------------------------------------------------- ajustes -->
+    <section id="ajustes" class="tela tela-painel hidden">
+      <header class="cabecalho">
+        <span class="migalha">MENU</span>
+        <h2 class="cabecalho-titulo">AJUSTES</h2>
+      </header>
+      <div class="painel">
+        <!-- As opcoes nascem em Screens: sao dados (valores, rotulos, ajuda), e
+             o seletor de setas e' o mesmo pras tres. -->
+        <div id="opcoes" class="opcoes"></div>
+        <p id="opcoes-ajuda" class="opcoes-ajuda"></p>
       </div>
-    </div>
+      <footer class="rodape">
+        <div class="prompts">
+          <button class="prompt" type="button" data-voltar><kbd class="larga">ESC</kbd>VOLTAR</button>
+          <span class="prompt"><kbd>&larr;</kbd><kbd>&rarr;</kbd>MUDAR</span>
+        </div>
+      </footer>
+    </section>
 
-    <!-- circuito: a carreira e as tres etapas -->
-    <div id="circuito" class="tela hidden">
-      <div class="cartao cartao-circuito">
-        <header class="cabeca">
-          <h2 class="titulo-menor">CIRCUITO</h2>
-          <p class="sub">Tres etapas em escada. Levante a taca pra abrir a proxima.</p>
-        </header>
-        <dl id="carreira" class="carreira"></dl>
-        <div id="etapas" class="etapas"></div>
-        <button id="btn-circuito-voltar" class="botao secundario">VOLTAR</button>
+    <!-- ---------------------------------------------------- como jogar -->
+    <section id="comojogar" class="tela tela-painel tela-larga hidden">
+      <header class="cabecalho">
+        <span class="migalha" id="comojogar-migalha">MENU</span>
+        <h2 class="cabecalho-titulo">COMO JOGAR</h2>
+      </header>
+      <div class="guia">
+        <article class="guia-cartao" style="--i:0">
+          <span class="guia-num">01</span>
+          <h3>OS TRES TOQUES</h3>
+          <p>Dois toques armam em casa, o terceiro cruza. Bola baixa e' manchete,
+            na cabeca levantamento, no ar cortada. Com a bola em cima e sem tempo
+            de segurar, <kbd>F</kbd> manda por cima da rede assim mesmo: sai
+            fraco, mas sai.</p>
+        </article>
+        <article class="guia-cartao" style="--i:1">
+          <span class="guia-num">02</span>
+          <h3>A BARRA <em>TOQUE</em></h3>
+          <p>Sobe enquanto a bola vem pro seu corpo. Cheia, o toque sai inteiro;
+            na ponta do braco a mira espalha e a bola pode <b>queimar</b>. Bola
+            rapida cobra sozinha.</p>
+        </article>
+        <article class="guia-cartao" style="--i:2">
+          <span class="guia-num">03</span>
+          <h3>A BARRA <em>FORCA</em></h3>
+          <p>Varre e tem uma <b>zona</b> perto do fim: solte ali e a batida sai
+            forte e reta. Antes sai fraca, depois sai torta, e no fim escapa
+            sozinha.</p>
+        </article>
+        <article class="guia-cartao" style="--i:3">
+          <span class="guia-num">04</span>
+          <h3>O <em>MERGULHO</em></h3>
+          <p>Com <kbd>C</kbd> voce joga o corpo na direcao que estiver andando e
+            alcanca mais de um metro alem do normal — inclusive rasteiro. No voo o
+            teclado nao manda, e depois voce fica caido quase um segundo: e' o
+            preco. O toque sai sozinho, e sai sempre manchete.</p>
+        </article>
+        <article class="guia-cartao" style="--i:4">
+          <span class="guia-num">05</span>
+          <h3>A <em>CAMERA LENTA</em></h3>
+          <p>Segure <kbd class="larga">SHIFT</kbd> e o mundo anda a 35% — a barra
+            de FORCA junto. A carga dura 2,5 s e demora 9 pra voltar: e' pra
+            <b>um</b> toque. Rende mais no mergulho, que passa de um segundo
+            vivido e da' pra escolher o lado.</p>
+        </article>
+        <article class="guia-cartao" style="--i:5">
+          <span class="guia-num">06</span>
+          <h3>A REDE E A MIRA</h3>
+          <p>De pe' a rede trava a batida em 16 m/s; <b>pulando</b>, 20. A mira
+            alcanca alem das linhas: mirar na linha e' aposta, e toda batida
+            espalha um pouco. A roda troca a camera de <b>ombro</b> pela
+            <b>tatica</b>, que mostra o campo de la'.</p>
+        </article>
       </div>
-    </div>
+      <div class="controles" id="controles"></div>
+      <footer class="rodape">
+        <div class="prompts">
+          <button class="prompt" type="button" data-voltar><kbd class="larga">ESC</kbd>VOLTAR</button>
+        </div>
+      </footer>
+    </section>
 
-    <!-- chave: o torneio em andamento -->
-    <div id="chave" class="tela hidden">
-      <div class="cartao cartao-chave">
-        <header class="cabeca">
-          <h2 id="chave-titulo" class="titulo-menor">MUNICIPAL</h2>
-          <p id="chave-rodada" class="sub">QUARTAS DE FINAL</p>
-        </header>
+    <!-- ------------------------------------------------------ circuito -->
+    <section id="circuito" class="tela tela-cheia hidden">
+      <header class="cabecalho">
+        <span class="migalha">MENU</span>
+        <h2 class="cabecalho-titulo">CIRCUITO</h2>
+        <p class="cabecalho-sub">Tres etapas em escada. Levante a taca pra abrir a proxima.</p>
+      </header>
+      <dl id="carreira" class="carreira"></dl>
+      <div id="etapas" class="etapas"></div>
+      <footer class="rodape">
+        <div class="prompts">
+          <button id="btn-circuito-voltar" class="prompt" type="button" data-voltar><kbd class="larga">ESC</kbd>VOLTAR</button>
+          <span class="prompt"><kbd class="larga">ENTER</kbd>ESCOLHER ETAPA</span>
+        </div>
+      </footer>
+    </section>
+
+    <!-- --------------------------------------------------------- chave -->
+    <section id="chave" class="tela tela-cheia hidden">
+      <header class="cabecalho">
+        <span class="migalha">CIRCUITO</span>
+        <h2 id="chave-titulo" class="cabecalho-titulo">MUNICIPAL</h2>
+        <p id="chave-rodada" class="cabecalho-sub">QUARTAS DE FINAL</p>
+      </header>
+      <div class="chave-corpo">
         <div id="chave-arvore" class="arvore"></div>
-        <div id="chave-proximo" class="proximo"></div>
-        <div class="acoes-menu">
-          <button id="btn-chave-jogar" class="botao">JOGAR PARTIDA</button>
-          <button id="btn-chave-voltar" class="botao secundario">VOLTAR</button>
-        </div>
+        <aside class="chave-lado">
+          <div id="chave-proximo" class="proximo"></div>
+          <button id="btn-chave-jogar" class="botao botao-principal" type="button" data-principal>
+            <svg><use href="#i-play" /></svg>JOGAR PARTIDA
+          </button>
+        </aside>
       </div>
-    </div>
+      <footer class="rodape">
+        <div class="prompts">
+          <button id="btn-chave-voltar" class="prompt" type="button" data-voltar><kbd class="larga">ESC</kbd>VOLTAR</button>
+          <span class="prompt"><kbd class="larga">ENTER</kbd>JOGAR</span>
+        </div>
+      </footer>
+    </section>
 
-    <!-- adversarios: o elenco, as fichas, e o desafio -->
-    <div id="elenco" class="tela hidden">
-      <div class="cartao cartao-elenco">
-        <header class="cabeca">
-          <h2 class="titulo-menor">ADVERSARIOS</h2>
-          <p class="sub">Oito notas de 1 a 10. O 5 joga como a CPU no normal; o 10, como no dificil.</p>
+    <!-- ---------------------------------------------------- adversarios -->
+    <section id="elenco" class="tela tela-cheia hidden">
+      <header class="cabecalho">
+        <span class="migalha">MENU</span>
+        <h2 class="cabecalho-titulo">ADVERSARIOS</h2>
+        <p class="cabecalho-sub">Oito notas de 1 a 10. O 5 joga como a CPU no normal; o 10, como no dificil.</p>
+      </header>
+      <div id="elenco-abas" class="abas" role="tablist" aria-label="Etapa"></div>
+      <div class="elenco-corpo">
+        <div id="elenco-lista" class="elenco-lista"></div>
+        <div id="elenco-ficha" class="elenco-ficha"></div>
+      </div>
+      <footer class="rodape">
+        <div class="prompts">
+          <button id="btn-elenco-voltar" class="prompt" type="button" data-voltar><kbd class="larga">ESC</kbd>VOLTAR</button>
+          <span class="prompt"><kbd>Q</kbd><kbd>E</kbd>ETAPA</span>
+        </div>
+      </footer>
+    </section>
+
+    <!-- --------------------------------------------------------- pausa -->
+    <section id="pause" class="tela tela-pausa hidden">
+      <div class="pausa-painel">
+        <header class="cabecalho">
+          <span class="pausa-rotulo">JOGO PAUSADO</span>
+          <h2 class="cabecalho-titulo">PAUSA</h2>
         </header>
-        <div id="elenco-abas" class="abas" role="tablist" aria-label="Etapa"></div>
-        <div class="elenco-corpo">
-          <div id="elenco-lista" class="elenco-lista"></div>
-          <div id="elenco-ficha" class="elenco-ficha"></div>
+        <div id="pausa-placar" class="pausa-placar"></div>
+        <div class="lista-menu">
+          <button id="btn-voltar" class="item-menu" type="button" data-voltar data-principal>CONTINUAR</button>
+          <button class="item-menu" type="button" data-tela="comojogar">COMO JOGAR</button>
+          <button id="btn-sair" class="item-menu perigo" type="button">SAIR PRO MENU</button>
         </div>
-        <button id="btn-elenco-voltar" class="botao secundario">VOLTAR</button>
+        <footer class="rodape">
+          <div class="prompts">
+            <span class="prompt"><kbd class="larga">ESC</kbd>CONTINUAR</span>
+          </div>
+        </footer>
       </div>
-    </div>
+    </section>
 
-    <!-- pausa -->
-    <div id="pause" class="tela hidden">
-      <div class="cartao">
-        <h2 class="titulo-menor">PAUSADO</h2>
-        <button id="btn-voltar" class="botao">CONTINUAR</button>
-        <button id="btn-sair" class="botao secundario">SAIR PRO MENU</button>
+    <!-- ----------------------------------------------------- fim de jogo -->
+    <section id="gameover" class="tela tela-fim hidden">
+      <div class="fim-faixa">
+        <p id="go-rotulo" class="fim-rotulo">AMISTOSO</p>
+        <h2 id="go-titulo" class="fim-titulo">VITORIA</h2>
       </div>
-    </div>
-
-    <!-- fim de jogo -->
-    <div id="gameover" class="tela hidden">
-      <div class="cartao">
-        <h2 id="go-titulo" class="titulo-menor">FIM DE JOGO</h2>
-        <p id="go-placar" class="sub">PLACAR FINAL 0 x 0</p>
-        <!-- So' no circuito: o que a partida rendeu, e o que ela abriu. -->
-        <p id="go-extra" class="extra hidden"></p>
-        <button id="btn-denovo" class="botao">JOGAR NOVAMENTE (R)</button>
-        <button id="btn-go-circuito" class="botao hidden">CONTINUAR</button>
+      <div id="go-placar" class="fim-placar"></div>
+      <!-- So' no circuito: o que a partida rendeu, e o que ela abriu. -->
+      <div id="go-extra" class="fim-extra hidden"></div>
+      <div class="fim-acoes">
+        <button id="btn-denovo" class="botao botao-principal" type="button" data-principal>
+          <svg><use href="#i-play" /></svg>JOGAR DE NOVO<kbd>R</kbd>
+        </button>
+        <button id="btn-go-circuito" class="botao botao-principal hidden" type="button">CONTINUAR</button>
+        <button id="btn-fim-menu" class="botao" type="button">MENU PRINCIPAL</button>
       </div>
-    </div>
+    </section>
   </div>
 
   <div id="perf" class="hidden"></div>

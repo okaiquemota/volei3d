@@ -1,44 +1,78 @@
-/* Reset, tokens, HUD e telas. Todo o 2D do jogo cabe aqui. */
+/*
+ * Todo o 2D do jogo: tokens, componentes, HUD e telas.
+ *
+ * O idioma e' o de jogo de verdade — Forza Horizon mais que planilha: titulo
+ * condensado em italico, blocos grandes, a praia viva atras do menu, e o
+ * "selecionado" sempre com a mesma cara (branco cheio, texto escuro). Quem
+ * aprende isso numa tela le' as outras sem pensar.
+ */
+@import './fontes.css';
 
 :root {
-  --tinta: #e8e6e3;
-  --fundo: #0d1014;
-  --home: #2970d1;
-  --away: #d94d38;
+  /* ---- tinta ---- */
+  --tinta: #ffffff;
+  --tinta-2: rgba(255, 255, 255, 0.74);
+  --tinta-3: rgba(255, 255, 255, 0.5);
+  --tinta-4: rgba(255, 255, 255, 0.14);
+  --escuro: #0b0d16;
 
-  /* O fundo de todo painel do HUD, e a borda que o separa da areia.
-     Um token so' porque a areia clara come contraste: quando um painel some
-     no fundo, os outros somem junto, e mexer em cinco lugares vira cinco
-     tons diferentes. */
-  /**
-   * O fundo de todo painel do HUD.
-   *
-   * Era 0,66, medido contra areia dourada. O cenario QUADRA trocou o mundo por
-   * branco, e sobre branco esse alfa da' cinza medio: o azul de "VOCE" no
-   * placar perdia o contraste e a faixa de teclas lavava. Um painel de HUD tem
-   * que ser legivel sobre QUALQUER coisa que o jogo desenhe atras dele, e a
-   * unica forma barata de garantir isso e' ele ser quase opaco.
+  /* ---- a paleta do festival ---- */
+  --rosa: #ff2e88;
+  --laranja: #ff7a1a;
+  --ouro: #ffcf3f;
+  --ciano: #29e7ff;
+  --verde: #3ee08f;
+  /* O por do sol: e' a assinatura. Acao principal, titulo, destaque. */
+  --sol: linear-gradient(100deg, #ff2e88 0%, #ff5a4e 50%, #ff9e1f 100%);
+
+  /* Os dois times. Vivos, porque o placar le' de longe. */
+  --home: #2e7cf6;
+  --away: #ff4b3e;
+
+  /* ---- superficies ---- */
+  --vidro: rgba(14, 17, 30, 0.74);
+  --vidro-forte: rgba(10, 12, 22, 0.92);
+  --linha: rgba(255, 255, 255, 0.12);
+
+  /*
+   * O fundo de todo painel do HUD. Quase opaco, e isso e' decisao: o cenario
+   * QUADRA pinta o mundo de branco, e um painel translucido sobre branco vira
+   * cinza medio — o azul de "VOCE" perde o contraste. Painel de HUD tem que
+   * ler sobre QUALQUER coisa que o jogo desenhe atras dele.
    */
-  --painel: rgba(8, 11, 15, 0.85);
-  --borda: rgba(232, 230, 227, 0.16);
+  --painel: rgba(8, 10, 18, 0.9);
 
   /* O branco quente: anel de mira, zona da forca, toque no ponto. Tres
      lugares dizendo "e' AGORA" — tem que ser a mesma cor, ou nao e' sinal. */
   --areia: #fff0c0;
-  --alerta: #ffb4a0;
+  --alerta: #ff9d8a;
 
-  --raio: 6px;
+  /* ---- tipografia ---- */
+  --titulo: 'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', sans-serif;
+  --texto: 'Barlow', 'Segoe UI', system-ui, sans-serif;
+
+  /* O corte de paralelogramo, a forma de botao, chip e aba. */
+  --inclinacao: 0.7em;
+
+  --entrada: cubic-bezier(0.2, 0.85, 0.25, 1);
 }
 
 * { box-sizing: border-box; }
+
+/*
+ * O rem acompanha a tela, como o CanvasScaler de uma engine: numa de 1080p o
+ * menu tem a mesma cara que numa de 768, so' menor. O piso segura o texto
+ * legivel num notebook pequeno.
+ */
+html { font-size: clamp(13px, 0.66vw + 0.4vh, 19px); }
 
 html, body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  background: var(--fundo);
+  background: #05060c;
   color: var(--tinta);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--texto);
   -webkit-font-smoothing: antialiased;
 
   /**
@@ -46,11 +80,8 @@ html, body {
    *
    * Sem isto o SHIFT tem dois donos: o jogo, onde ele e' a camera lenta, e o
    * navegador, onde ele estende selecao de texto. Segurar SHIFT e clicar
-   * pintava o HUD inteiro de azul — placar, aviso do ponto e a faixa de teclas
-   * — e a partir dali o teclado estava dividido entre uma partida e um bloco de
-   * texto selecionado.
-   *
-   * A pagina e' um jogo. Selecao aqui nao serve pra nada e cobra um atalho.
+   * pintava o HUD inteiro de azul, e a partir dali o teclado estava dividido
+   * entre uma partida e um bloco de texto selecionado.
    */
   -webkit-user-select: none;
   user-select: none;
@@ -66,447 +97,515 @@ html, body {
 
 .hidden { display: none !important; }
 
+button { font: inherit; color: inherit; }
+
+svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* =========================================================================
+   COMPONENTES
+   ========================================================================= */
+
+/*
+ * A tecla. Clara e com degrau embaixo, como o glifo de botao de console: le'
+ * como "aperte isto" sobre a areia, sobre o branco da quadra e sobre o menu.
+ */
+kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.9em;
+  height: 1.9em;
+  padding: 0 0.42em;
+  font: 700 0.72em/1 var(--titulo);
+  letter-spacing: 0.06em;
+  color: var(--escuro);
+  background: linear-gradient(#ffffff, #d6dae4);
+  border-radius: 0.34em;
+  box-shadow: 0 0.14em 0 #7e8496, 0 0.25em 0.6em rgba(0, 0, 0, 0.35);
+  vertical-align: 0.1em;
+}
+kbd.larga { min-width: auto; }
+
+/* Um prompt: tecla + o que ela faz. Botao ou nao, a cara e' a mesma. */
+.prompt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+  padding: 0;
+  font: 700 italic 1rem var(--titulo);
+  letter-spacing: 0.1em;
+  color: var(--tinta-2);
+  background: none;
+  border: 0;
+}
+.prompt kbd + kbd { margin-left: -0.3em; }
+button.prompt { cursor: pointer; transition: color 0.15s; }
+button.prompt:hover, button.prompt:focus-visible { color: var(--tinta); outline: none; }
+button.prompt:focus-visible kbd { box-shadow: 0 0.14em 0 #7e8496, 0 0 0 0.18em var(--rosa); }
+
+/*
+ * O botao: um paralelogramo.
+ *
+ * Recortado com `clip-path`, e nao inclinado com `skew`: o texto fica reto e so'
+ * a forma corre. Selecionado vira branco cheio — o mesmo "selecionado" do
+ * bloco, da opcao e da aba.
+ */
+.botao {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6em;
+  padding: 0.85em 2.3em;
+  font: 800 italic 1.3rem/1 var(--titulo);
+  letter-spacing: 0.06em;
+  color: var(--tinta);
+  background: rgba(255, 255, 255, 0.1);
+  border: 0;
+  clip-path: polygon(var(--inclinacao) 0, 100% 0, calc(100% - var(--inclinacao)) 100%, 0 100%);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+.botao svg { width: 1em; height: 1em; }
+.botao kbd { margin-left: 0.3em; font-size: 0.6em; }
+.botao-principal { background: var(--sol); }
+.botao:hover, .botao:focus-visible, .botao:focus {
+  background: #fff;
+  color: var(--escuro);
+  outline: none;
+  transform: translateY(-2px);
+}
+.botao-principal:hover svg, .botao-principal:focus svg { color: var(--rosa); }
+
+/* O chip: estado curto num paralelogramo pequeno. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  justify-self: start;
+  padding: 0.4em 1em;
+  font: 800 italic 0.95rem/1 var(--titulo);
+  letter-spacing: 0.08em;
+  color: var(--escuro);
+  background: #fff;
+  clip-path: polygon(0.5em 0, 100% 0, calc(100% - 0.5em) 100%, 0 100%);
+}
+.chip svg { width: 1.05em; height: 1.05em; }
+.chip.escuro { color: var(--tinta); background: rgba(5, 6, 14, 0.6); }
+.chip.ouro { color: #2a1c02; background: var(--ouro); }
+
+/* ---- entradas ---- */
+@keyframes aparece { from { opacity: 0; } }
+@keyframes sobe { from { opacity: 0; transform: translateY(1.4rem); } }
+@keyframes da-esquerda { from { opacity: 0; transform: translateX(-2.4rem); } }
+
+/*
+ * `backwards`, e nunca `both`: animacao terminada com `forwards` continua
+ * mandando no `transform`, e o bloco perderia o pulo do foco pra sempre.
+ */
+.anima { animation: sobe 0.5s var(--entrada) backwards; animation-delay: calc(var(--i, 0) * 60ms + 60ms); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-delay: 0s !important; transition-duration: 1ms !important; }
+}
+
+/* =========================================================================
+   MEDIDOR DE DESEMPENHO (F3)
+   ========================================================================= */
+
 #perf {
   position: fixed;
-  top: 8px;
-  left: 8px;
-  padding: 6px 10px;
+  top: 10px;
+  left: 10px;
+  padding: 8px 12px;
   background: var(--painel);
-  border: 1px solid var(--borda);
-  border-radius: 4px;
-  font-size: 12px;
-  line-height: 1.5;
+  border-left: 3px solid var(--ciano);
+  font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   white-space: pre;
   pointer-events: none;
   z-index: 50;
 }
+/* Sem aceleracao por hardware o medidor vira aviso: a ultima linha explica o
+   que fazer, e ela passava batida num painel igual aos outros. */
+#perf.alerta { border-left-color: var(--away); color: #ffd0c0; }
 
-/* Sem aceleracao por hardware o medidor vira aviso: a ultima linha do painel
-   explica o que fazer, e ela passa batida num painel cinza igual aos outros. */
-#perf.alerta {
-  border-color: rgba(217, 77, 56, 0.6);
-  color: #ffd0c0;
-}
-
-/* ======================= HUD ======================= */
+/* =========================================================================
+   HUD
+   ========================================================================= */
 
 #hud {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 10;
-  /* A referencia e' 1920x1080; vmin faz o HUD encolher junto com a janela,
-     como o CanvasScaler fazia. */
+  /* A referencia e' 1920x1080; vmin faz o HUD encolher junto com a janela. */
   font-size: clamp(12px, 1.5vmin, 20px);
-
   transition: opacity 0.2s;
 }
 
-/*
- * Com o menu, a pausa ou o fim de jogo abertos, o HUD sai da frente.
- *
- * As telas tem fundo TRANSLUCIDO — de proposito, pra praia continuar visivel
- * atras. Sem isto o placar e a dica de saque atravessam o veu e aparecem POR
- * CIMA do "VOCE VENCEU", competindo com o botao logo abaixo.
- */
+/* Com uma tela aberta o HUD sai da frente: as telas deixam a praia aparecer,
+   e o placar atravessando o veu competiria com o "VITORIA". */
 body.tela-aberta #hud { opacity: 0; }
 
 /*
- * Tudo que mora no alto da tela mora AQUI, empilhado em fluxo.
- *
- * Placar, quem saca, a barra do poder, o aviso de quadra e o cluster das duas
- * barras. Cada um ja' teve um `top: Nvmin` proprio, e o dia em que uma linha
- * nova entrou no topo todas as de baixo ficaram erradas de uma vez — o numero
- * magico nao sabia que o bloco acima tinha crescido. Em fluxo, cada um comeca
- * onde o anterior acaba, e some sem deixar buraco.
+ * Tudo que mora no alto, empilhado EM FLUXO: placar, faixa, poder, aviso de
+ * quadra e as barras. Numero magico por elemento quebrou uma vez — a linha
+ * nova do topo caiu em cima das de baixo. Em fluxo, cada um comeca onde o
+ * anterior acaba.
  */
 #hud-top {
   position: absolute;
-  top: 1.6vmin;
+  top: 1.8vmin;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  text-align: center;
 }
 
-#scoreboard {
+/* ------- o placar de transmissao ------- */
+
+.placar {
   display: flex;
-  align-items: center;
-  gap: 1.2em;
-  padding: 0.5em 1.4em;
-  background: var(--painel);
-  border: 1px solid var(--borda);
-  border-radius: var(--raio);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  align-items: stretch;
+  height: 3em;
+  filter: drop-shadow(0 0.35em 0.8em rgba(0, 0, 0, 0.45));
   /* Sem isto o placar balanca a cada ponto: os digitos tem larguras diferentes. */
   font-variant-numeric: tabular-nums;
 }
 
-#scoreboard .lado { font-size: 1.1em; letter-spacing: 0.1em; opacity: 0.85; }
-#scoreboard .lado.home { color: var(--home); }
-#scoreboard .lado.away { color: var(--away); }
-#scoreboard .pontos { font-size: 2.6em; font-weight: 700; line-height: 1; }
-#scoreboard .sep { font-size: 1.8em; opacity: 0.4; }
-
-#serve-line {
-  margin-top: 0.6em;
-  font-size: 1.1em;
-  letter-spacing: 0.08em;
-  color: var(--home);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+.placar-time {
+  display: flex;
+  align-items: center;
+  gap: 0.55em;
+  min-width: 9.5em;
+  padding: 0 1.1em;
+  font: 800 italic 1.3em/1 var(--titulo);
+  letter-spacing: 0.05em;
+  white-space: nowrap;
 }
-#serve-line.away { color: var(--away); }
+.placar-time.home {
+  justify-content: flex-end;
+  background: linear-gradient(90deg, #103a80, var(--home));
+  clip-path: polygon(0.9em 0, 100% 0, 100% 100%, 0 100%);
+}
+.placar-time.away {
+  background: linear-gradient(90deg, var(--away), #7d1d17);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 0.9em) 100%, 0 100%);
+}
+
+.placar-pontos { display: flex; background: rgba(8, 10, 18, 0.96); }
+.pontos {
+  display: grid;
+  place-items: center;
+  min-width: 1.75em;
+  padding: 0 0.3em;
+  font: 900 italic 2.15em/1 var(--titulo);
+}
+.pontos + .pontos { box-shadow: inset 1px 0 rgba(255, 255, 255, 0.14); }
+/* O ponto que acabou de entrar pisca em ouro. */
+.pontos.pulou { animation: ponto-novo 0.7s var(--entrada); }
+@keyframes ponto-novo {
+  0% { transform: scale(1.5); color: var(--ouro); }
+  60% { color: var(--ouro); }
+}
+
+/* A bolinha de quem saca, colada no nome. */
+.placar-saque {
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  background: #ffe27a;
+  box-shadow: 0 0 0.7em #ffc93a;
+  opacity: 0;
+  transform: scale(0.3);
+  transition: opacity 0.2s, transform 0.3s var(--entrada);
+}
+.placar-saque.ativo { opacity: 1; transform: scale(1); }
+
+.placar-faixa {
+  display: flex;
+  gap: 1em;
+  margin-top: 0.3em;
+  padding: 0.3em 1.3em;
+  font: 700 0.78em/1 var(--titulo);
+  letter-spacing: 0.2em;
+  color: var(--tinta-2);
+  background: var(--painel);
+  clip-path: polygon(0.5em 0, calc(100% - 0.5em) 0, 100% 100%, 0 100%);
+}
+#serve-line { color: #8fb8ff; }
+#serve-line.away { color: #ff9d94; }
+.placar-meta { color: var(--tinta-3); }
 
 /* ------- a barra do poder de camera lenta ------- */
 
-/*
- * Debaixo do placar, e nao com as barras de TOQUE e FORCA.
- *
- * Aquelas sao leitura DESTE contato: sobem, decidem, somem em meio segundo.
- * Esta e' um recurso que atravessa o set, como o placar — e juntar as tres
- * faria o olho procurar a que importa no quadro em que ele nao tem tempo.
- */
 #tempo {
   position: relative;
   display: flex;
   justify-content: center;
-  margin-top: 0.5em;
-  opacity: 0.55;
+  margin-top: 0.55em;
+  opacity: 0.6;
   transition: opacity 0.2s;
 }
-
-/*
- * O rotulo sai do FLUXO, pendurado a' esquerda do trilho.
- *
- * Em fluxo ele entra na conta da largura, e o trilho deixa de ser centrado na
- * tela: com "SHIFT" a barra do poder ficava 20 px a' direita da de FORCA, logo
- * abaixo dela. Fora do fluxo, o trilho e' o unico conteudo — o centro dele e' o
- * centro da tela, escreva-se o que se escrever na tecla.
- */
+/* A tecla sai do FLUXO, pendurada a' esquerda: em fluxo ela entraria na conta
+   da largura e o trilho deixaria de estar centrado na tela. */
 #tempo kbd {
-  /* Esta tecla flutua sobre o mundo, sem painel atras. O `kbd` comum e' um
-     branco translucido — invisivel sobre o branco do cenario QUADRA. Aqui ela
-     vira uma pastilha escura, que le' sobre areia e sobre branco. */
-  background: var(--painel);
-  border-color: var(--borda);
   position: absolute;
   right: 100%;
   top: 50%;
   transform: translateY(-50%);
-  margin-right: 0.6em;
-  font-size: 0.68em;
-  min-width: auto;
+  margin-right: 0.7em;
+  font-size: 0.62em;
 }
-
 #tempo-trilho {
   width: 11em;
-  height: 5px;
-  background: rgba(8, 11, 15, 0.7);
-  border: 1px solid rgba(232, 230, 227, 0.2);
-  border-radius: 3px;
+  height: 0.38em;
+  background: rgba(8, 10, 18, 0.85);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22);
+  transform: skewX(-20deg);
   overflow: hidden;
 }
-
-#tempo-fill {
-  height: 100%;
-  width: 100%;
-  background: rgba(232, 230, 227, 0.55);
-  transition: background 0.15s;
-}
-
-/* Cheia e parada, a barra fica quieta; gastando, ela e' a coisa mais viva do
-   alto da tela. Sem carga pra ligar, apaga — pedir e nao acontecer nada e' pior
-   que saber que nao da'. */
+#tempo-fill { height: 100%; width: 100%; background: rgba(255, 255, 255, 0.6); transition: background 0.15s; }
+/* Cheia e parada, quieta; gastando, e' a coisa mais viva do alto da tela. Sem
+   carga pra ligar, apaga — pedir e nao acontecer nada e' pior que saber. */
 #tempo.ativo { opacity: 1; }
-#tempo.ativo #tempo-fill { background: #7fd4ff; }
-#tempo.ativo #tempo-trilho { border-color: #7fd4ff; }
+#tempo.ativo #tempo-fill { background: var(--ciano); box-shadow: 0 0 0.8em var(--ciano); }
+#tempo.ativo #tempo-trilho { box-shadow: 0 0 0 1px var(--ciano); }
 #tempo.vazia { opacity: 0.3; }
-#tempo.vazia #tempo-fill { background: rgba(217, 77, 56, 0.6); }
+#tempo.vazia #tempo-fill { background: var(--away); }
 
-/*
- * O mundo lento, visto de fora.
- *
- * Um azul frio nas bordas e um leve clareamento no meio. E' 2D puro — nao toca
- * em luz, material nem camera — e por isso liga e desliga sem custo e sem
- * chance de estragar o visual da praia.
- */
+/* O mundo lento, visto de fora: azul frio nas bordas. 2D puro — nao toca em
+   luz nem em camera, entao liga e desliga sem custo. */
 #lento {
   position: absolute;
   inset: 0;
   opacity: 0;
   transition: opacity 0.18s;
   background: radial-gradient(ellipse at center,
-    rgba(127, 212, 255, 0.05) 0%,
-    rgba(127, 212, 255, 0.08) 45%,
-    rgba(20, 60, 110, 0.42) 100%);
+    rgba(41, 231, 255, 0.04) 0%, rgba(41, 231, 255, 0.08) 45%, rgba(10, 50, 110, 0.45) 100%);
 }
 #lento.visivel { opacity: 1; }
 
-#announcement {
-  position: absolute;
-  top: 28%;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 2em;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--home);
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
-  opacity: 0;
-  transition: opacity 0.18s;
-  white-space: nowrap;
-}
-#announcement.away { color: var(--away); }
-#announcement.visivel { opacity: 1; }
-
-#action-hint {
-  position: absolute;
-  top: 62%;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 0.4em 1em;
-  background: var(--painel);
-  border: 1px solid var(--borda);
-  border-radius: 4px;
-  font-size: 1.1em;
-  letter-spacing: 0.06em;
-  animation: pulsar 1.4s ease-in-out infinite;
-}
-
-/* Os dois ultimos segundos do saque. */
-#action-hint.urgente {
-  color: #ffd0c0;
-  background: rgba(120, 30, 20, 0.7);
-  border-color: rgba(217, 77, 56, 0.5);
-  animation-duration: 0.5s;
-}
-
-@keyframes pulsar { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
-
-/* Aviso de quem anda pela areia. Abaixo da dica de saque: as duas nunca
-   aparecem juntas, mas empilhar errado uma vez custa mais que uma linha. */
-#dica-praia {
-  position: absolute;
-  top: 72%;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 0.4em 1.1em;
-  background: var(--painel);
-  border: 1px solid var(--borda);
-  border-radius: 4px;
-  font-size: 1em;
-  letter-spacing: 0.08em;
-  white-space: nowrap;
-}
-
-/* Aviso de qual quadra a camera mostra. So' aparece assistindo. */
+/* ------- qual quadra a camera mostra (so' assistindo) ------- */
 #quadra-atual {
-  margin-top: 0.7em;
-  padding: 0.35em 1em;
+  display: flex;
+  align-items: center;
+  gap: 0.55em;
+  margin-top: 0.6em;
+  padding: 0.35em 1.1em;
+  font: 700 0.9em/1 var(--titulo);
+  letter-spacing: 0.16em;
   background: var(--painel);
-  border: 1px solid var(--borda);
-  border-radius: 4px;
-  font-size: 0.95em;
-  letter-spacing: 0.14em;
-  opacity: 0.85;
+  clip-path: polygon(0.5em 0, 100% 0, calc(100% - 0.5em) 100%, 0 100%);
   white-space: nowrap;
 }
+#quadra-atual .rotulo { color: var(--tinta-3); }
+#quadra-atual b { color: var(--rosa); margin-right: 0.6em; }
+#quadra-atual kbd { font-size: 0.75em; }
 
-/* ======================= AS DUAS BARRAS ======================= */
+/* ------- as duas barras: forca e toque ------- */
 
 /**
- * O cluster fica no ALTO, logo abaixo do placar.
- *
- * Estava no rodape, e ali nao se olha: quem joga acompanha a bola, que vive na
- * metade de cima da tela. Uma barra de QTE que pede 180 ms de precisao nao pode
- * morar onde o olho so' vai de proposito.
+ * No ALTO, logo abaixo do placar. No rodape nao se olha: quem joga acompanha a
+ * bola, que vive na metade de cima. Uma barra de QTE que pede 180 ms de
+ * precisao nao pode morar onde o olho so' vai de proposito.
  */
 #medidores {
-  /* Altura zero: o cluster nao empurra nada, so' marca ONDE ele comeca. Os
-     tres filhos se penduram nele. */
+  /* Altura zero: nao empurra nada, so' marca ONDE o cluster comeca. */
   position: relative;
   width: 100%;
   height: 0;
-  margin-top: 1.4em;
+  margin-top: 1.5em;
 }
-
-/* Os tres slots, em `em` do HUD: a distancia entre eles escala junto com a
-   fonte, e cada um tem lugar FIXO — esconder a forca nao sobe o toque. */
 #carga { top: 0; }
-#toque { top: 3.9em; }
-#toque-aviso { top: 7em; }
+#toque { top: 2.4em; }
+#toque-aviso { top: 4.4em; }
 
 #carga, #toque, #toque-aviso {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
 }
+#carga, #toque { display: flex; align-items: center; }
 
-#carga, #toque {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+/* O rotulo tambem sai do fluxo, a' esquerda: o TRILHO e' que fica centrado. */
+.medidor-rotulo {
+  position: absolute;
+  right: 100%;
+  margin-right: 0.9em;
+  font: 800 italic 1em/1 var(--titulo);
+  letter-spacing: 0.16em;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+  white-space: nowrap;
 }
 
-/* Os rotulos flutuam direto sobre a areia, sem painel atras. Sem a sombra o
-   "FORCA" desaparece assim que um corpo claro passa por baixo dele. */
-#carga span, #toque span { text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85); }
-
-#carga {
-  gap: 0.4em;
-  font-size: 0.85em;
-  letter-spacing: 0.2em;
-  opacity: 0.95;
+#carga-trilho, #toque-trilho {
+  transform: skewX(-20deg);
+  overflow: hidden;
+  /* Quase opaco: a barra mora na altura da REDE, e com o trilho translucido a
+     malha preta aparecia por dentro dela. */
+  background-color: rgba(8, 10, 18, 0.93);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35), 0 0.3em 0.9em rgba(0, 0, 0, 0.5);
 }
 
 #carga-trilho {
   width: 34vmin;
   min-width: 260px;
-  height: 11px;
-  /* Quase opaco: a barra mora na altura da REDE agora, e com o trilho
-     translucido a malha preta aparecia por dentro dela. */
-  background: rgba(8, 11, 15, 0.92);
-  border: 1px solid rgba(232, 230, 227, 0.4);
-  border-radius: 3px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
-
-  /* A ZONA, desenhada na trilha e nao no preenchimento: ela precisa aparecer
-     ANTES de a barra chegar la', senao nao ha' o que mirar. Os limites sao
-     zonaIdeal/cargaMaxima = 56% e 1/cargaMaxima = 80% — se aqueles numeros
-     mudarem no config, estes mudam junto. */
+  height: 0.95em;
+  /* A ZONA, desenhada na trilha e nao no preenchimento: ela tem que aparecer
+     ANTES de a barra chegar la'. Os limites sao zonaIdeal/cargaMaxima = 56% e
+     1/cargaMaxima = 80% — se aqueles numeros mudarem no config, estes mudam. */
   background-image: linear-gradient(to right,
-    transparent 56%, rgba(255, 240, 192, 0.55) 56%,
-    rgba(255, 240, 192, 0.55) 80%, rgba(200, 70, 50, 0.55) 80%);
+    transparent 56%, rgba(255, 240, 192, 0.5) 56%,
+    rgba(255, 240, 192, 0.5) 80%, rgba(255, 75, 62, 0.5) 80%);
 }
-
 #carga-fill {
   height: 100%;
   width: 0;
-  background: var(--home);
-  /* Sem transicao na largura: a barra e' a leitura do tempo que o dedo esta'
-     segurando, e suavizar isso faria ela mentir sobre a forca no instante da
-     soltada. */
+  background: linear-gradient(90deg, var(--home), var(--ciano));
+  /* Sem transicao na largura: a barra e' a leitura do dedo, e suavizar faria
+     ela mentir sobre a forca no instante da soltada. */
   transition: background 0.12s;
 }
+#carga { font-size: 1em; }
+#carga.cheia #carga-fill { background: var(--areia); box-shadow: 0 0 1em var(--areia); }
+#carga.cheia #carga-trilho { box-shadow: 0 0 0 2px var(--areia), 0 0 1.2em rgba(255, 240, 192, 0.5); }
+#carga.passou #carga-fill { background: var(--away); }
+#carga.passou #carga-trilho { box-shadow: 0 0 0 2px var(--away); }
 
-/* Na zona: o branco quente e' o mesmo do anel de mira. */
-#carga.cheia #carga-fill { background: var(--areia); }
-#carga.cheia { opacity: 1; }
-#carga.cheia #carga-trilho { border-color: var(--areia); }
-
-/* Passou: a barra vira aviso. */
-#carga.passou #carga-fill { background: #c25a44; }
-#carga.passou { opacity: 1; }
-#carga.passou #carga-trilho { border-color: rgba(217, 77, 56, 0.7); }
-
-#toque {
-  gap: 0.35em;
-  font-size: 0.75em;
-  letter-spacing: 0.18em;
-  opacity: 0.85;
-}
-
+#toque { font-size: 0.82em; opacity: 0.9; }
 #toque-trilho {
   width: 28vmin;
   min-width: 210px;
-  height: 8px;
-  background: rgba(8, 11, 15, 0.92);
-  border: 1px solid rgba(232, 230, 227, 0.22);
-  border-radius: 3px;
-  overflow: hidden;
-  /* A marca da zona limpa: dali pra direita o toque sai inteiro. O gradiente e'
-     uma linha so', entao nao custa elemento nem desenho. */
+  height: 0.8em;
+  /* A marca da zona limpa: dali pra direita o toque sai inteiro. */
   background-image: linear-gradient(to right,
-    transparent calc(70% - 1px), rgba(232, 230, 227, 0.45) calc(70% - 1px),
-    rgba(232, 230, 227, 0.45) 70%, transparent 70%);
+    transparent calc(70% - 2px), rgba(255, 255, 255, 0.6) calc(70% - 2px),
+    rgba(255, 255, 255, 0.6) 70%, transparent 70%);
 }
-
-#toque-fill {
-  height: 100%;
-  width: 0;
-  background: #b06a55;
-  transition: background 0.1s;
-}
-
-/* No ponto: o mesmo branco quente da carga cheia e do anel de mira. */
-#toque.limpo #toque-fill { background: var(--areia); }
+#toque-fill { height: 100%; width: 0; background: #d0765e; transition: background 0.1s; }
 #toque.limpo { opacity: 1; }
+#toque.limpo #toque-fill { background: var(--areia); box-shadow: 0 0 0.8em var(--areia); }
 
+/* Como saiu o golpe: estoura grande e assenta. */
 #toque-aviso {
-  font-size: 1em;
-  letter-spacing: 0.2em;
-  opacity: 0;
-  transition: opacity 0.18s;
+  font: 900 italic 1.7em/1 var(--titulo);
+  letter-spacing: 0.06em;
   white-space: nowrap;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  opacity: 0;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85);
+  transition: opacity 0.25s;
 }
-#toque-aviso.visivel { opacity: 0.9; }
+#toque-aviso.visivel { opacity: 1; animation: estoura 0.45s var(--entrada); }
 #toque-aviso.bom { color: var(--areia); }
 #toque-aviso.ruim { color: var(--alerta); }
+@keyframes estoura {
+  from { opacity: 0; transform: translateX(-50%) scale(1.8); }
+  to { opacity: 1; transform: translateX(-50%) scale(1); }
+}
 
-/* ======================= LEGENDA DE TECLAS ======================= */
+/* ------- o aviso do ponto: uma faixa atravessando a tela ------- */
 
-/*
- * Uma FAIXA no rodape, deitada.
- *
- * Era um painel de pe' na lateral esquerda, com a justificativa de que ali
- * ficava a maior area de areia vazia. Isso valia pra camera antiga, alta e
- * distante. Com a camera de ombro a quadra ocupa o meio do quadro e e' LARGA:
- * a lateral deixou de ser vazia, e o painel passou a disputar com o campo.
- *
- * O rodape e' o unico lugar do quadro onde nunca acontece nada — e' a areia
- * logo a' frente do jogador, atras do proprio corpo dele, pra onde a bola nao
- * vai e onde nao ha' o que ler.
- */
+#announcement {
+  position: absolute;
+  top: 27%;
+  left: 0;
+  right: 0;
+  display: grid;
+  justify-items: center;
+  gap: 0.25em;
+  padding: 0.8em 0 0.95em;
+  --cor: var(--home);
+  background: linear-gradient(90deg, transparent, rgba(8, 10, 18, 0.88) 22%, rgba(8, 10, 18, 0.88) 78%, transparent);
+  opacity: 0;
+  /* Fechada no meio; abre pros lados. */
+  clip-path: inset(0 50% 0 50%);
+  transition: opacity 0.3s, clip-path 0.3s ease-in;
+}
+#announcement::before, #announcement::after {
+  content: '';
+  position: absolute;
+  left: 15%;
+  right: 15%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--cor), transparent);
+}
+#announcement::before { top: 0; }
+#announcement::after { bottom: 0; }
+#announcement.away { --cor: var(--away); }
+#announcement.visivel { opacity: 1; clip-path: inset(0 0 0 0); transition: opacity 0.15s, clip-path 0.45s var(--entrada); }
+.aviso-motivo { font: 800 1.05em/1 var(--titulo); letter-spacing: 0.34em; color: var(--cor); filter: brightness(1.35); }
+.aviso-texto { font: 900 italic 3.3em/0.95 var(--titulo); letter-spacing: 0.02em; }
+#announcement.visivel .aviso-texto { animation: da-esquerda 0.5s var(--entrada) 0.08s backwards; }
+
+/* ------- o que fazer agora ------- */
+
+.prompt-grande {
+  position: absolute;
+  /* Embaixo, logo acima da faixa de teclas: no meio da tela ele caia em cima
+     das pernas do proprio jogador, que a camera de ombro poe bem ali. */
+  bottom: 7.2em;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  padding: 0.5em 1.1em 0.5em 0.8em;
+  font: 800 italic 1.25em/1 var(--titulo);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  background: var(--painel);
+  clip-path: polygon(0.7em 0, 100% 0, calc(100% - 0.7em) 100%, 0 100%);
+}
+.prompt-grande kbd { font-size: 0.7em; }
+.contagem {
+  display: grid;
+  place-items: center;
+  min-width: 1.7em;
+  height: 1.7em;
+  margin-left: 0.2em;
+  font: 900 italic 1em/1 var(--titulo);
+  background: var(--sol);
+  clip-path: polygon(0.35em 0, 100% 0, calc(100% - 0.35em) 100%, 0 100%);
+}
+/* Os dois ultimos segundos do saque. */
+#action-hint.urgente .contagem { background: var(--away); animation: pulsar 0.5s ease-in-out infinite; }
+@keyframes pulsar { 50% { opacity: 0.55; } }
+
+/* ------- a legenda de teclas ------- */
+
 #manual {
   position: absolute;
   left: 50%;
-  bottom: 1.2vmin;
+  bottom: 1.4vmin;
   transform: translateX(-50%);
-  /* `max-content` primeiro: a faixa TENTA caber numa linha por grupo, e so'
-     quebra quando a janela nao da'. Sem isto o flex escolhe uma largura de
-     encolhimento qualquer e quebra em quatro linhas com meia tela sobrando ao
-     lado. */
+  /* `max-content`: TENTA caber numa linha por grupo, e so' quebra quando a
+     janela nao da'. Sem isto o flex quebra em quatro linhas com meia tela
+     sobrando ao lado. */
   width: max-content;
   max-width: calc(100% - 2.4vmin);
-  padding: 0.55em 0.9em;
-  background: var(--painel);
-  border: 1px solid var(--borda);
-  border-radius: var(--raio);
-  backdrop-filter: blur(3px);
-  font-size: 0.82em;
-  line-height: 1.3;
-
   display: flex;
   flex-direction: column;
-  gap: 0.35em;
+  gap: 0.4em;
+  padding: 0.55em 1em 0.6em;
+  font: 500 0.8em/1.3 var(--texto);
+  background: var(--painel);
+  border-top: 2px solid;
+  border-image: var(--sol) 1;
 }
-
-/* Cada grupo e' uma LINHA: rotulo a esquerda, teclas correndo a direita. */
-.grupo-teclas {
-  display: flex;
-  align-items: baseline;
-  gap: 0.9em;
-}
-
+.grupo-teclas { display: flex; align-items: baseline; gap: 0.9em; }
 #manual h2 {
   margin: 0;
-  /* Largura fixa pros dois rotulos: sem ela as duas linhas de teclas comecam
-     em colunas diferentes e a faixa perde o alinhamento que a torna varrivel.
-     E `nowrap`, senao "EM QUADRA" quebra em duas e desalinha a propria linha. */
-  flex: 0 0 8em;
+  /* Largura fixa nos rotulos: as linhas de teclas comecam na mesma coluna. */
+  flex: 0 0 auto;
+  min-width: 7.5em;
   white-space: nowrap;
-  font-size: 0.78em;
-  font-weight: 700;
+  font: 800 italic 0.95em/1 var(--titulo);
   letter-spacing: 0.14em;
-  color: var(--home);
-  opacity: 0.9;
+  color: var(--rosa);
   text-align: right;
 }
-
+#manual h2 + ul + h2 { min-width: 0; margin-left: 0.6em; }
 #manual ul {
   margin: 0;
   padding: 0;
@@ -514,38 +613,15 @@ body.tela-aberta #hud { opacity: 0; }
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  /* A coluna e' o respiro entre acoes; a linha e' pro caso de a faixa quebrar
-     numa janela estreita. */
-  column-gap: 1.1em;
+  column-gap: 1.15em;
   row-gap: 0.3em;
 }
-
-.teclas li {
-  display: flex;
-  align-items: center;
-  gap: 0.4em;
-}
-.teclas .k { display: flex; align-items: center; gap: 0.15em; flex-shrink: 0; }
-/* Sem quebra no rotulo da acao: "carregar e atacar" em duas linhas desmonta a
-   fila inteira, e a faixa deixa de ser varrida de relance. */
-.teclas .o { opacity: 0.72; white-space: nowrap; }
-.teclas i { opacity: 0.35; font-style: normal; font-size: 0.85em; }
-
-kbd {
-  display: inline-block;
-  min-width: 1.6em;
-  padding: 0.1em 0.3em;
-  background: rgba(232, 230, 227, 0.1);
-  border: 1px solid rgba(232, 230, 227, 0.22);
-  /* A sombra de baixo e' o que faz ler como TECLA e nao como caixinha. */
-  border-bottom-width: 2px;
-  border-radius: 3px;
-  font: inherit;
-  font-size: 0.82em;
-  text-align: center;
-  letter-spacing: 0.04em;
-}
-kbd.larga { min-width: auto; }
+.teclas li { display: flex; align-items: center; gap: 0.4em; }
+.teclas .k { display: flex; align-items: center; gap: 0.18em; flex-shrink: 0; }
+/* Sem quebra no rotulo: "carregar e atacar" em duas linhas desmonta a fila. */
+.teclas .o { color: var(--tinta-2); white-space: nowrap; }
+.teclas i { opacity: 0.4; font-style: normal; font-size: 0.85em; }
+#manual kbd { font-size: 0.78em; }
 
 /* Com uma quadra so nao ha vizinha pra assistir nem pra onde voltar. */
 body.cenario-quadra .so-praia { display: none; }
@@ -555,626 +631,857 @@ body.cenario-quadra .so-praia { display: none; }
   #manual { display: none; }
 }
 
-/* ======================= TELAS ======================= */
+/* =========================================================================
+   TELAS — a moldura comum
+   ========================================================================= */
 
 #screens { position: fixed; inset: 0; z-index: 20; pointer-events: none; }
 
 /*
- * Flex + `margin: auto` no cartao, e nao `place-content: center`.
- *
- * Centralizar pelo container corta o TOPO quando o conteudo e' mais alto que a
- * tela: o overflow so' rola pra baixo, e o que subiu pra fora fica inalcancavel.
- * Com a margem automatica o cartao centraliza enquanto cabe e encosta no topo
- * quando nao cabe — que e' o que uma janela baixa precisa.
+ * O veu: escuro a' esquerda, onde o menu mora, e aberto a' direita, onde a
+ * camera gira em volta da quadra. Um rosa do por do sol no canto de baixo e um
+ * ciano no de cima. E' o que faz o menu parecer parte do jogo, e nao um
+ * formulario por cima dele.
+ */
+#veu {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.4s;
+  background:
+    radial-gradient(ellipse 60% 70% at 0% 100%, rgba(255, 46, 136, 0.3), transparent 70%),
+    radial-gradient(ellipse 50% 60% at 100% 0%, rgba(41, 231, 255, 0.12), transparent 70%),
+    linear-gradient(0deg, rgba(5, 6, 14, 0.85) 0%, transparent 32%),
+    linear-gradient(90deg, rgba(5, 6, 14, 0.95) 0%, rgba(5, 6, 14, 0.8) 32%, rgba(5, 6, 14, 0.3) 64%, rgba(5, 6, 14, 0.12) 100%);
+}
+body.tela-aberta #veu { opacity: 1; }
+
+/*
+ * Uma tela ocupa a janela inteira, com as margens de "area segura" de TV. Rola
+ * se nao couber — numa janela baixa, melhor rolar que cortar o botao.
  */
 .tela {
   position: absolute;
   inset: 0;
-  display: flex;
-  justify-content: center;
-  padding: 2rem;
-  text-align: center;
-  /* Mais leve que antes: o cartao agora carrega o contraste, e escurecer a
-     praia ate' o preto so' escondia o jogo que o menu esta' anunciando. */
-  background: rgba(8, 11, 15, 0.62);
+  display: grid;
+  gap: 2.4vh;
+  padding: 5vh 5vw 3.6vh;
   pointer-events: auto;
   overflow-y: auto;
-}
-
-/*
- * O cartao.
- *
- * Antes o menu era texto solto boiando no veu, sem nada segurando titulo,
- * opcoes e botao juntos. Uma borda e um fundo proprio custam duas linhas e
- * transformam tres elementos soltos numa coisa so'.
- */
-.cartao {
-  display: grid;
-  justify-items: center;
-  gap: 1.1rem;
-  margin: auto;
-  width: min(100%, 26rem);
-  padding: clamp(1.4rem, 3.5vmin, 2.4rem);
-  background: rgba(13, 16, 20, 0.88);
-  border: 1px solid rgba(232, 230, 227, 0.14);
-  border-radius: 10px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-}
-
-/*
- * O cartao do menu nunca passa da altura da tela: o que sobra e' o COMO JOGAR
- * que rola DENTRO dele.
- *
- * Sem isto, numa janela de 1366x768 — que e' metade dos notebooks — o botao
- * JOGAR cai abaixo da dobra, e a acao principal do jogo vira uma rolagem que
- * ninguem sabe que existe. As linhas dizem: cabeca, o miolo elastico, botao,
- * rodape; so' o miolo encolhe.
- */
-.cartao-largo {
-  width: min(100%, 52rem);
-  gap: 1.4rem;
-  max-height: 100%;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
-}
-
-.cabeca { display: grid; justify-items: center; gap: 0.4rem; }
-
-.titulo {
-  margin: 0;
-  font-size: clamp(2.2rem, 7vmin, 4.4rem);
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  line-height: 1;
-}
-.titulo .tres { color: var(--home); }
-
-.titulo-menor {
-  margin: 0;
-  font-size: clamp(1.6rem, 4.5vmin, 2.6rem);
-  font-weight: 800;
-  letter-spacing: 0.1em;
-}
-.titulo-menor.away { color: var(--away); }
-
-.sub { margin: 0; opacity: 0.6; letter-spacing: 0.05em; font-size: 0.9rem; }
-
-.rodape {
-  margin: 0;
-  opacity: 0.4;
-  font-size: 0.78rem;
-  letter-spacing: 0.05em;
-}
-.rodape kbd { font-size: 0.85em; opacity: 0.9; }
-
-/* O credito do modelo. CC-BY exige credito VISIVEL, entao ele nao pode viver
-   so' no README — mas tambem nao disputa atencao com o botao JOGAR. */
-.rodape .credito { display: inline-block; margin-top: 0.5rem; font-size: 0.92em; opacity: 0.8; }
-.rodape a { color: inherit; }
-
-/* As duas colunas do menu: ajustes de um lado, como se joga do outro.
-   Numa tela estreita viram uma so' — e a ordem do HTML ja' poe o botao
-   JOGAR antes do texto explicativo, que e' a ordem certa empilhado. */
-.colunas {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
-  gap: clamp(1.2rem, 3vmin, 2.2rem);
-  width: 100%;
-  text-align: left;
-
-  /* `min-height: 0` e' o que deixa esta faixa encolher: sem ele um item de
-     grid nunca fica menor que o proprio conteudo, e o `1fr` la' de cima nao
-     serve pra nada. */
-  min-height: 0;
-  overflow-y: auto;
-}
-
-/* A barra fina e' o unico aviso de que ha' mais texto ali embaixo: a faixa
-   corta no meio de uma frase e, sem ela, parece que o menu e' que esta'
-   quebrado. So' aparece quando ha' mesmo o que rolar. */
-.colunas, #manual {
   scrollbar-width: thin;
-  scrollbar-color: rgba(232, 230, 227, 0.22) transparent;
-}
-.colunas::-webkit-scrollbar, #manual::-webkit-scrollbar { width: 6px; }
-.colunas::-webkit-scrollbar-thumb, #manual::-webkit-scrollbar-thumb {
-  background: rgba(232, 230, 227, 0.22);
-  border-radius: 3px;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+  animation: aparece 0.3s ease-out;
 }
 
-.coluna { display: grid; align-content: start; gap: 0.9rem; }
-
-.secao {
+/* ---- o cabecalho de toda tela: migalha, titulo com o traco do sol ---- */
+.cabecalho { display: grid; justify-items: start; gap: 0.2rem; animation: da-esquerda 0.45s var(--entrada) backwards; }
+.migalha { font: 700 0.85rem/1 var(--titulo); letter-spacing: 0.26em; color: var(--tinta-3); }
+.migalha::after { content: '  /'; white-space: pre; }
+.cabecalho-titulo {
   margin: 0;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid rgba(232, 230, 227, 0.12);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  color: var(--home);
+  font: 900 italic clamp(2.6rem, 4.4vw, 5rem)/0.92 var(--titulo);
+  letter-spacing: 0.01em;
 }
-
-.campo {
-  display: grid;
-  gap: 0.4rem;
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-align: left;
-}
-.campo .rotulo { opacity: 0.75; }
-.campo b { color: var(--home); }
-.campo .ajuda {
-  font-size: 0.68rem;
-  letter-spacing: 0.04em;
-  opacity: 0.4;
-}
-
-/*
- * Dificuldade: tres botoes, nao uma lista fechada.
- *
- * O <input type=radio> continua ali embaixo — e' ele que guarda o estado, que
- * responde a teclado e que o Screens le'. O que o CSS faz e' esconder a bolinha
- * e pintar o rotulo, entao nao ha' estado paralelo pra dessincronizar.
- */
-.segmento {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  gap: 2px;
-  padding: 2px;
-  background: rgba(232, 230, 227, 0.06);
-  border: 1px solid rgba(232, 230, 227, 0.16);
-  border-radius: 5px;
-}
-
-.segmento label { cursor: pointer; }
-.segmento input { position: absolute; opacity: 0; pointer-events: none; }
-
-.segmento span {
+.cabecalho-titulo::after {
+  content: '';
   display: block;
-  padding: 0.5rem 0.3rem;
-  border-radius: 3px;
-  font-size: 0.72rem;
-  letter-spacing: 0.1em;
-  text-align: center;
-  opacity: 0.55;
-  transition: background 0.12s, opacity 0.12s;
+  width: 3.4rem;
+  height: 0.3rem;
+  margin-top: 0.5rem;
+  background: var(--sol);
+  transform: skewX(-24deg);
 }
-.segmento label:hover span { background: rgba(232, 230, 227, 0.08); opacity: 0.85; }
-.segmento input:checked + span {
-  background: var(--home);
-  color: #fff;
-  opacity: 1;
-  font-weight: 700;
-}
-/* Navegando por teclado a bolinha esta' escondida, entao o foco precisa
-   aparecer no rotulo — senao o Tab anda e nada na tela muda. */
-.segmento input:focus-visible + span { outline: 2px solid var(--tinta); outline-offset: 1px; }
+.cabecalho-sub { margin: 0.4rem 0 0; font: 500 1.02rem/1.4 var(--texto); color: var(--tinta-2); max-width: 44rem; }
 
-.campo input[type='range'] {
-  width: 100%;
-  height: 1.4rem;
-  margin: 0;
-  padding: 0;
-  background: transparent;
-  appearance: none;
-  -webkit-appearance: none;
-  cursor: pointer;
-}
-.campo input[type='range']::-webkit-slider-runnable-track {
-  height: 4px;
-  background: rgba(232, 230, 227, 0.18);
-  border-radius: 2px;
-}
-.campo input[type='range']::-webkit-slider-thumb {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
-  margin-top: -5px;
-  background: var(--home);
-  border: 2px solid var(--tinta);
-  border-radius: 50%;
-}
-.campo input[type='range']::-moz-range-track {
-  height: 4px;
-  background: rgba(232, 230, 227, 0.18);
-  border-radius: 2px;
-}
-.campo input[type='range']::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  background: var(--home);
-  border: 2px solid var(--tinta);
-  border-radius: 50%;
-}
-
-/* COMO JOGAR: o texto que morava por cima do jogo. */
-.explica { margin: 0; font-size: 0.8rem; line-height: 1.5; }
-.explica dt {
-  margin-top: 0.85rem;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  opacity: 0.85;
-}
-.explica dt:first-child { margin-top: 0; }
-.explica dt b { color: var(--home); font-weight: 700; }
-.explica dd { margin: 0.3rem 0 0; opacity: 0.55; }
-.explica dd b { color: var(--tinta); opacity: 0.95; font-weight: 700; }
-
-.botao {
-  width: 100%;
-  padding: 0.75rem 2rem;
-  background: var(--tinta);
-  border: none;
-  border-radius: 5px;
-  color: var(--fundo);
-  font: inherit;
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  cursor: pointer;
-  transition: transform 0.1s, background 0.15s;
-}
-/* Largo, mas nao de ponta a ponta de um cartao de 52rem: um botao dessa
-   largura para de parecer botao. */
-#btn-jogar { max-width: 22rem; }
-
-.botao:hover { background: #fff; transform: translateY(-1px); }
-.botao:active { transform: translateY(0); }
-
-.botao.secundario {
-  background: transparent;
-  border: 1px solid rgba(232, 230, 227, 0.3);
-  color: var(--tinta);
-  font-weight: 400;
-}
-.botao.secundario:hover { background: rgba(232, 230, 227, 0.1); }
-
-/* ======================================================================
-   CIRCUITO
-   ====================================================================== */
-
-/* Os dois botoes do menu, lado a lado. Empilham quando nao cabem. */
-.acoes-menu {
+/* ---- o rodape: os prompts a' esquerda, o que sobrar a' direita ---- */
+.rodape {
   display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem 2rem;
   flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.7rem;
-  width: 100%;
+  align-self: end;
 }
-.acoes-menu .botao { flex: 1 1 11rem; max-width: 16rem; }
-/* O `#btn-jogar` era o botao unico e tinha largura propria; agora divide a
-   linha com o CIRCUITO e segue a regra dos dois. */
-.acoes-menu #btn-jogar { max-width: 16rem; }
+.prompts { display: flex; flex-wrap: wrap; gap: 0.8rem 1.8rem; }
+.credito { margin: 0; max-width: 34rem; font: 500 0.72rem/1.4 var(--texto); color: var(--tinta-3); text-align: right; }
+.credito a { color: inherit; }
 
-.cartao-circuito, .cartao-chave { width: min(100%, 50rem); gap: 1.3rem; }
+/* =========================================================================
+   MENU PRINCIPAL
+   ========================================================================= */
 
-/*
- * A carreira em numeros.
- *
- * `dl` e nao um amontoado de `div`: e' rotulo e valor, que e' exatamente o que
- * uma lista de definicao descreve. O numero vem grande e o rotulo pequeno, que
- * e' a ordem de leitura de um placar — primeiro quanto, depois do que.
- */
-.carreira {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
-  gap: 0.6rem;
-  width: 100%;
+.tela-menu {
+  /* `auto` no piso da linha do meio, e nao 0: numa janela baixa o mosaico tem
+     altura minima, e com piso zero ele transbordava por cima do rodape em vez
+     de a tela rolar. */
+  grid-template-rows: auto minmax(auto, 1fr) auto;
+}
+
+.topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; }
+
+.marca { animation: da-esquerda 0.6s var(--entrada) backwards; }
+.logo {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.12em;
   margin: 0;
+  font: 900 italic clamp(3.4rem, 7.2vw, 8rem)/0.82 var(--titulo);
+  letter-spacing: -0.01em;
+  text-shadow: 0 0.05em 0.35em rgba(0, 0, 0, 0.35);
 }
+.logo-3d {
+  padding: 0.04em 0.12em 0.02em 0.08em;
+  background: var(--sol);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 0.05em 0.3em rgba(255, 46, 136, 0.45));
+}
+.logo-sub {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin: 0.55rem 0 0;
+  font: 700 1.05rem/1 var(--titulo);
+  letter-spacing: 0.42em;
+  color: var(--tinta-2);
+}
+.logo-sub::before { content: ''; width: 2.6rem; height: 3px; background: var(--sol); }
+
+/* ---- o perfil: quem voce e' no circuito ---- */
+.perfil {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 0.2rem 1rem;
+  padding: 0.8rem 1.3rem 0.8rem 0.9rem;
+  background: var(--vidro);
+  backdrop-filter: blur(12px);
+  border-right: 3px solid var(--rosa);
+  animation: aparece 0.6s ease-out 0.2s backwards;
+}
+.perfil-retrato {
+  grid-row: 1 / 3;
+  display: grid;
+  place-items: end center;
+  width: 3.6rem;
+  height: 3.6rem;
+  overflow: hidden;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 30%, #4a8fff, #103a80);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
+}
+.perfil-retrato .boneco { width: 2.6rem; height: auto; margin-bottom: -0.9rem; }
+.perfil-nome { font: 900 italic 1.6rem/1 var(--titulo); letter-spacing: 0.03em; }
+.perfil-numeros { display: flex; gap: 1.1rem; font: 700 0.78rem/1 var(--titulo); letter-spacing: 0.14em; color: var(--tinta-3); }
+.perfil-numeros b { margin-left: 0.35em; font: 800 italic 1.05rem/1 var(--titulo); letter-spacing: 0.02em; color: var(--tinta); }
+
+/* ---- o mosaico ---- */
+/*
+ * O CIRCUITO alto na primeira coluna; AMISTOSO e ADVERSARIOS largos ao lado; os
+ * dois menores embaixo. Largura presa em ~64% da tela: o resto e' a praia, e a
+ * praia e' metade da graca do menu.
+ */
+.mosaico {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr 0.8fr;
+  gap: 0.9rem;
+  align-self: center;
+  width: min(64vw, 72rem);
+  height: min(54vh, 36rem);
+  min-height: 22rem;
+}
+
+.tile {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 0.35rem;
+  padding: 1.3rem 1.4rem;
+  text-align: left;
+  color: var(--tinta);
+  background: var(--vidro);
+  backdrop-filter: blur(12px);
+  border: 0;
+  border-radius: 0.55rem;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 1.2em 2.4em rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 0.2s var(--entrada), box-shadow 0.2s;
+  animation: sobe 0.55s var(--entrada) backwards;
+  animation-delay: calc(var(--i, 0) * 70ms + 120ms);
+}
+/* As riscas diagonais: textura de camiseta de time, baratissima. */
+.tile::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 16px);
+  pointer-events: none;
+}
+/* E o pe' escuro, que segura o texto legivel sobre qualquer cor. */
+.tile::after {
+  content: '';
+  position: absolute;
+  inset: 40% 0 0;
+  background: linear-gradient(0deg, rgba(5, 6, 14, 0.55), transparent);
+  pointer-events: none;
+}
+.tile > * { position: relative; z-index: 1; }
+
+.tile-hero { grid-row: 1 / 4; padding: 2rem; }
+#btn-jogar, #btn-adversarios { grid-column: 2 / 4; }
+.tile-sol { background: linear-gradient(140deg, rgba(255, 46, 136, 0.95), rgba(255, 110, 40, 0.92) 70%, rgba(255, 170, 40, 0.9)); }
+.tile-mar { background: linear-gradient(140deg, rgba(0, 120, 255, 0.9), rgba(20, 200, 220, 0.82)); }
+.tile-roxo { background: linear-gradient(140deg, rgba(110, 60, 250, 0.9), rgba(230, 50, 170, 0.8)); }
+
+.tile-arte {
+  position: absolute;
+  z-index: 0;
+  right: -6%;
+  top: -10%;
+  width: 58%;
+  height: auto;
+  aspect-ratio: 1;
+  color: rgba(255, 255, 255, 0.2);
+  stroke-width: 1.2;
+  transform: rotate(-12deg);
+  transition: transform 0.45s var(--entrada), color 0.3s;
+}
+.tile-hero .tile-arte { width: 70%; right: -10%; top: -6%; }
+.tile-menor .tile-arte { width: 46%; top: -4%; color: rgba(255, 255, 255, 0.1); }
+
+.tile-topo { font: 700 0.8rem/1 var(--titulo); letter-spacing: 0.26em; opacity: 0.85; }
+.tile-titulo { font: 900 italic clamp(1.9rem, 2.7vw, 3.1rem)/0.9 var(--titulo); letter-spacing: 0.01em; }
+.tile-hero .tile-titulo { font-size: clamp(3rem, 5vw, 5.6rem); }
+.tile-menor .tile-titulo { font-size: clamp(1.5rem, 1.9vw, 2.2rem); }
+.tile-desc { max-width: 26rem; font: 500 0.95rem/1.3 var(--texto); color: var(--tinta-2); }
+.tile-status:empty { display: none; }
+.tile-status { margin-top: 0.5rem; }
+
+/* O selecionado: anel branco, sobe um pouco, e a arte gira. */
+.tile:hover, .tile:focus-visible, .tile:focus {
+  outline: none;
+  transform: translateY(-5px) scale(1.015);
+  box-shadow: 0 0 0 3px #fff, 0 1.6em 3em rgba(0, 0, 0, 0.45), 0 0 2.6em rgba(255, 46, 136, 0.3);
+}
+.tile:hover .tile-arte, .tile:focus .tile-arte { transform: rotate(-4deg) scale(1.08); color: rgba(255, 255, 255, 0.3); }
+
+/* =========================================================================
+   AJUSTES e COMO JOGAR — as telas de painel
+   ========================================================================= */
+
+.tela-painel { grid-template-rows: auto minmax(0, 1fr) auto; }
+
+.painel { display: grid; align-content: start; gap: 1.2rem; width: min(46rem, 100%); margin-top: 2vh; }
+.opcoes { display: grid; gap: 0.45rem; }
+
+.opcao {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.35rem 1rem;
+  padding: 0.95rem 1.3rem;
+  background: var(--vidro);
+  border-left: 0.3rem solid transparent;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  animation: da-esquerda 0.45s var(--entrada) backwards;
+  animation-delay: calc(var(--i, 0) * 60ms + 80ms);
+}
+.opcao-nome { font: 800 italic 1.45rem/1 var(--titulo); letter-spacing: 0.04em; }
+.seletor { display: flex; align-items: center; gap: 0.4rem; }
+.seletor-seta {
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
+  background: none;
+  border: 0;
+  opacity: 0.45;
+  cursor: pointer;
+}
+.seletor-seta svg { width: 1.3rem; height: 1.3rem; stroke-width: 2.6; }
+.seletor-seta:hover { opacity: 1; }
+.seletor-valor { min-width: 8.5rem; text-align: center; font: 800 italic 1.35rem/1 var(--titulo); letter-spacing: 0.05em; }
+.seletor-pontos { grid-column: 2; display: flex; justify-content: center; gap: 0.3rem; }
+.seletor-pontos i { width: 1.5rem; height: 0.22rem; background: currentColor; opacity: 0.2; transform: skewX(-24deg); }
+.seletor-pontos i.ativo { opacity: 1; background: var(--rosa); }
+
+.opcao:hover, .opcao:focus { outline: none; background: rgba(255, 255, 255, 0.96); color: var(--escuro); border-left-color: var(--rosa); }
+
+.opcoes-ajuda {
+  min-height: 4.4em;
+  margin: 0;
+  padding: 1rem 1.3rem;
+  background: rgba(5, 6, 14, 0.62);
+  border-left: 0.3rem solid var(--ciano);
+  font: 500 1.02rem/1.5 var(--texto);
+  color: var(--tinta-2);
+}
+.opcoes-ajuda b { color: var(--tinta); }
+
+/* ---- como jogar ---- */
+.tela-larga { grid-template-rows: auto auto auto 1fr; }
+.guia {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+  width: min(100%, 82rem);
+}
+.guia-cartao {
+  position: relative;
+  padding: 1.2rem 1.3rem 1.25rem;
+  background: var(--vidro);
+  border-top: 3px solid;
+  border-image: var(--sol) 1;
+  animation: sobe 0.5s var(--entrada) backwards;
+  animation-delay: calc(var(--i, 0) * 50ms + 100ms);
+}
+.guia-num { position: absolute; top: 0.35rem; right: 0.9rem; font: 900 italic 3rem/1 var(--titulo); color: rgba(255, 255, 255, 0.08); }
+.guia-cartao h3 { margin: 0 0 0.5rem; font: 800 italic 1.5rem/1 var(--titulo); letter-spacing: 0.03em; }
+.guia-cartao h3 em { font-style: inherit; color: var(--rosa); }
+.guia-cartao p { margin: 0; font: 400 0.98rem/1.5 var(--texto); color: var(--tinta-2); }
+.guia-cartao b { color: var(--tinta); }
+.guia-cartao kbd { font-size: 0.72em; }
+
+/* Os controles, a mesma lista da faixa do HUD, aqui com espaco pra respirar. */
+.controles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem 2.4rem;
+  width: min(100%, 82rem);
+  padding: 1.1rem 1.4rem;
+  background: rgba(5, 6, 14, 0.6);
+  animation: aparece 0.5s ease-out 0.35s backwards;
+}
+.controles .grupo-teclas { display: grid; align-content: start; gap: 0.45rem; }
+.controles h2 { margin: 0.2rem 0 0.1rem; font: 800 italic 1.05rem/1 var(--titulo); letter-spacing: 0.16em; color: var(--rosa); }
+.controles ul { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4rem 1.2rem; }
+.controles .teclas li { font: 500 0.95rem var(--texto); }
+.controles .teclas .k { min-width: 5.2rem; }
+
+/* =========================================================================
+   CIRCUITO
+   ========================================================================= */
+
+.tela-cheia { grid-template-rows: auto auto minmax(0, 1fr) auto; }
+
+/* A carreira em numeros: o numero grande, o rotulo pequeno — a ordem de
+   leitura de um placar, primeiro quanto, depois do que. */
+.carreira { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0; }
 .carreira > div {
   display: grid;
-  gap: 0.2rem;
-  padding: 0.7rem 0.5rem;
-  border: 1px solid var(--borda);
-  border-radius: var(--raio);
-  background: rgba(255, 255, 255, 0.03);
+  gap: 0.3rem;
+  padding: 0.7rem 1.6rem 0.75rem 1.2rem;
+  background: var(--vidro);
+  clip-path: polygon(0.6em 0, 100% 0, calc(100% - 0.6em) 100%, 0 100%);
+  animation: sobe 0.45s var(--entrada) backwards;
+  animation-delay: calc(var(--i, 0) * 50ms + 80ms);
 }
-.carreira dt { font-size: 0.7rem; letter-spacing: 0.12em; opacity: 0.6; }
-.carreira dd { margin: 0; font-size: 1.5rem; font-weight: 800; letter-spacing: 0.04em; }
-.carreira .destaque dd { color: var(--home); }
+.carreira dt { font: 700 0.72rem/1 var(--titulo); letter-spacing: 0.22em; color: var(--tinta-3); }
+.carreira dd { margin: 0; font: 900 italic 2.1rem/1 var(--titulo); }
+.carreira .destaque dd { background: var(--sol); -webkit-background-clip: text; background-clip: text; color: transparent; }
 
-/* As tres etapas. */
 .etapas {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-  gap: 0.8rem;
-  width: 100%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.1rem;
+  width: min(100%, 86rem);
+  min-height: 17rem;
+  max-height: 58vh;
 }
 
 /*
- * Um cartao de etapa e' um BOTAO.
- *
- * O cartao inteiro e' clicavel, e nao so' um botaozinho dentro dele: numa
- * tela de escolha, o alvo e' a coisa escolhida. Travado, ele continua la' —
- * mostrar o que ainda nao se pode jogar e' metade do motivo de jogar.
+ * Um cartao de etapa. O cartao inteiro e' o alvo — numa tela de escolha, o
+ * alvo e' a coisa escolhida — e isso e' o botao de dentro esticado por cima
+ * (`::after`), nao o cartao ser um botao: o ABANDONAR mora dentro dele, e
+ * botao dentro de botao nao existe em HTML.
  */
 .etapa {
-  display: grid;
-  gap: 0.45rem;
-  align-content: start;
-  padding: 1rem 0.9rem;
-  text-align: left;
-  font: inherit;
-  color: var(--tinta);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--borda);
-  border-radius: var(--raio);
-  cursor: pointer;
-  transition: transform 0.1s, border-color 0.15s, background 0.15s;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  padding: 1.6rem 1.7rem;
+  border-radius: 0.55rem;
+  background: var(--cor-etapa);
+  box-shadow: 0 1.2em 2.4em rgba(0, 0, 0, 0.35);
+  transition: transform 0.2s var(--entrada), box-shadow 0.2s, filter 0.2s;
+  animation: sobe 0.55s var(--entrada) backwards;
+  animation-delay: calc(var(--i, 0) * 80ms + 160ms);
 }
-.etapa:hover:not(:disabled) {
-  transform: translateY(-2px);
-  border-color: var(--home);
-  background: rgba(41, 112, 209, 0.12);
+.etapa::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(0deg, rgba(5, 6, 14, 0.55), transparent 55%),
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 16px);
+  pointer-events: none;
 }
-.etapa:disabled { cursor: not-allowed; opacity: 0.45; }
-.etapa .nome { font-size: 1.15rem; font-weight: 800; letter-spacing: 0.1em; }
-.etapa .onde { font-size: 0.78rem; opacity: 0.65; letter-spacing: 0.06em; }
-.etapa .estado { font-size: 0.78rem; letter-spacing: 0.08em; font-weight: 700; }
-.etapa .estado.andamento { color: var(--areia); }
-.etapa .estado.aberta { color: var(--home); }
-.etapa .tacas { font-size: 0.78rem; opacity: 0.8; }
+.etapa > * { position: relative; }
+.etapa.municipal { --cor-etapa: linear-gradient(160deg, #19c7b0 0%, #0d6fc0 100%); }
+.etapa.estadual { --cor-etapa: linear-gradient(160deg, #ffa21f 0%, #e5306f 100%); }
+.etapa.mundial { --cor-etapa: linear-gradient(160deg, #8a5cff 0%, #e8339a 60%, #ff9f3a 120%); }
 
-/* O torneio em andamento: e' o que o jogador veio fazer aqui, entao aparece. */
-.etapa.em-andamento { border-color: var(--areia); background: rgba(255, 240, 192, 0.07); }
+.etapa-num { position: absolute; top: 0.5rem; right: 1.2rem; font: 900 italic 6.5rem/1 var(--titulo); color: rgba(255, 255, 255, 0.16); }
+.etapa-local { font: 700 0.85rem/1 var(--titulo); letter-spacing: 0.24em; color: rgba(255, 255, 255, 0.85); }
+.etapa-nome { font: 900 italic clamp(2.3rem, 3.4vw, 3.6rem)/0.9 var(--titulo); }
+.etapa-premio { font: 500 0.92rem/1.35 var(--texto); color: rgba(255, 255, 255, 0.82); }
+.etapa-rodape { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; margin-top: 0.4rem; }
+.etapa-tacas { display: inline-flex; align-items: center; gap: 0.35em; font: 800 italic 1rem/1 var(--titulo); letter-spacing: 0.06em; color: var(--ouro); }
+.etapa-tacas svg { width: 1.2em; height: 1.2em; }
+
+.etapa-jogar {
+  position: static;
+  align-self: flex-start;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+}
+.etapa-jogar::after { content: ''; position: absolute; inset: 0; z-index: 1; }
+.etapa-jogar:focus { outline: none; }
+.etapa:hover, .etapa:focus-within {
+  transform: translateY(-6px);
+  box-shadow: 0 0 0 3px #fff, 0 1.8em 3.2em rgba(0, 0, 0, 0.45);
+}
+.etapa.travada { filter: grayscale(0.9) brightness(0.5); }
+.etapa.travada:hover, .etapa.travada:focus-within { transform: none; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3); }
+.etapa.travada .etapa-jogar { cursor: not-allowed; }
+.etapa-cadeado { position: absolute; top: 38%; left: 50%; width: 3.6rem; height: 3.6rem; margin: -1.8rem 0 0 -1.8rem; color: rgba(255, 255, 255, 0.85); stroke-width: 1.6; }
+.etapa.em-andamento { box-shadow: 0 0 0 3px var(--ouro), 0 1.2em 2.4em rgba(0, 0, 0, 0.35); }
 
 .etapa .abandonar {
-  justify-self: start;
-  margin-top: 0.3rem;
-  padding: 0.3rem 0.6rem;
-  font: inherit;
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
+  position: absolute;
+  z-index: 2;
+  top: 1rem;
+  left: 1.2rem;
+  padding: 0.35em 0.9em;
+  font: 700 italic 0.85rem/1 var(--titulo);
+  letter-spacing: 0.1em;
   color: var(--tinta);
-  background: transparent;
-  border: 1px solid rgba(232, 230, 227, 0.25);
-  border-radius: 4px;
+  background: rgba(5, 6, 14, 0.55);
+  border: 0;
+  clip-path: polygon(0.4em 0, 100% 0, calc(100% - 0.4em) 100%, 0 100%);
   cursor: pointer;
 }
-.etapa .abandonar:hover { border-color: var(--away); color: var(--away); }
+.etapa .abandonar:hover, .etapa .abandonar:focus { outline: none; background: var(--away); }
+
+/* =========================================================================
+   CHAVE
+   ========================================================================= */
+
+.chave-corpo {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(24rem, 0.95fr);
+  gap: 2.6vw;
+  align-items: start;
+  min-height: 0;
+}
 
 /*
- * A chave.
- *
- * Tres colunas — quartas, semi, final — e cada confronto centrado na altura
- * dos dois que o alimentam. `justify-content: space-around` faz isso sozinho:
- * quatro caixas, duas, uma, todas distribuidas na mesma altura total.
- *
- * O titulo da rodada fica FORA dessa distribuicao. Dentro dela, o
- * `space-around` tratava o titulo como mais uma caixa e o empurrava pra baixo
- * junto — "SEMIFINAL" e "FINAL" desciam em escada, cada um numa altura.
+ * A chave, com as linhas. Tres colunas — quartas, semi, final — e cada jogo
+ * numa VAGA de meia altura do seu par: o centro de cada jogo cai em 1/8, 3/8...
+ * da coluna, e o colchete de cada par liga exatamente os dois centros ao jogo
+ * da rodada seguinte, sem medir nada.
  */
 .arvore {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.8rem;
-  width: 100%;
+  column-gap: 1.8rem;
+  min-height: 23rem;
 }
-.rodada {
-  display: grid;
-  grid-template-rows: auto 1fr;
-  gap: 0.4rem;
+.rodada { display: grid; grid-template-rows: auto 1fr; gap: 0.6rem; }
+.rodada h4 { margin: 0; font: 800 italic 1rem/1 var(--titulo); letter-spacing: 0.16em; color: var(--tinta-3); }
+.rodada.atual h4 { color: var(--rosa); }
+.jogos { display: flex; flex-direction: column; }
+.par { position: relative; flex: 1; display: flex; flex-direction: column; }
+.vaga { position: relative; flex: 1; display: flex; align-items: center; padding: 0.3rem 0; }
+.par::after {
+  content: '';
+  position: absolute;
+  right: -0.9rem;
+  top: 25%;
+  bottom: 25%;
+  width: 0.9rem;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  border-left: 0;
 }
-.rodada .jogos {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-around;
-  gap: 0.6rem;
+.rodada + .rodada .vaga::before {
+  content: '';
+  position: absolute;
+  left: -0.9rem;
+  top: 50%;
+  width: 0.9rem;
+  border-top: 2px solid rgba(255, 255, 255, 0.22);
 }
-.rodada h4 {
-  margin: 0 0 0.2rem;
-  font-size: 0.68rem;
-  letter-spacing: 0.14em;
-  opacity: 0.55;
-  font-weight: 700;
-}
-.rodada.atual h4 { color: var(--areia); opacity: 1; }
 
 .confronto {
+  flex: 1;
   display: grid;
-  border: 1px solid var(--borda);
-  border-radius: 5px;
+  min-width: 0;
   overflow: hidden;
-  font-size: 0.78rem;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--vidro);
+  border-radius: 0.3rem;
+  box-shadow: inset 0 0 0 1px var(--linha);
 }
 .confronto .lado {
   display: flex;
   justify-content: space-between;
-  gap: 0.4rem;
-  padding: 0.35rem 0.5rem;
+  gap: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  font: 700 1.02rem/1 var(--titulo);
+  letter-spacing: 0.04em;
   white-space: nowrap;
 }
-.confronto .lado + .lado { border-top: 1px solid var(--borda); }
-.confronto .lado .n { overflow: hidden; text-overflow: ellipsis; }
-.confronto .lado.venceu { font-weight: 800; }
-.confronto .lado.perdeu { opacity: 0.4; }
-.confronto .lado.voce .n { color: var(--home); font-weight: 800; }
-.confronto.vazio { opacity: 0.35; }
+.confronto .lado + .lado { box-shadow: inset 0 1px var(--linha); }
+.confronto .n { overflow: hidden; text-overflow: ellipsis; }
+.confronto .p { font: 900 italic 1.05rem/1 var(--titulo); }
+.confronto .venceu { font-weight: 800; }
+.confronto .perdeu { opacity: 0.4; }
+.confronto .voce { background: linear-gradient(90deg, rgba(46, 124, 246, 0.45), transparent); box-shadow: inset 0.25rem 0 var(--home); }
+.confronto.vazio { opacity: 0.55; background: rgba(10, 12, 22, 0.6); }
+.rodada.atual .confronto { box-shadow: inset 0 0 0 1px rgba(255, 46, 136, 0.45); }
 
-/* O proximo adversario: o rotulo, e a ficha dele embaixo. */
-.proximo {
+/* O lado direito: quem vem, e o botao de ir. */
+.chave-lado { display: grid; gap: 1.1rem; animation: sobe 0.5s var(--entrada) 0.2s backwards; }
+.chave-lado .botao { justify-self: stretch; font-size: 1.5rem; padding: 1em; }
+.proximo { display: grid; gap: 0.8rem; }
+.proximo-rotulo { font: 800 italic 1rem/1 var(--titulo); letter-spacing: 0.24em; color: var(--rosa); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7); }
+.proximo-fim { font: 900 italic 2.4rem/1 var(--titulo); }
+
+/* O VS: voce de um lado, ele do outro. */
+.versus {
   display: grid;
-  justify-items: center;
-  gap: 0.5rem;
-  width: 100%;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.9rem 1rem 0.85rem;
+  background: var(--vidro-forte);
+  border-radius: 0.5rem;
+  border-bottom: 3px solid;
+  border-image: var(--sol) 1;
 }
-.proximo .rotulo { font-size: 0.7rem; letter-spacing: 0.14em; opacity: 0.65; }
-.proximo .quem { font-size: 1.5rem; font-weight: 800; letter-spacing: 0.08em; color: var(--away); }
+.versus-lado { display: grid; justify-items: center; gap: 0.3rem; }
+.versus-lado .boneco { width: 3.4rem; height: auto; filter: drop-shadow(0 0.3rem 0.4rem rgba(0, 0, 0, 0.5)); }
+.versus-nome { font: 900 italic 1.4rem/1 var(--titulo); text-align: center; }
+.versus-nome.voce { color: #9cc4ff; }
+.versus-vs {
+  font: 900 italic 2.6rem/1 var(--titulo);
+  background: var(--sol);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
 
-/* ======================================================================
-   PERSONAGENS: a ficha, e a tela ADVERSARIOS
-   ====================================================================== */
+/* =========================================================================
+   A FICHA — e a tela ADVERSARIOS
+   ========================================================================= */
 
 /*
- * A ficha.
- *
- * A borda da esquerda e' o colete do personagem: e' a cor que se ve' do outro
- * lado da rede, e amarrar as duas e' o que faz a ficha e o boneco serem a
- * mesma pessoa.
+ * A ficha. A faixa de cima e' o colete do personagem: e' a cor que se ve' do
+ * outro lado da rede, e amarrar as duas e' o que faz a ficha e o boneco serem
+ * a mesma pessoa.
  */
 .ficha {
   display: grid;
-  gap: 0.9rem;
-  width: 100%;
-  padding: 1rem 1.1rem;
+  overflow: hidden;
   text-align: left;
-  border: 1px solid var(--borda);
-  border-left: 4px solid var(--cor, var(--away));
-  border-radius: var(--raio);
-  background: rgba(255, 255, 255, 0.035);
+  /* Quase opaca: ela mora sobre a praia viva, e a rede preta atravessando as
+     barras de nota confundia a leitura. */
+  background: rgba(10, 12, 22, 0.97);
+  border-radius: 0.5rem;
+  box-shadow: inset 0 0 0 1px var(--linha), 0 1.2em 2.4em rgba(0, 0, 0, 0.35);
+  animation: aparece 0.3s ease-out;
 }
 .ficha-cabeca {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.9rem;
+  gap: 1.1rem;
+  padding: 1.1rem 1.3rem;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--cor, #888) 60%, transparent), transparent 75%);
 }
-.boneco { width: 3.2rem; height: 5.1rem; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45)); }
-.ficha-quem { display: grid; gap: 0.25rem; }
-.ficha-estilo { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.16em; opacity: 0.6; }
-.ficha-nome { margin: 0; font-size: 1.35rem; font-weight: 800; letter-spacing: 0.08em; line-height: 1.1; }
-.ficha-frase { margin: 0; font-size: 0.8rem; line-height: 1.35; opacity: 0.65; }
+.ficha-retrato {
+  display: grid;
+  place-items: end center;
+  width: 4.8rem;
+  height: 5.8rem;
+  background: radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.28), transparent 70%);
+}
+.ficha-retrato .boneco { width: 3.8rem; height: auto; filter: drop-shadow(0 0.25rem 0.35rem rgba(0, 0, 0, 0.5)); }
+.ficha-quem { display: grid; gap: 0.3rem; }
+.ficha-estilo { font: 700 0.78rem/1 var(--titulo); letter-spacing: 0.22em; color: var(--tinta-2); }
+.ficha-nome { margin: 0; font: 900 italic 2.2rem/0.95 var(--titulo); letter-spacing: 0.02em; }
+.ficha-frase { margin: 0; font: 500 0.95rem/1.35 var(--texto); color: var(--tinta-2); }
 
 /* O GERAL grande e sozinho: e' o numero que se compara de relance. */
 .ficha-geral {
   display: grid;
   justify-items: center;
-  padding: 0.45rem 0.75rem;
-  border-radius: var(--raio);
-  background: rgba(255, 255, 255, 0.06);
+  padding: 0.5rem 1rem 0.45rem;
+  color: var(--escuro);
+  background: #fff;
+  clip-path: polygon(0.5em 0, 100% 0, calc(100% - 0.5em) 100%, 0 100%);
 }
-.ficha-geral b { font-size: 1.9rem; font-weight: 800; line-height: 1; }
-.ficha-geral span { margin-top: 0.2rem; font-size: 0.6rem; letter-spacing: 0.16em; opacity: 0.6; }
+.ficha-geral b { font: 900 italic 2.7rem/0.9 var(--titulo); }
+.ficha-geral span { font: 700 0.66rem/1 var(--titulo); letter-spacing: 0.24em; }
 
 /*
- * As oito notas em DUAS colunas, e nunca tres.
- *
- * Com `auto-fit` a ficha da chave, que e' mais larga, abria tres colunas e a
- * ordem virava "forca, saque, velocidade / pulo, reflexo...": o par corpo-cabeca
- * se perdia. Duas colunas fixas leem igual nas duas telas; no celular, uma.
+ * As oito notas em DUAS colunas, nunca tres: com `auto-fit` a ordem virava
+ * "forca, saque, velocidade / pulo..." e o par corpo-cabeca se perdia.
  */
 .ficha-notas {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.35rem 1.4rem;
+  gap: 0.55rem 1.8rem;
   margin: 0;
+  padding: 1.1rem 1.3rem 0.4rem;
 }
-.nota {
-  display: grid;
-  grid-template-columns: 6.2rem minmax(0, 1fr);
-  align-items: center;
-  gap: 0.5rem;
-  cursor: help;
-}
-.nota dt { font-size: 0.66rem; letter-spacing: 0.12em; opacity: 0.75; }
-.nota dd { display: flex; align-items: center; gap: 0.5rem; margin: 0; }
-.nota dd b { width: 1.4rem; font-size: 0.85rem; text-align: right; color: var(--nota); }
+.nota { display: grid; grid-template-columns: 6.6rem minmax(0, 1fr) 1.5rem; align-items: center; gap: 0.6rem; cursor: help; }
+.nota dt { font: 700 0.8rem/1 var(--titulo); letter-spacing: 0.14em; color: var(--tinta-2); }
+.nota dd { display: contents; }
+.nota dd b { font: 900 italic 1.15rem/1 var(--titulo); text-align: right; color: var(--nota); }
 
 /* Quatro tons e nao um degrade: de relance, "fraco / ok / bom / elite". */
-.nota.baixa { --nota: #e0806a; }
-.nota.media { --nota: #e8c36a; }
-.nota.alta { --nota: #8fd06f; }
-.nota.elite { --nota: #45d0a0; }
+.nota.baixa { --nota: #ff8a70; }
+.nota.media { --nota: #ffc94a; }
+.nota.alta { --nota: #7fe070; }
+.nota.elite { --nota: #3ee8b0; }
 
-.barra { flex: 1; display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; }
-.barra i { height: 0.5rem; border-radius: 1px; background: rgba(232, 230, 227, 0.12); }
-.barra i.cheio { background: var(--nota); }
+.barra { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; }
+.barra i { height: 0.55rem; background: rgba(255, 255, 255, 0.1); transform: skewX(-24deg); }
+.barra i.cheio { background: var(--nota); box-shadow: 0 0 0.4rem color-mix(in srgb, var(--nota) 50%, transparent); }
 
-.ficha-retrospecto { margin: 0; font-size: 0.72rem; letter-spacing: 0.1em; opacity: 0.7; }
-.ficha-retrospecto.vantagem { color: #8fd06f; opacity: 1; }
-.ficha-retrospecto.desvantagem { color: var(--alerta); opacity: 1; }
-.ficha .botao { justify-self: center; max-width: 24rem; white-space: nowrap; }
+.ficha-retrospecto { margin: 0.6rem 1.3rem 0; font: 700 italic 0.9rem/1 var(--titulo); letter-spacing: 0.12em; color: var(--tinta-3); }
+.ficha-retrospecto.vantagem { color: var(--verde); }
+.ficha-retrospecto.desvantagem { color: var(--alerta); }
+.ficha .botao { margin: 1rem 1.3rem 1.2rem; justify-self: start; }
+.ficha > :last-child:not(.botao) { margin-bottom: 1.1rem; }
 
-/* A tela ADVERSARIOS: abas por etapa, lista a' esquerda, ficha a' direita. */
-.cartao-elenco { width: min(100%, 58rem); gap: 1.1rem; }
-
-.abas {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  gap: 2px;
-  width: min(100%, 30rem);
-  padding: 2px;
-  background: rgba(232, 230, 227, 0.06);
-  border: 1px solid rgba(232, 230, 227, 0.16);
-  border-radius: 5px;
-}
+/* ---- a tela ADVERSARIOS ---- */
+.abas { display: flex; flex-wrap: wrap; gap: 0.45rem; }
 .aba {
-  padding: 0.5rem 0.3rem;
-  font: inherit;
-  font-size: 0.72rem;
-  letter-spacing: 0.1em;
-  color: var(--tinta);
-  background: transparent;
-  border: none;
-  border-radius: 3px;
-  opacity: 0.55;
+  padding: 0.55rem 1.6rem;
+  font: 800 italic 1.1rem/1 var(--titulo);
+  letter-spacing: 0.08em;
+  color: var(--tinta-2);
+  background: rgba(255, 255, 255, 0.07);
+  border: 0;
+  clip-path: polygon(0.55em 0, 100% 0, calc(100% - 0.55em) 100%, 0 100%);
   cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
-.aba:hover { background: rgba(232, 230, 227, 0.08); opacity: 0.85; }
-.aba[aria-selected='true'] { background: var(--home); color: #fff; opacity: 1; font-weight: 700; }
+.aba:hover, .aba:focus { outline: none; background: rgba(255, 255, 255, 0.2); color: var(--tinta); }
+.aba[aria-selected='true'] { background: #fff; color: var(--escuro); }
 
+.tela-cheia#elenco { grid-template-rows: auto auto minmax(0, 1fr) auto; }
 .elenco-corpo {
   display: grid;
-  grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.15fr) minmax(26rem, 1fr);
+  gap: 2.4vw;
   align-items: start;
-  gap: 1rem;
-  width: 100%;
+  min-height: 0;
 }
-.elenco-lista { display: grid; gap: 0.3rem; }
 
-.item-elenco {
+/* As cartas: 4 x 2, como um album. A cor de cima e' o colete de novo. */
+.elenco-lista { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.7rem; }
+.carta {
+  position: relative;
   display: grid;
-  grid-template-columns: 1.1rem 0.6rem minmax(0, 1fr) auto;
-  column-gap: 0.55rem;
-  align-items: center;
-  padding: 0.45rem 0.6rem;
-  font: inherit;
+  grid-template-rows: 1fr auto;
+  aspect-ratio: 4 / 5;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
   text-align: left;
   color: var(--tinta);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--borda);
-  border-radius: 5px;
+  background: linear-gradient(170deg, color-mix(in srgb, var(--cor, #888) 75%, #0b0d16) 0%, #0b0d16 88%);
+  border: 0;
+  border-radius: 0.45rem;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
   cursor: pointer;
+  transition: transform 0.18s var(--entrada), box-shadow 0.18s;
+  animation: sobe 0.45s var(--entrada) backwards;
+  animation-delay: calc(var(--i, 0) * 40ms + 60ms);
 }
-.item-elenco .pos { grid-row: 1 / 3; font-size: 0.7rem; opacity: 0.45; }
-.item-elenco .cor { grid-row: 1 / 3; width: 0.6rem; height: 1.6rem; border-radius: 2px; }
-.item-elenco .n {
-  overflow: hidden;
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.carta::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 14px);
+  pointer-events: none;
 }
-.item-elenco .e { grid-column: 3; font-size: 0.6rem; letter-spacing: 0.12em; opacity: 0.5; }
-.item-elenco .g { grid-column: 4; grid-row: 1 / 3; font-size: 1.05rem; }
-.item-elenco:hover { border-color: rgba(232, 230, 227, 0.35); }
-.item-elenco[aria-pressed='true'] { border-color: var(--home); background: rgba(41, 112, 209, 0.14); }
+.carta .g { position: absolute; top: 0.45rem; left: 0.6rem; font: 900 italic 1.75rem/1 var(--titulo); text-shadow: 0 2px 6px rgba(0, 0, 0, 0.4); }
+.carta .pos { position: absolute; top: 0.6rem; right: 0.65rem; font: 700 0.78rem/1 var(--titulo); letter-spacing: 0.1em; color: rgba(255, 255, 255, 0.6); }
+.carta .boneco { justify-self: center; align-self: end; width: 42%; height: auto; margin-bottom: 0.2rem; filter: drop-shadow(0 0.3rem 0.35rem rgba(0, 0, 0, 0.55)); }
+.carta-rotulos { display: grid; gap: 0.2rem; padding: 0.5rem 0.65rem 0.6rem; background: rgba(5, 6, 14, 0.62); }
+.carta .n { overflow: hidden; font: 800 italic 1.08rem/1 var(--titulo); letter-spacing: 0.02em; text-overflow: ellipsis; white-space: nowrap; }
+.carta .e { font: 700 0.64rem/1 var(--titulo); letter-spacing: 0.18em; color: var(--tinta-3); }
+.carta:hover, .carta:focus { outline: none; transform: translateY(-4px); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7), 0 1em 2em rgba(0, 0, 0, 0.4); }
+.carta[aria-pressed='true'] { box-shadow: 0 0 0 3px #fff, 0 0 1.8rem color-mix(in srgb, var(--cor, #fff) 60%, transparent); }
 
-@media (max-width: 700px) {
-  .elenco-corpo { grid-template-columns: 1fr; }
+/* =========================================================================
+   PAUSA
+   ========================================================================= */
+
+/* Um painel lateral de ponta a ponta, como a pausa de jogo de mundo aberto: a
+   partida congelada fica visivel a' direita. */
+.tela-pausa { grid-template-columns: minmax(22rem, 34rem) 1fr; padding: 0; }
+.pausa-painel {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  align-content: start;
+  gap: 3.4vh;
+  padding: 8vh 3vw 4vh 5vw;
+  background: linear-gradient(90deg, rgba(5, 6, 14, 0.97), rgba(5, 6, 14, 0.86));
+  box-shadow: 1px 0 rgba(255, 255, 255, 0.08);
+  animation: da-esquerda 0.35s var(--entrada);
 }
-@media (max-width: 560px) {
+.pausa-rotulo { font: 800 italic 1rem/1 var(--titulo); letter-spacing: 0.34em; color: var(--rosa); }
+.pausa-placar:empty { display: none; }
+/* O placar da pausa: um cartao, como a tabela que a TV mostra no intervalo. */
+.pausa-placar {
+  display: grid;
+  gap: 0.45rem;
+  padding: 1rem 1.3rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-left: 0.3rem solid var(--rosa);
+  animation: da-esquerda 0.4s var(--entrada) 0.05s backwards;
+}
+.pausa-linha { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; font: 900 italic 2rem/1 var(--titulo); }
+.pausa-linha .n { font-size: 1.4rem; letter-spacing: 0.04em; }
+.pausa-linha.home .n { color: #8fb8ff; }
+.pausa-linha.away .n { color: #ff9d94; }
+.pausa-meta { font: 700 0.8rem/1 var(--titulo); letter-spacing: 0.2em; color: var(--tinta-3); }
+
+.lista-menu { display: grid; align-content: start; gap: 0.25rem; }
+.item-menu {
+  position: relative;
+  padding: 0.7rem 1.1rem;
+  text-align: left;
+  font: 800 italic 2rem/1 var(--titulo);
+  letter-spacing: 0.03em;
+  color: var(--tinta-2);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, padding 0.2s var(--entrada);
+  animation: da-esquerda 0.4s var(--entrada) backwards;
+}
+.item-menu:nth-child(2) { animation-delay: 50ms; }
+.item-menu:nth-child(3) { animation-delay: 100ms; }
+.item-menu:hover, .item-menu:focus {
+  outline: none;
+  padding-left: 1.6rem;
+  color: var(--escuro);
+  background: #fff;
+  box-shadow: inset 0.35rem 0 var(--rosa);
+}
+.item-menu.perigo:hover, .item-menu.perigo:focus { box-shadow: inset 0.35rem 0 var(--away); }
+
+/* =========================================================================
+   FIM DE JOGO
+   ========================================================================= */
+
+.tela-fim {
+  /* `safe`: centra enquanto cabe e encosta no topo quando nao cabe. Centro puro
+     num container que rola transborda pros DOIS lados, e o topo — a faixa com
+     o resultado — ficaria inalcancavel numa janela baixa. */
+  align-content: safe center;
+  justify-items: center;
+  gap: 3.4vh;
+  padding: 5vh 0;
+  overflow-x: hidden;
+  background: radial-gradient(ellipse 80% 70% at 50% 45%, rgba(5, 6, 14, 0.35), rgba(5, 6, 14, 0.9));
+}
+
+/* A faixa do resultado, atravessando a tela inteira e torta. */
+.fim-faixa {
+  width: 100%;
+  padding: 2.2vh 0 2.6vh;
+  text-align: center;
+  background: var(--sol);
+  transform: skewY(-3deg);
+  box-shadow: 0 1.5em 3em rgba(0, 0, 0, 0.45);
+  animation: faixa 0.7s var(--entrada) backwards;
+}
+@keyframes faixa { from { transform: skewY(-3deg) scaleX(0); } }
+.fim-rotulo { margin: 0; font: 800 italic 1.15rem/1 var(--titulo); letter-spacing: 0.4em; color: rgba(255, 255, 255, 0.9); }
+.fim-titulo {
+  margin: 0.2em 0 0;
+  font: 900 italic clamp(4.2rem, 11vw, 10.5rem)/0.85 var(--titulo);
+  letter-spacing: 0.01em;
+  text-shadow: 0 0.06em 0.25em rgba(0, 0, 0, 0.3);
+  animation: sobe 0.6s var(--entrada) 0.25s backwards;
+}
+.tela-fim.derrota .fim-faixa { background: linear-gradient(90deg, #2a0a14, #b8222f 50%, #2a0a14); }
+.tela-fim.campeao .fim-faixa { background: linear-gradient(90deg, #a8740a, #ffd24a 45%, #fff1b0 50%, #ffd24a 55%, #a8740a); color: #2a1a02; }
+.tela-fim.campeao .fim-rotulo { color: rgba(42, 26, 2, 0.8); }
+
+.fim-placar { display: grid; grid-template-columns: 1fr auto auto auto 1fr; align-items: center; gap: 1.4rem; width: min(90vw, 50rem); animation: aparece 0.5s ease-out 0.45s backwards; }
+.fim-nome { font: 900 italic 1.8rem/1 var(--titulo); letter-spacing: 0.03em; }
+.fim-nome.home { text-align: right; color: #8fb8ff; }
+.fim-nome.away { color: #ff9d94; }
+.fim-num { font: 900 italic 5rem/0.9 var(--titulo); font-variant-numeric: tabular-nums; }
+.fim-num.perdeu { color: var(--tinta-3); }
+.fim-traco { width: 1.4rem; height: 0.35rem; background: var(--tinta-3); transform: skewX(-24deg); }
+
+.fim-extra { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.6rem; }
+.fim-extra .chip { font-size: 1.15rem; animation: sobe 0.45s var(--entrada) backwards; animation-delay: calc(var(--i, 0) * 120ms + 600ms); }
+.fim-extra .chip b { font-weight: 900; }
+
+.fim-acoes { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.8rem; animation: aparece 0.5s ease-out 0.7s backwards; }
+
+/* O confete do campeao: quarenta tirinhas, CSS puro, so' nessa tela. */
+.confete { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.confete i {
+  position: absolute;
+  top: -4vh;
+  width: 0.55rem;
+  height: 1.1rem;
+  background: var(--c);
+  animation: cai var(--d) linear var(--atraso) infinite;
+}
+@keyframes cai {
+  to { transform: translate3d(var(--x), 110vh, 0) rotate(var(--r)); }
+}
+
+/* =========================================================================
+   TELAS PEQUENAS
+   ========================================================================= */
+
+@media (max-width: 1100px) {
+  .mosaico { width: 100%; }
+  .chave-corpo, .elenco-corpo { grid-template-columns: 1fr; }
+  .guia { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .tela { padding: 3vh 4vw; }
+  .topo { flex-direction: column; }
+  .mosaico { grid-template-columns: 1fr 1fr; grid-template-rows: auto; height: auto; }
+  .tile-hero { grid-row: auto; grid-column: 1 / 3; min-height: 12rem; }
+  #btn-jogar, #btn-adversarios { grid-column: 1 / 3; }
+  .tile { min-height: 8rem; }
+  .etapas { grid-template-columns: 1fr; max-height: none; }
+  .etapa { min-height: 12rem; }
+  .guia, .controles, .controles ul { grid-template-columns: 1fr; }
+  .elenco-lista { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .arvore { grid-template-columns: 1fr; row-gap: 1rem; }
+  .par::after, .rodada + .rodada .vaga::before { display: none; }
+  .tela-pausa { grid-template-columns: 1fr; }
   .ficha-notas { grid-template-columns: 1fr; }
-}
-
-/* O que a partida rendeu no circuito, na tela de fim. */
-.extra {
-  margin: 0;
-  font-size: 0.95rem;
-  letter-spacing: 0.06em;
-  line-height: 1.5;
-}
-.extra b { color: var(--home); }
-.extra .liberou { color: var(--areia); font-weight: 800; }
-.titulo-menor.campeao { color: var(--areia); }
-
-@media (max-width: 560px) {
-  /* Chave em tres colunas nao cabe no celular: vira uma so', rodada a rodada. */
-  .arvore { grid-template-columns: 1fr; }
+  .fim-placar { grid-template-columns: 1fr auto auto auto 1fr; gap: 0.6rem; }
+  .fim-num { font-size: 3.2rem; }
+  .fim-nome { font-size: 1.2rem; }
 }

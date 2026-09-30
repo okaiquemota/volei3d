@@ -1,8 +1,13 @@
 import { STORAGE_KEY } from '../config';
-import { DEFINICAO, adversarioAtual, type Carreira, type Desfecho, type Etapa, type Torneio } from '../match/Circuito';
+import {
+  DEFINICAO, ETAPAS, NOMES_DAS_RODADAS, adversarioAtual,
+  type Carreira, type Desfecho, type Etapa, type Torneio,
+} from '../match/Circuito';
 import type { Personagem } from '../match/personagens';
+import { chip, el, icone } from './dom';
+import { EVENTO_DE_PASSO, Navegacao, type Passo } from './navegacao';
 import { desenharCarreira, desenharChave, desenharEtapas } from './TelaCircuito';
-import { TelaElenco } from './TelaElenco';
+import { APARENCIA_DE_VOCE, TelaElenco, desenharBoneco } from './TelaElenco';
 
 export type Dificuldade = 'facil' | 'normal' | 'dificil';
 
@@ -23,6 +28,67 @@ export interface Ajustes {
 
 const PADRAO: Ajustes = { dificuldade: 'normal', cenario: 'areia', resolucao: 1 };
 
+/** O que o menu mostra da carreira: o perfil e o bloco do circuito. */
+export interface Progresso {
+  carreira: Carreira;
+  torneio: Torneio | null;
+}
+
+/** O placar da pausa, visto do SEU lado. */
+export interface PlacarDaPausa {
+  voce: number;
+  ele: number;
+  adversario: string;
+  /** "AMISTOSO", ou a etapa e a rodada do circuito. */
+  rotulo: string;
+}
+
+/**
+ * Uma opcao da tela AJUSTES: os valores em ordem, e como cada um se le'.
+ *
+ * Seletor de setas e nao lista: sao poucas escolhas curtas, e o seletor e' o
+ * que anda com o teclado sem virar um formulario. A ajuda muda com o VALOR
+ * quando o valor muda o jogo (cenario), e e' uma so' quando nao muda.
+ */
+interface Opcao {
+  chave: keyof Ajustes;
+  nome: string;
+  valores: readonly (string | number)[];
+  rotulo: (v: string | number) => string;
+  ajuda: (v: string | number) => string;
+}
+
+const NOME_DA_DIFICULDADE: Record<Dificuldade, string> = { facil: 'FACIL', normal: 'NORMAL', dificil: 'DIFICIL' };
+const NOME_DO_CENARIO: Record<Cenario, string> = { areia: 'AREIA', quadra: 'QUADRA', estadio: 'ESTADIO' };
+
+const OPCOES: readonly Opcao[] = [
+  {
+    chave: 'dificuldade',
+    nome: 'DIFICULDADE',
+    valores: ['facil', 'normal', 'dificil'],
+    rotulo: (v) => NOME_DA_DIFICULDADE[v as Dificuldade],
+    ajuda: () => 'Vale pro amistoso contra a CPU. Contra um personagem do elenco, valem as notas dele — e no circuito, sempre as notas.',
+  },
+  {
+    chave: 'cenario',
+    nome: 'CENARIO',
+    valores: ['areia', 'quadra', 'estadio'],
+    rotulo: (v) => NOME_DO_CENARIO[v as Cenario],
+    ajuda: (v) => ({
+      areia: 'A praia com tres quadras. Da\' pra sair da sua, andar pela areia e assistir as outras.',
+      quadra: 'Uma quadra so\', modelada, com piso e rede de verdade.',
+      estadio: 'A quadra no meio de um estadio, com torcida nas arquibancadas.',
+    } as Record<string, string>)[v as string] + ' No circuito, cada etapa tem o seu.',
+  },
+  {
+    chave: 'resolucao',
+    nome: 'RESOLUCAO',
+    valores: [0.5, 0.6, 0.7, 0.8, 0.9, 1],
+    rotulo: (v) => `${Math.round((v as number) * 100)}%`,
+    ajuda: () => 'Menos resolucao, mais quadros por segundo. Vale na hora — o F3 mostra a diferenca.',
+  },
+];
+
 function elemento<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
   if (!el) throw new Error(`elemento #${id} nao encontrado`);
@@ -30,21 +96,29 @@ function elemento<T extends HTMLElement>(id: string): T {
 }
 
 /**
- * Menu, pausa, fim de jogo e as opcoes.
+ * Menu, sub-telas, pausa, fim de jogo e as opcoes.
  *
- * Tudo em DOM, como o Screens do rpk.fps. Os ajustes vao pro localStorage —
- * e' um jogo de navegador, e quem escolheu "dificil" nao devia escolher de
- * novo a cada aba nova.
+ * Tudo em DOM. Os ajustes vao pro localStorage — e' um jogo de navegador, e
+ * quem escolheu "dificil" nao devia escolher de novo a cada aba nova.
+ *
+ * Duas familias de tela. As do JOGO (menu, circuito, chave, adversarios,
+ * pausa, fim) abrem e fecham por ordem do `Game`, que sabe o estado. As
+ * SUB-TELAS (ajustes, como jogar) sao so' daqui: abrem por cima de quem as
+ * chamou, e o VOLTAR devolve a ela — o Game nem fica sabendo.
  */
 export class Screens {
+  private raiz = elemento('screens');
   private menu = elemento('menu');
   private pausa = elemento('pause');
   private fim = elemento('gameover');
   private tituloDoFim = elemento('go-titulo');
+  private rotuloDoFim = elemento('go-rotulo');
   private placarDoFim = elemento('go-placar');
   private extraDoFim = elemento('go-extra');
   private botaoDeNovo = elemento('btn-denovo');
   private botaoDoCircuito = elemento('btn-go-circuito');
+  private botaoDoMenu = elemento('btn-fim-menu');
+  private placarDaPausa = elemento('pausa-placar');
 
   private circuito = elemento('circuito');
   private carreira = elemento('carreira');
@@ -62,31 +136,34 @@ export class Screens {
     (p) => this.aoDesafiar?.(p),
   );
 
-  /**
-   * A dificuldade e' um grupo de radios, e nao um <select>.
-   *
-   * Sao tres opcoes curtas: escondidas atras de um menu suspenso, escolher
-   * custa dois cliques e ver as outras duas custa um. O CSS pinta os rotulos e
-   * esconde as bolinhas, mas o estado continua sendo o do <input> — nao ha'
-   * "qual esta' selecionado" guardado em dois lugares pra discordar.
-   */
-  private radiosDificuldade = Array.from(
-    document.querySelectorAll<HTMLInputElement>('#opt-skill input[name="skill"]'),
-  );
-  private radiosCenario = Array.from(
-    document.querySelectorAll<HTMLInputElement>('#opt-cenario input[name="cenario"]'),
-  );
-  private sliderResolucao = elemento<HTMLInputElement>('opt-res');
-  private valorResolucao = elemento('opt-res-valor');
+  private perfil = elemento('perfil');
+  private descDoAmistoso = elemento('tile-amistoso-desc');
+  private descDosAjustes = elemento('tile-ajustes-desc');
+  private statusDoCircuito = elemento('tile-circuito-status');
+  private ajudaDasOpcoes = elemento('opcoes-ajuda');
+  private linhasDasOpcoes = new Map<keyof Ajustes, () => void>();
+
+  /** A sub-tela aberta, e a tela que ela cobriu. */
+  private subtela: { tela: HTMLElement; origem: HTMLElement; botao: HTMLElement | null } | null = null;
+
+  private readonly telas: HTMLElement[];
+  /** A tela aberta da ultima vez, pra saber qual acabou de fechar. */
+  private abertaAntes: HTMLElement | null = null;
+  private readonly nav: Navegacao;
 
   ajustes: Ajustes = { ...PADRAO };
 
+  /** De onde o menu le' a carreira. O Game liga; sem ele, o perfil some. */
+  progresso: (() => Progresso) | null = null;
+
   /** AMISTOSO no menu: contra a CPU sem nome, na dificuldade escolhida. */
   aoJogar: (() => void) | null = null;
-  /** JOGAR NOVAMENTE no fim do amistoso: o mesmo adversario de antes. */
+  /** JOGAR DE NOVO no fim do amistoso: o mesmo adversario de antes. */
   aoJogarDeNovo: (() => void) | null = null;
   aoContinuar: (() => void) | null = null;
   aoSair: (() => void) | null = null;
+  /** MENU PRINCIPAL no fim do amistoso. */
+  aoIrProMenu: (() => void) | null = null;
   aoMudarAjustes: ((ajustes: Ajustes) => void) | null = null;
 
   /** Abriu a tela do circuito, pelo menu. */
@@ -108,48 +185,55 @@ export class Screens {
   aoDesafiar: ((p: Personagem) => void) | null = null;
 
   constructor() {
+    this.telas = [...this.raiz.querySelectorAll<HTMLElement>('.tela')];
+    this.nav = new Navegacao(this.raiz, () => this.telaAberta());
     this.carregar();
+    this.montarOpcoes();
+    this.montarControles();
 
-    elemento('btn-jogar').addEventListener('click', () => this.aoJogar?.());
-    elemento('btn-voltar').addEventListener('click', () => this.aoContinuar?.());
-    elemento('btn-sair').addEventListener('click', () => this.aoSair?.());
-    elemento('btn-denovo').addEventListener('click', () => this.aoJogarDeNovo?.());
-    elemento('btn-adversarios').addEventListener('click', () => this.aoAbrirElenco?.());
-    elemento('btn-elenco-voltar').addEventListener('click', () => this.aoVoltarDoElenco?.());
+    const ligar = (id: string, fazer: () => void): void => {
+      elemento(id).addEventListener('click', fazer);
+    };
+    ligar('btn-jogar', () => this.aoJogar?.());
+    ligar('btn-voltar', () => this.aoContinuar?.());
+    ligar('btn-sair', () => this.aoSair?.());
+    ligar('btn-denovo', () => this.aoJogarDeNovo?.());
+    ligar('btn-fim-menu', () => this.aoIrProMenu?.());
+    ligar('btn-adversarios', () => this.aoAbrirElenco?.());
+    ligar('btn-elenco-voltar', () => this.aoVoltarDoElenco?.());
+    ligar('btn-circuito', () => this.aoAbrirCircuito?.());
+    ligar('btn-circuito-voltar', () => this.aoVoltarDoCircuito?.());
+    ligar('btn-chave-jogar', () => this.aoJogarPartidaDoCircuito?.());
+    ligar('btn-chave-voltar', () => this.aoAbrirCircuito?.());
+    ligar('btn-go-circuito', () => this.aoSeguirNoCircuito?.());
 
-    elemento('btn-circuito').addEventListener('click', () => this.aoAbrirCircuito?.());
-    elemento('btn-circuito-voltar').addEventListener('click', () => this.aoVoltarDoCircuito?.());
-    elemento('btn-chave-jogar').addEventListener('click', () => this.aoJogarPartidaDoCircuito?.());
-    elemento('btn-chave-voltar').addEventListener('click', () => this.aoAbrirCircuito?.());
-    this.botaoDoCircuito.addEventListener('click', () => this.aoSeguirNoCircuito?.());
-
-    for (const radio of this.radiosDificuldade) {
-      radio.addEventListener('change', () => {
-        if (!radio.checked) return;
-        this.ajustes.dificuldade = radio.value as Dificuldade;
-        this.aplicar();
-      });
+    // As sub-telas: quem as abre diz qual, e o VOLTAR de dentro devolve.
+    for (const botao of this.raiz.querySelectorAll<HTMLElement>('[data-tela]')) {
+      botao.addEventListener('click', () => this.abrirSubtela(botao.dataset.tela!, botao));
+    }
+    for (const id of ['ajustes', 'comojogar']) {
+      elemento(id).querySelector('[data-voltar]')?.addEventListener('click', () => this.voltarDaSubtela());
     }
 
-    for (const radio of this.radiosCenario) {
-      radio.addEventListener('change', () => {
-        if (!radio.checked) return;
-        this.ajustes.cenario = radio.value as Cenario;
-        this.aplicar();
-      });
-    }
-
-    this.sliderResolucao.addEventListener('input', () => {
-      this.ajustes.resolucao = Number(this.sliderResolucao.value) / 100;
-      this.aplicar();
+    this.nav.registrar('elenco', {
+      KeyQ: () => this.telaElenco.trocarEtapa(-1),
+      KeyE: () => this.telaElenco.trocarEtapa(1),
+    });
+    // O R do "jogar de novo" mora aqui, e nao no laco do jogo: com o botao em
+    // foco o `Input` ignora teclas, e o R ficava mudo justamente quando o
+    // botao que ele aperta estava selecionado.
+    this.nav.registrar('gameover', {
+      KeyR: () => { if (!this.botaoDeNovo.classList.contains('hidden')) this.botaoDeNovo.click(); },
     });
 
     this.sincronizarVeu();
   }
 
+  // ---------------------------------------------------------------- ajustes
+
   private aplicar(): void {
-    this.valorResolucao.textContent = `${Math.round(this.ajustes.resolucao * 100)}%`;
     this.salvar();
+    this.atualizarMenu();
     this.aoMudarAjustes?.(this.ajustes);
   }
 
@@ -161,15 +245,6 @@ export class Screens {
       // localStorage pode estar bloqueado (aba anonima, cookies desligados).
       // Nao ter os ajustes salvos nao e' motivo pra nao abrir o jogo.
     }
-
-    for (const radio of this.radiosDificuldade) {
-      radio.checked = radio.value === this.ajustes.dificuldade;
-    }
-    for (const radio of this.radiosCenario) {
-      radio.checked = radio.value === this.ajustes.cenario;
-    }
-    this.sliderResolucao.value = String(Math.round(this.ajustes.resolucao * 100));
-    this.valorResolucao.textContent = `${Math.round(this.ajustes.resolucao * 100)}%`;
   }
 
   private salvar(): void {
@@ -181,31 +256,218 @@ export class Screens {
   }
 
   /**
-   * Marca no <body> que ha' uma tela aberta, pro CSS apagar o HUD atras dela.
+   * As linhas da tela AJUSTES.
    *
-   * As telas sao translucidas de proposito — a praia continua aparecendo atras.
-   * Sem esta marca o placar e a dica de saque atravessam o veu e caem por cima
-   * do "VOCE VENCEU". Fica centralizado aqui porque sao quatro metodos mexendo
-   * em tres elementos: espalhar a conta pelos quatro e' garantir que um caminho
-   * qualquer esqueca de desligar.
+   * O estado e' `this.ajustes` e mais nada: a linha so' DESENHA o valor atual e
+   * pede o proximo. Nao ha' um "qual esta' marcado" guardado no DOM pra
+   * discordar do que vai pro localStorage.
    */
-  private sincronizarVeu(): void {
-    const aberta = [this.menu, this.pausa, this.fim, this.circuito, this.chave, this.elenco]
-      .some((el) => !el.classList.contains('hidden'));
-    document.body.classList.toggle('tela-aberta', aberta);
+  private montarOpcoes(): void {
+    const lista = elemento('opcoes');
+    lista.replaceChildren(...OPCOES.map((o, i) => {
+      const linha = el('div', 'opcao');
+      linha.tabIndex = 0;
+      linha.dataset.opcao = o.chave;
+      linha.style.setProperty('--i', String(i));
+      linha.setAttribute('role', 'group');
+      linha.setAttribute('aria-label', o.nome);
+
+      const valor = el('span', 'seletor-valor');
+      const pontos = el('span', 'seletor-pontos');
+      const seta = (passo: number, nome: string): HTMLButtonElement => {
+        const b = el('button', 'seletor-seta');
+        b.type = 'button';
+        b.tabIndex = -1;
+        b.setAttribute('aria-label', passo < 0 ? 'anterior' : 'proximo');
+        b.append(icone(nome));
+        b.addEventListener('click', (e) => { e.stopPropagation(); andar(passo, false); });
+        return b;
+      };
+      const seletor = el('div', 'seletor');
+      seletor.append(seta(-1, 'esq'), valor, seta(1, 'dir'));
+      linha.append(el('span', 'opcao-nome', o.nome), seletor, pontos);
+
+      const desenhar = (): void => {
+        const atual = this.ajustes[o.chave];
+        const idx = Math.max(0, o.valores.indexOf(atual));
+        valor.textContent = o.rotulo(atual);
+        pontos.replaceChildren(...o.valores.map((_, j) => el('i', j === idx ? 'ativo' : '')));
+        if (document.activeElement === linha) this.ajudaDasOpcoes.textContent = o.ajuda(atual);
+      };
+
+      /** Setas param nas pontas; Enter e clique dao a volta. */
+      const andar = (passo: number, darAVolta: boolean): void => {
+        const n = o.valores.length;
+        const idx = Math.max(0, o.valores.indexOf(this.ajustes[o.chave]));
+        const proximo = darAVolta ? (idx + passo + n) % n : Math.max(0, Math.min(n - 1, idx + passo));
+        if (proximo === idx) return;
+        (this.ajustes as unknown as Record<string, string | number>)[o.chave] = o.valores[proximo]!;
+        desenhar();
+        this.aplicar();
+      };
+
+      linha.addEventListener(EVENTO_DE_PASSO, (e) => andar((e as CustomEvent<Passo>).detail.passo, false));
+      linha.addEventListener('click', () => andar(1, true));
+      linha.addEventListener('keydown', (e) => {
+        if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); e.stopPropagation(); andar(1, true); }
+      });
+      linha.addEventListener('focus', () => { this.ajudaDasOpcoes.textContent = o.ajuda(this.ajustes[o.chave]); });
+
+      this.linhasDasOpcoes.set(o.chave, desenhar);
+      desenhar();
+      return linha;
+    }));
+    this.ajudaDasOpcoes.textContent = 'Escolha uma opcao pra ver o que ela muda.';
+  }
+
+  /**
+   * COMO JOGAR mostra as mesmas teclas da faixa do HUD — copiadas dela, e nao
+   * escritas de novo: duas listas de teclas a mao sao uma lista certa e outra
+   * que ficou pra tras.
+   */
+  private montarControles(): void {
+    const alvo = elemento('controles');
+    for (const grupo of elemento('manual').querySelectorAll('.grupo-teclas')) {
+      alvo.append(grupo.cloneNode(true));
+    }
+  }
+
+  // ------------------------------------------------------------ o menu
+
+  /**
+   * O perfil e os textos dos blocos. Barato, entao roda toda vez que o menu
+   * aparece: a carreira mudou no torneio, os ajustes mudaram na sub-tela.
+   */
+  private atualizarMenu(): void {
+    const { dificuldade, cenario, resolucao } = this.ajustes;
+    this.descDoAmistoso.textContent =
+      `Contra a CPU · ${NOME_DA_DIFICULDADE[dificuldade]} · ${NOME_DO_CENARIO[cenario]}`;
+    this.descDosAjustes.textContent =
+      `${NOME_DA_DIFICULDADE[dificuldade]} · ${NOME_DO_CENARIO[cenario]} · ${Math.round(resolucao * 100)}%`;
+
+    const p = this.progresso?.();
+    this.perfil.classList.toggle('hidden', !p);
+    if (!p) return;
+    const c = p.carreira;
+    const titulos = ETAPAS.reduce((n, e) => n + c.titulos[e], 0);
+
+    const retrato = el('div', 'perfil-retrato');
+    retrato.append(desenharBoneco(APARENCIA_DE_VOCE));
+    const numeros = el('div', 'perfil-numeros');
+    for (const [rotulo, valor] of [['RANKING', c.ranking], ['TITULOS', titulos], ['V-D', `${c.vitorias}-${c.derrotas}`]] as const) {
+      const n = el('span', '', rotulo);
+      n.append(el('b', '', String(valor)));
+      numeros.append(n);
+    }
+    this.perfil.replaceChildren(retrato, el('span', 'perfil-nome', 'VOCE'), numeros);
+
+    const t = p.torneio;
+    if (t && !t.eliminado && !t.campeao) {
+      this.statusDoCircuito.replaceChildren(
+        chip(`CONTINUAR · ${DEFINICAO[t.etapa].nome} · ${NOMES_DAS_RODADAS[t.rodada]}`, '', 'play'));
+    } else if (titulos > 0) {
+      this.statusDoCircuito.replaceChildren(chip(`${titulos} ${titulos === 1 ? 'TITULO' : 'TITULOS'}`, 'escuro', 'trofeu'));
+    } else {
+      this.statusDoCircuito.replaceChildren(chip('COMECE PELO MUNICIPAL', 'escuro', 'play'));
+    }
+  }
+
+  // ---------------------------------------------------------- sub-telas
+
+  private abrirSubtela(id: string, botao: HTMLElement | null): void {
+    const tela = elemento(id);
+    const origem = this.telaAberta();
+    if (!origem || origem === tela) return;
+    origem.classList.add('hidden');
+    tela.classList.remove('hidden');
+    this.subtela = { tela, origem, botao };
+    // A migalha diz de onde se veio: COMO JOGAR abre do menu e da pausa.
+    const migalha = tela.querySelector('.migalha');
+    if (migalha) migalha.textContent = origem === this.pausa ? 'PAUSA' : 'MENU';
+    tela.scrollTop = 0;
+    this.sincronizarVeu();
+  }
+
+  private voltarDaSubtela(): void {
+    const s = this.subtela;
+    if (!s) return;
+    this.subtela = null;
+    s.tela.classList.add('hidden');
+    s.origem.classList.remove('hidden');
+    if (s.origem === this.menu) this.atualizarMenu();
+    this.sincronizarVeu();
+    // A selecao volta pro bloco que abriu a sub-tela, e nao pro comeco.
+    s.botao?.focus({ preventScroll: true });
+  }
+
+  /** Fechar uma tela do jogo fecha a sub-tela que estiver por cima dela. */
+  private fecharSubtelaDe(origem: HTMLElement): void {
+    if (this.subtela?.origem !== origem) return;
+    this.subtela.tela.classList.add('hidden');
+    this.subtela = null;
+  }
+
+  // ----------------------------------------------------------- o veu
+
+  /** A tela de cima. Uma de cada vez: sub-tela esconde quem ela cobre. */
+  private telaAberta(): HTMLElement | null {
+    return this.telas.find((t) => !t.classList.contains('hidden')) ?? null;
+  }
+
+  /**
+   * Marca no <body> que ha' uma tela aberta, pro CSS apagar o HUD e acender o
+   * veu. Centralizado aqui porque sao muitos caminhos mexendo em muitas telas,
+   * e espalhar a conta e' garantir que um caminho qualquer esqueca de
+   * desligar.
+   */
+  private sincronizarVeu(atraso?: number): void {
+    const aberta = this.telaAberta();
+    document.body.classList.toggle('tela-aberta', aberta !== null);
+    if (this.abertaAntes && this.abertaAntes !== aberta) this.nav.aoFechar(this.abertaAntes);
+    this.abertaAntes = aberta;
 
     // Fechou tudo: o botao que acabou de ser clicado nao pode ficar com o foco.
     // Com ele focado, o ESPACO do primeiro salto apertaria o JOGAR de novo — e
     // e' o que deixa o Input tratar "foco num controle" como "a tecla e' dele".
-    if (!aberta && document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    if (!aberta) {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      return;
+    }
+    // Foco que ficou numa tela que fechou nao serve mais pra nada.
+    if (document.activeElement instanceof HTMLElement && !aberta.contains(document.activeElement)) {
+      document.activeElement.blur();
+    }
+    this.nav.aoAbrir(aberta, atraso);
   }
 
+  // ----------------------------------------------------- telas do jogo
+
   mostrarMenu(visivel: boolean): void {
+    if (!visivel) this.fecharSubtelaDe(this.menu);
+    if (visivel) this.atualizarMenu();
     this.menu.classList.toggle('hidden', !visivel);
     this.sincronizarVeu();
   }
 
-  mostrarPausa(visivel: boolean): void {
+  /** A pausa, com o placar de quem esta' jogando. `null` e' quem esta' na areia. */
+  mostrarPausa(visivel: boolean, placar: PlacarDaPausa | null = null): void {
+    if (!visivel) this.fecharSubtelaDe(this.pausa);
+    if (visivel) {
+      if (placar) {
+        const linha = (classe: string, nome: string, pontos: number): HTMLElement => {
+          const l = el('div', `pausa-linha ${classe}`);
+          l.append(el('span', 'n', nome), el('span', '', String(pontos)));
+          return l;
+        };
+        this.placarDaPausa.replaceChildren(
+          el('span', 'pausa-meta', placar.rotulo),
+          linha('home', 'VOCE', placar.voce),
+          linha('away', placar.adversario, placar.ele),
+        );
+      } else {
+        this.placarDaPausa.replaceChildren();
+      }
+    }
     this.pausa.classList.toggle('hidden', !visivel);
     this.sincronizarVeu();
   }
@@ -221,25 +483,46 @@ export class Screens {
     elemento('btn-sair').textContent = noCircuito ? 'DESISTIR (CONTA COMO DERROTA)' : 'SAIR PRO MENU';
   }
 
-  mostrarFim(vencedorEhVoce: boolean, home: number, away: number, adversario = 'CPU'): void {
-    this.tituloDoFim.textContent = vencedorEhVoce ? 'VOCE VENCEU' : `${adversario} VENCEU`;
-    this.tituloDoFim.classList.toggle('away', !vencedorEhVoce);
-    this.tituloDoFim.classList.remove('campeao');
-    this.placarDoFim.textContent = `PLACAR FINAL ${home} x ${away}`;
+  /** O placar grande do fim: VOCE x ELE, o vencedor aceso. */
+  private desenharPlacarDoFim(voce: number, ele: number, adversario: string): void {
+    const venci = voce > ele;
+    this.placarDoFim.replaceChildren(
+      el('span', 'fim-nome home', 'VOCE'),
+      el('span', `fim-num ${venci ? '' : 'perdeu'}`, String(voce)),
+      el('span', 'fim-traco'),
+      el('span', `fim-num ${venci ? 'perdeu' : ''}`, String(ele)),
+      el('span', 'fim-nome away', adversario),
+    );
+  }
+
+  private abrirFim(tipo: 'vitoria' | 'derrota' | 'campeao'): void {
+    this.fim.classList.toggle('derrota', tipo === 'derrota');
+    this.fim.classList.toggle('campeao', tipo === 'campeao');
+    this.fim.querySelector('.confete')?.remove();
+    if (tipo === 'campeao') this.fim.prepend(confete());
+    this.fim.classList.remove('hidden');
+    this.sincronizarVeu(700);
+  }
+
+  /** O fim de um amistoso. O placar vem do SEU lado: voce pode jogar fora de casa. */
+  mostrarFim(vencedorEhVoce: boolean, voce: number, ele: number, adversario = 'CPU'): void {
+    this.rotuloDoFim.textContent = `AMISTOSO CONTRA ${adversario}`;
+    this.tituloDoFim.textContent = vencedorEhVoce ? 'VITORIA' : 'DERROTA';
+    this.desenharPlacarDoFim(voce, ele, adversario);
     this.extraDoFim.classList.add('hidden');
     this.botaoDeNovo.classList.remove('hidden');
+    this.botaoDoMenu.classList.remove('hidden');
     this.botaoDoCircuito.classList.add('hidden');
-    this.fim.classList.remove('hidden');
-    this.sincronizarVeu();
+    this.abrirFim(vencedorEhVoce ? 'vitoria' : 'derrota');
   }
 
   /**
    * O fim de uma partida do CIRCUITO.
    *
-   * Nao ha' "jogar novamente" aqui, e isso e' regra, nao esquecimento: repetir
-   * a partida que se perdeu apagaria a derrota, e um torneio onde perder nao
-   * custa nada nao e' torneio. O unico caminho e' seguir — pra proxima rodada,
-   * ou pra fora dela.
+   * Nao ha' "jogar de novo" aqui, e isso e' regra, nao esquecimento: repetir a
+   * partida que se perdeu apagaria a derrota, e um torneio onde perder nao
+   * custa nada nao e' torneio. Nem MENU: o unico caminho e' seguir — pra
+   * proxima rodada, ou pra fora dela.
    */
   mostrarFimDoCircuito(
     adversario: string,
@@ -249,40 +532,23 @@ export class Screens {
     etapa: Etapa,
   ): void {
     const titulos = { avancou: 'VITORIA', eliminado: 'ELIMINADO', campeao: 'CAMPEAO!' } as const;
+    this.rotuloDoFim.textContent = `CIRCUITO · ${DEFINICAO[etapa].nome}`;
     this.tituloDoFim.textContent = titulos[desfecho.tipo];
-    this.tituloDoFim.classList.toggle('away', desfecho.tipo === 'eliminado');
-    this.tituloDoFim.classList.toggle('campeao', desfecho.tipo === 'campeao');
-    this.placarDoFim.textContent = `VOCE ${voce} x ${ele} ${adversario}`;
+    this.desenharPlacarDoFim(voce, ele, adversario);
 
-    const linhas: HTMLElement[] = [];
-    if (desfecho.pontosGanhos > 0) {
-      const l = document.createElement('span');
-      l.append('+');
-      const b = document.createElement('b');
-      b.textContent = String(desfecho.pontosGanhos);
-      l.append(b, ' pontos de ranking');
-      linhas.push(l);
-    }
-    if (desfecho.tipo === 'campeao') {
-      const l = document.createElement('span');
-      l.textContent = `Campeao do ${DEFINICAO[etapa].nome}`;
-      linhas.push(l);
-    }
-    if (desfecho.liberou) {
-      const l = document.createElement('span');
-      l.className = 'liberou';
-      l.textContent = `${DEFINICAO[desfecho.liberou].nome} LIBERADO`;
-      linhas.push(l);
-    }
-    this.extraDoFim.replaceChildren(...linhas.flatMap((l, i) =>
-      i === 0 ? [l] : [document.createElement('br'), l]));
-    this.extraDoFim.classList.toggle('hidden', linhas.length === 0);
+    const chips: HTMLElement[] = [];
+    if (desfecho.pontosGanhos > 0) chips.push(chip(`+${desfecho.pontosGanhos} PONTOS DE RANKING`, 'ouro', 'estrela'));
+    if (desfecho.tipo === 'campeao') chips.push(chip(`CAMPEAO DO ${DEFINICAO[etapa].nome}`, '', 'trofeu'));
+    if (desfecho.liberou) chips.push(chip(`${DEFINICAO[desfecho.liberou].nome} LIBERADO`, '', 'play'));
+    chips.forEach((c, i) => c.style.setProperty('--i', String(i)));
+    this.extraDoFim.replaceChildren(...chips);
+    this.extraDoFim.classList.toggle('hidden', chips.length === 0);
 
     this.botaoDoCircuito.textContent = desfecho.tipo === 'avancou' ? 'PROXIMA RODADA' : 'VOLTAR AO CIRCUITO';
     this.botaoDeNovo.classList.add('hidden');
+    this.botaoDoMenu.classList.add('hidden');
     this.botaoDoCircuito.classList.remove('hidden');
-    this.fim.classList.remove('hidden');
-    this.sincronizarVeu();
+    this.abrirFim(desfecho.tipo === 'eliminado' ? 'derrota' : desfecho.tipo === 'campeao' ? 'campeao' : 'vitoria');
   }
 
   mostrarCircuito(visivel: boolean, carreira?: Carreira, torneio?: Torneio | null): void {
@@ -317,6 +583,30 @@ export class Screens {
 
   esconderFim(): void {
     this.fim.classList.add('hidden');
+    this.fim.querySelector('.confete')?.remove();
     this.sincronizarVeu();
   }
+}
+
+/**
+ * O confete do campeao: tirinhas nas cores do festival, caindo em loop.
+ *
+ * Atraso NEGATIVO em cada uma: a tela abre com o ar ja' cheio, e nao com todas
+ * nascendo juntas no alto como uma cortina.
+ */
+function confete(): HTMLElement {
+  const cores = ['#ff2e88', '#ff9e1f', '#ffcf3f', '#29e7ff', '#ffffff', '#8a5cff'];
+  const caixa = el('div', 'confete');
+  for (let i = 0; i < 44; i++) {
+    const t = el('i');
+    const d = 2.6 + Math.random() * 2.2;
+    t.style.left = `${Math.random() * 100}%`;
+    t.style.setProperty('--c', cores[i % cores.length]!);
+    t.style.setProperty('--d', `${d.toFixed(2)}s`);
+    t.style.setProperty('--atraso', `${(-Math.random() * d).toFixed(2)}s`);
+    t.style.setProperty('--x', `${((Math.random() - 0.5) * 24).toFixed(1)}vw`);
+    t.style.setProperty('--r', `${Math.round(360 + Math.random() * 720)}deg`);
+    caixa.append(t);
+  }
+  return caixa;
 }

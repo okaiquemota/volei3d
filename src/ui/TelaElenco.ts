@@ -3,6 +3,7 @@ import {
   ATRIBUTOS, DESCRICAO_DO_ATRIBUTO, NOME_DO_ATRIBUTO, elencoDaEtapa, estiloDe, geralEscrito,
   type Aparencia, type Personagem,
 } from '../match/personagens';
+import { COLORS } from '../config';
 import { corCss, el } from './dom';
 
 /**
@@ -13,6 +14,16 @@ import { corCss, el } from './dom';
  */
 
 const SVG = 'http://www.w3.org/2000/svg';
+
+/**
+ * Voce, em bonequinho: as cores do modelo como ele vem, com o colete do time.
+ *
+ * O jogador nao tem ficha nem `Aparencia` — veste o que o modelo traz. Isto e'
+ * so' o retrato do perfil e do VS, e por isso mora aqui, com o desenho.
+ */
+export const APARENCIA_DE_VOCE: Aparencia = {
+  pele: 0xd8a47a, colete: COLORS.home, camisa: 0x8e9296, calca: 0x5a4a34, capacete: 0xf0b92a, bigode: true,
+};
 
 function forma(tag: string, atributos: Record<string, string | number>): SVGElement {
   const e = document.createElementNS(SVG, tag);
@@ -83,12 +94,15 @@ export interface OpcoesDaFicha {
 /**
  * A ficha: quem e', o estilo, o geral e as oito notas.
  *
- * O GERAL vai grande e sozinho porque e' a unica coisa que se compara de
- * relance entre dois personagens. As notas sao o porque dele.
+ * O GERAL vai grande e sozinho, num bloco branco, porque e' a unica coisa que
+ * se compara de relance entre dois personagens. As notas sao o porque dele.
  */
 export function desenharFicha(p: Personagem, opcoes: OpcoesDaFicha = {}): HTMLElement {
   const ficha = el('article', 'ficha');
   ficha.style.setProperty('--cor', corCss(p.visual.colete));
+
+  const retrato = el('div', 'ficha-retrato');
+  retrato.append(desenharBoneco(p.visual));
 
   const quem = el('div', 'ficha-quem');
   quem.append(
@@ -101,7 +115,7 @@ export function desenharFicha(p: Personagem, opcoes: OpcoesDaFicha = {}): HTMLEl
   geral.append(el('b', '', geralEscrito(p)), el('span', '', 'GERAL'));
 
   const cabeca = el('div', 'ficha-cabeca');
-  cabeca.append(desenharBoneco(p.visual), quem, geral);
+  cabeca.append(retrato, quem, geral);
 
   const notas = el('dl', 'ficha-notas');
   for (const a of ATRIBUTOS) {
@@ -132,7 +146,7 @@ export function desenharFicha(p: Personagem, opcoes: OpcoesDaFicha = {}): HTMLEl
 
   if (opcoes.acao) {
     const { rotulo, aoClicar } = opcoes.acao;
-    const botao = el('button', 'botao', rotulo);
+    const botao = el('button', 'botao botao-principal', rotulo);
     botao.type = 'button';
     botao.addEventListener('click', aoClicar);
     ficha.append(botao);
@@ -144,9 +158,10 @@ export function desenharFicha(p: Personagem, opcoes: OpcoesDaFicha = {}): HTMLEl
 /**
  * A tela ADVERSARIOS: o elenco inteiro, uma etapa por vez.
  *
- * Lista a' esquerda, ficha a' direita. Vinte e quatro fichas empilhadas seriam
- * uma rolagem sem fim, e o que se quer aqui e' COMPARAR — clicar num nome e
- * no outro, com a ficha trocando no mesmo lugar.
+ * Cartas a' esquerda, ficha a' direita. Vinte e quatro fichas empilhadas seriam
+ * uma rolagem sem fim, e o que se quer aqui e' COMPARAR — passar de uma carta
+ * pra outra com a ficha trocando no mesmo lugar. Por isso a ficha segue o
+ * FOCO, e nao so' o clique: com as setas, andar pelas cartas ja' compara.
  */
 export class TelaElenco {
   private etapa: Etapa = 'municipal';
@@ -165,6 +180,22 @@ export class TelaElenco {
     this.desenhar();
   }
 
+  /**
+   * Anda uma etapa pra frente ou pra tras (Q/E).
+   *
+   * As cartas sao redesenhadas, e a que tinha o foco some junto: sem devolver
+   * o foco a' primeira carta nova, a seta seguinte nao teria de onde partir.
+   */
+  trocarEtapa(passo: number): void {
+    const i = ETAPAS.indexOf(this.etapa);
+    const proxima = ETAPAS[Math.max(0, Math.min(ETAPAS.length - 1, i + passo))]!;
+    if (proxima === this.etapa) return;
+    this.etapa = proxima;
+    this.escolhido = null;
+    this.desenhar();
+    (this.lista.firstElementChild as HTMLElement | null)?.focus({ preventScroll: true });
+  }
+
   private desenhar(): void {
     this.abas.replaceChildren(...ETAPAS.map((etapa) => {
       const aba = el('button', 'aba', DEFINICAO[etapa].nome);
@@ -172,6 +203,7 @@ export class TelaElenco {
       aba.setAttribute('role', 'tab');
       aba.setAttribute('aria-selected', String(etapa === this.etapa));
       aba.addEventListener('click', () => {
+        if (etapa === this.etapa) return;
         this.etapa = etapa;
         this.escolhido = null;
         this.desenhar();
@@ -184,30 +216,43 @@ export class TelaElenco {
     const escolhido = daEtapa.find((p) => p.id === this.escolhido) ?? daEtapa[0]!;
 
     this.lista.replaceChildren(...daEtapa.map((p, i) => {
-      const item = el('button', 'item-elenco');
-      item.type = 'button';
-      item.setAttribute('aria-pressed', String(p === escolhido));
-      const cor = el('i', 'cor');
-      cor.style.background = corCss(p.visual.colete);
-      item.append(
-        el('span', 'pos', String(i + 1)),
-        cor,
-        el('span', 'n', p.nome),
-        el('span', 'e', estiloDe(p)),
-        el('b', 'g', geralEscrito(p)),
-      );
-      item.addEventListener('click', () => {
+      const carta = el('button', 'carta');
+      carta.type = 'button';
+      carta.style.setProperty('--cor', corCss(p.visual.colete));
+      carta.style.setProperty('--i', String(i));
+      carta.setAttribute('aria-pressed', String(p === escolhido));
+      // A carta escolhida e' a selecao inicial da tela, e nao a primeira aba.
+      if (p === escolhido) carta.dataset.principal = '';
+      carta.setAttribute('aria-label', `${p.nome}, geral ${geralEscrito(p)}`);
+
+      const rotulos = el('span', 'carta-rotulos');
+      rotulos.append(el('span', 'n', p.nome), el('span', 'e', estiloDe(p)));
+      carta.append(el('b', 'g', geralEscrito(p)), el('span', 'pos', `#${i + 1}`), desenharBoneco(p.visual), rotulos);
+
+      const escolher = (): void => {
+        if (this.escolhido === p.id) return;
         this.escolhido = p.id;
-        this.desenhar();
-      });
-      return item;
+        for (const c of this.lista.children) {
+          c.setAttribute('aria-pressed', String(c === carta));
+          (c as HTMLElement).toggleAttribute('data-principal', c === carta);
+        }
+        this.desenharFicha(p);
+      };
+      carta.addEventListener('click', escolher);
+      carta.addEventListener('focus', escolher);
+      return carta;
     }));
 
+    this.escolhido = escolhido.id;
+    this.desenharFicha(escolhido);
+  }
+
+  private desenharFicha(p: Personagem): void {
     // Aqui so' aparece o retrospecto que EXISTE: "primeiro encontro" faz
     // sentido antes de uma partida, e nao numa lista de quem voce nunca viu.
-    this.fichaAlvo.replaceChildren(desenharFicha(escolhido, {
-      retrospecto: this.carreira?.confrontos[escolhido.id],
-      acao: { rotulo: 'DESAFIAR NUM AMISTOSO', aoClicar: () => this.aoDesafiar(escolhido) },
+    this.fichaAlvo.replaceChildren(desenharFicha(p, {
+      retrospecto: this.carreira?.confrontos[p.id],
+      acao: { rotulo: 'DESAFIAR NUM AMISTOSO', aoClicar: () => this.aoDesafiar(p) },
     }));
   }
 }

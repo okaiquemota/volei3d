@@ -5,7 +5,7 @@ import { Tempo } from './Tempo';
 import { CameraRig } from './CameraRig';
 import { PerfMeter } from '../ui/PerfMeter';
 import { HUD } from '../ui/HUD';
-import { Screens, type Cenario } from '../ui/Screens';
+import { Screens, type Cenario, type PlacarDaPausa } from '../ui/Screens';
 import { Human } from '../players/Human';
 import { Banhista } from '../players/Banhista';
 import { carregarAtletaModelo, type ModeloDoAtleta } from '../players/buildAtletaModelo';
@@ -17,7 +17,7 @@ import { construirCeu, type CeuConstruido } from '../world/buildSky';
 import { carregarQuadraModelo, type ModeloDaQuadra } from '../world/buildQuadraModelo';
 import { carregarEstadio, type ModeloDoEstadio } from '../world/buildEstadio';
 import {
-  DEFINICAO, adversarioAtual, novoTorneio, registrarPartida, type Etapa, type Jogador,
+  DEFINICAO, NOMES_DAS_RODADAS, adversarioAtual, novoTorneio, registrarPartida, type Etapa, type Jogador,
 } from '../match/Circuito';
 import { personagemPorId, type Personagem } from '../match/personagens';
 import { armazemDoNavegador, carregar, guardar, type Progresso } from '../match/salvar';
@@ -31,6 +31,23 @@ export type GameState = 'menu' | 'playing' | 'paused' | 'over';
 const _bufSize = new THREE.Vector2();
 const _ponto = new THREE.Vector3();
 const _olhar = new THREE.Vector3();
+const _centroDoMenu = new THREE.Vector3();
+const _destinoDoVoo = new THREE.Vector3();
+const _giroDoVoo = new THREE.Quaternion();
+
+/** Segundos do voo da camera, do menu ate' atras do jogador. */
+const VOO_DO_MENU = 1.3;
+
+/**
+ * A camera do menu: uma volta lenta em volta da quadra em foco.
+ *
+ * Baixa e de longe, como a abertura de uma transmissao. O giro e' devagar de
+ * proposito — ~2 minutos por volta: o menu e' pra ler, e o fundo so' tem que
+ * estar vivo, nao chamar o olho.
+ */
+const MENU_CAMERA = { raio: 17, altura: 4.2, alturaDoOlhar: 1.3, velocidade: 0.05,
+  /** Quanto o olhar vira pra esquerda: joga a quadra pra direita da tela, onde o veu abre. */
+  desvio: 0.3 };
 
 /** Seu nome no placar. Vale na quadra que voce ocupar. */
 const MEU_NOME = 'VOCE';
@@ -201,6 +218,11 @@ export class Game {
   private descartaveis: Array<{ dispose(): void }> = [];
 
   private state: GameState = 'menu';
+  /** O angulo da volta da camera do menu, e onde ela estava no ultimo quadro. */
+  private giroDoMenu = 0.9;
+  private poseDoMenu: { posicao: THREE.Vector3; giro: THREE.Quaternion } | null = null;
+  /** O voo em andamento: de onde saiu, e quanto ja' andou (0 a 1). */
+  private voo: { posicao: THREE.Vector3; giro: THREE.Quaternion; t: number } | null = null;
   private lastTime = 0;
   private lastFrameDt = 0;
   private resolution = 1;
@@ -432,7 +454,9 @@ export class Game {
     this.screens.aoVoltarDoCircuito = () => this.voltarDoCircuito();
     this.screens.aoContinuar = () => this.continuar();
     this.screens.aoSair = () => this.sairProMenu();
+    this.screens.aoIrProMenu = () => this.menuDepoisDoFim();
     this.screens.aoMudarAjustes = () => this.aplicarAjustes();
+    this.screens.progresso = () => ({ carreira: this.progresso.carreira, torneio: this.progresso.torneio });
 
     this.screens.mostrarMenu(true);
     this.hud.definirNomes(MEU_NOME, 'CPU');
@@ -628,7 +652,7 @@ export class Game {
   private pausar(): void {
     if (this.state !== 'playing') return;
     this.state = 'paused';
-    this.screens.mostrarPausa(true);
+    this.screens.mostrarPausa(true, this.placarDaPausa());
     // Sem cursor nao se clica em "continuar".
     this.input.destravarPonteiro();
   }
@@ -665,6 +689,24 @@ export class Game {
     this.state = 'menu';
   }
 
+  /** O placar que a pausa mostra. Quem esta' na areia nao tem placar. */
+  private placarDaPausa(): PlacarDaPausa | null {
+    const arena = this.minhaArena;
+    if (!arena || !this.player) return null;
+    const { voce, ele } = this.placarDoCircuito();
+    const t = this.progresso.torneio;
+    const rotulo = this.modo === 'circuito' && t
+      ? `${DEFINICAO[t.etapa].nome} · ${NOMES_DAS_RODADAS[t.rodada]}`
+      : 'AMISTOSO';
+    return { voce, ele, adversario: this.oponenteNa(arena)?.nome ?? 'CPU', rotulo };
+  }
+
+  /** MENU PRINCIPAL no fim do amistoso. No circuito o botao nem aparece. */
+  private menuDepoisDoFim(): void {
+    if (this.state !== 'over' || this.modo === 'circuito') return;
+    this.sairProMenu();
+  }
+
   private terminarPartida(venceu: boolean): void {
     const placar = this.minhaArena?.match.placar;
     if (!placar) return;
@@ -679,7 +721,9 @@ export class Game {
 
     const arena = this.minhaArena;
     const quem = arena ? this.oponenteNa(arena)?.nome ?? 'CPU' : 'CPU';
-    this.screens.mostrarFim(venceu, placar.home, placar.away, quem);
+    // Do SEU lado, e nao casa x fora: na praia da' pra entrar pelo lado de la'.
+    const { voce, ele } = this.placarDoCircuito();
+    this.screens.mostrarFim(venceu, voce, ele, quem);
   }
 
   // ==================================================================
@@ -718,6 +762,7 @@ export class Game {
      * o HUD errado, que e' o pior tipo de defeito: o teste do estado passa.
      */
     this.focar(arena);
+    this.voarDoMenu();
   }
 
   /** A habilidade da CPU sem nome: a dificuldade escolhida no menu. */
@@ -843,6 +888,7 @@ export class Game {
     }
     // Refaz o placar e os nomes do HUD, agora com o nome de verdade.
     this.focar(arena);
+    this.voarDoMenu();
   }
 
   private registrarNoCircuito(venceu: boolean, voce: number, ele: number): void {
@@ -936,12 +982,18 @@ export class Game {
       }
 
       if (this.input.wasPressed('Escape')) this.pausar();
-      else this.update(dt);
-    } else if (this.state === 'over' && this.input.wasPressed('KeyR') && this.modo === 'amistoso') {
-      // So' no amistoso. No circuito, jogar de novo a partida que se perdeu
-      // apagaria a derrota — ver `Screens.mostrarFimDoCircuito`.
-      this.comecarPartida();
+      else {
+        this.update(dt);
+        // No RELOGIO, e nao no dt do jogo: o dt tem teto de 1/20, e numa
+        // maquina a 10 fps o voo de 1,3 s levaria o dobro, com o saque correndo.
+        this.aplicarVoo(Math.min(cru, 0.5));
+      }
+    } else if (this.state === 'menu') {
+      this.cameraDoMenu(cru);
     }
+    // O R do "jogar de novo" e' da tela de fim (`Screens`), que so' mostra o
+    // botao no amistoso: no circuito, repetir a partida perdida apagaria a
+    // derrota.
 
     this.hud.update(dt);
     this.render();
@@ -1180,13 +1232,13 @@ export class Game {
     if (perto.distancia > PASSEIO.alcanceDeEntrada) {
       // Longe de tudo, a dica vira o aviso de que o mouse esta' solto — que e'
       // a unica coisa que o jogador precisa saber pra girar a camera de novo.
-      this.hud.dicaDaPraia(this.input.ponteiroTravado ? null : 'CLIQUE pra girar a camera com o mouse');
+      this.hud.dicaDaPraia(this.input.ponteiroTravado ? null : 'GIRAR A CAMERA COM O MOUSE', 'CLIQUE');
       return;
     }
 
     const nome = PRAIA[this.arenas.indexOf(perto.arena)]?.nome ?? perto.arena.id;
     const cor = perto.lado === 'home' ? 'AZUL' : 'VERMELHO';
-    this.hud.dicaDaPraia(`E  entrar na ${nome}  ·  lado ${cor}`);
+    this.hud.dicaDaPraia(`ENTRAR NA QUADRA ${nome} · LADO ${cor}`, 'E');
   }
 
   /** Entra na quadra mais perto, se houver uma ao alcance. */
@@ -1301,6 +1353,65 @@ export class Game {
     arena.match.eventos.pontoFeito = undefined;
     arena.match.eventos.partidaAcabou = undefined;
     arena.match.eventos.estadoMudou = undefined;
+  }
+
+  /**
+   * A volta da camera atras do menu. Roda no RELOGIO (`cru`, sem o teto do
+   * dt): o mundo esta' parado, e o que anda aqui e' so' o olhar.
+   */
+  private cameraDoMenu(dt: number): void {
+    const c = MENU_CAMERA;
+    this.giroDoMenu += Math.min(dt, 0.1) * c.velocidade;
+    this.arenaEmFoco.court.paraMundo(_centroDoMenu.set(0, 0, 0), _centroDoMenu);
+    this.camera.position.set(
+      _centroDoMenu.x + Math.sin(this.giroDoMenu) * c.raio,
+      c.altura,
+      _centroDoMenu.z + Math.cos(this.giroDoMenu) * c.raio,
+    );
+    this.camera.lookAt(_centroDoMenu.x, c.alturaDoOlhar, _centroDoMenu.z);
+    this.camera.rotateY(c.desvio);
+
+    this.poseDoMenu ??= { posicao: new THREE.Vector3(), giro: new THREE.Quaternion() };
+    this.poseDoMenu.posicao.copy(this.camera.position);
+    this.poseDoMenu.giro.copy(this.camera.quaternion);
+  }
+
+  /**
+   * Sai do menu VOANDO: da pose em que o menu deixou a camera ate' atras do
+   * jogador, em `VOO_DO_MENU` segundos. Sem isto o corte seria seco — a quadra
+   * do menu some e a de jogo aparece.
+   *
+   * Duracao FIXA, e nao o amaciamento da camera de jogo: aquele e' feito pra
+   * seguir um atleta que corre, e do outro lado da quadra ele levava mais de
+   * dois segundos pra chegar — com o relogio do saque ja' correndo.
+   *
+   * Chamar DEPOIS de focar a quadra. Na areia (passeio) nao voa: aquela camera
+   * e' rigida e ignoraria a pose.
+   */
+  private voarDoMenu(): void {
+    const pose = this.poseDoMenu;
+    this.poseDoMenu = null;
+    if (!pose || this.rig.modoAtual === 'passeio') return;
+    this.voo = { posicao: pose.posicao, giro: pose.giro, t: 0 };
+    this.aplicarVoo(0);
+  }
+
+  /**
+   * Um quadro do voo. O destino e' onde a camera de jogo quer estar AGORA
+   * (`encaixar`), e nao onde ela estava na largada: o jogador pode andar
+   * durante o voo, e a camera chega nele, e nao no lugar vazio de antes.
+   */
+  private aplicarVoo(dt: number): void {
+    const v = this.voo;
+    if (!v) return;
+    v.t = Math.min(1, v.t + dt / VOO_DO_MENU);
+    this.rig.encaixar();
+    const e = v.t * v.t * (3 - 2 * v.t);
+    _destinoDoVoo.copy(this.camera.position);
+    _giroDoVoo.copy(this.camera.quaternion);
+    this.camera.position.copy(v.posicao).lerp(_destinoDoVoo, e);
+    this.camera.quaternion.copy(v.giro).slerp(_giroDoVoo, e);
+    if (v.t >= 1) this.voo = null;
   }
 
   private render(): void {
