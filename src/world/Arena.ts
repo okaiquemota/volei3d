@@ -7,9 +7,10 @@ import type { ModeloDoAtleta } from '../players/buildAtletaModelo';
 import type { Athlete } from '../players/Athlete';
 import { Human } from '../players/Human';
 import { Court, sinalDe, type Side } from './Court';
+import type { Motor } from '../players/Motor';
 import { construirQuadra, type Colisores } from './buildCourt';
 import { construirRede, type RedeConstruida } from './buildRede';
-import { TecidoDaRede } from './tecidoDaRede';
+import { TecidoDaRede, molaDoCorpo } from './tecidoDaRede';
 import { construirPlacas, type PlacasConstruidas } from './buildPlacas';
 import { construirTorcida, type TorcidaConstruida } from './buildTorcida';
 import { BORDA_DA_LAJE } from './encaixarQuadra';
@@ -375,7 +376,7 @@ export class Arena {
     }
 
     for (const atleta of [this.home, this.away]) {
-      this.encostarNaRede(atleta, atleta.posicao, !atleta.motor.noChao, dt);
+      this.encostarNaRede(atleta, atleta.posicao, !atleta.motor.noChao, dt, atleta.motor);
     }
 
     this.tecido.update(dt);
@@ -401,7 +402,7 @@ export class Arena {
    * de quem joga e' justamente o vao da rede. Lida do motor, a velocidade de
    * quem chega correndo seria zero exatamente no quadro do encontrao.
    */
-  encostarNaRede(quem: object, pes: THREE.Vector3, noAr: boolean, dt: number): void {
+  encostarNaRede(quem: object, pes: THREE.Vector3, noAr: boolean, dt: number, motor?: Motor): void {
     const local = this.court.paraLocal(pes, _local);
     const antes = this.zAnterior.get(quem);
     this.zAnterior.set(quem, local.z);
@@ -409,11 +410,23 @@ export class Arena {
 
     const lado = local.z < 0 ? -1 : 1;
     // Um salto de posicao (entrou na quadra, voltou pro saque) nao e' encontrao.
-    const bruta = antes === undefined || dt <= 0 ? 0 : (local.z - antes) / dt;
-    const vz = Math.abs(bruta) > 12 ? 0 : REDE.corpo.repasse * bruta;
-    const { tronco, cabeca, maos } = REDE.corpo;
+    const salto = antes === undefined || dt <= 0 || Math.abs(local.z - antes) / dt > 12;
+    const bruta = salto ? 0 : (local.z - antes!) / dt;
+    const vz = REDE.corpo.repasse * bruta;
+    const { tronco, ombros, cabeca, maos } = REDE.corpo;
+
+    // A rede empurra de volta quem entrou nela (`molaDoCorpo`). So' onde ha'
+    // malha pra ceder: perto dos postes o limite de area ja' e' duro.
+    if (motor && Math.abs(local.x) < REDE.meiaLargura) {
+      const a = molaDoCorpo(local.z, bruta);
+      if (a !== 0) {
+        _empurrao.set(0, 0, a).applyQuaternion(this.court.quaternion);
+        motor.empurrar(_empurrao.x, _empurrao.z);
+      }
+    }
 
     this.tecido.encostar(local.x, local.y + tronco.altura, local.z, tronco.raio, vz);
+    this.tecido.encostar(local.x, local.y + ombros.altura, local.z, ombros.raio, vz);
     this.tecido.encostar(local.x, local.y + cabeca.altura, local.z, cabeca.raio, vz);
     if (noAr) this.tecido.encostar(local.x, local.y + maos.altura, local.z - lado * maos.frente, maos.raio, vz);
   }
@@ -508,6 +521,7 @@ export class Arena {
 
 const _queda = new THREE.Vector3();
 const _local = new THREE.Vector3();
+const _empurrao = new THREE.Vector3();
 
 /** Quantos metros pra fora da area de jogo quem sai da quadra reaparece. */
 const SAIDA = 2;

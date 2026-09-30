@@ -1578,6 +1578,35 @@ Três defeitos apareceram no caminho, todos nos testes, nenhum na tela:
   chega correndo seria zero exatamente no quadro do encontrão. A arena mede a
   velocidade pelo deslocamento entre quadros (`Arena.encostarNaRede`).
 
+**O corpo entra na rede, e a rede empurra de volta.** A primeira versão barrava
+o atleta a 35 cm do plano (`NET_GAP`) — uma parede invisível ANTES da rede — e
+o tronco só roçava a malha: 5 cm, medido, e o veredito de quem jogou foi
+"batendo de frente, a rede nem se mexe". Agora há dois limites com donos
+diferentes:
+
+- `Court.limitarArea` continua parando a 35 cm, e vale para ALVO: onde a IA
+  para, onde se mira. Ninguém escolhe ficar dentro da rede.
+- `Court.limitarCorpo`, usado pelo motor dos atletas, deixa o centro do corpo
+  chegar a 8 cm do plano (`REDE.corpo.folgaMinima`). Entre 35 e 8 cm a rede é
+  mola (`molaDoCorpo`, pura e com teste): 180 por metro de entrada, e freio só
+  para quem ainda está ENTRANDO — freando também quem sai, a rede seguraria o
+  corpo grudado nela. Perto dos postes o fundo volta aos 35 cm numa rampa, senão
+  o corpo entra no poste.
+
+A conta que fixa a rigidez: o motor acelera a 45 m/s², então segurando o passo
+contra a rede o corpo equilibra em 45 / 180 = 25 cm de entrada. Medido no
+navegador: chega correndo, bate no fundo, assenta a 11 cm do plano, a malha
+cede 21 cm e a FITA anda 13 cm junto. A mola entra pelo `Motor.empurrar`, que
+SOMA à corrida em vez de substituí-la.
+
+O banhista também entra: `desviarDaRede` ganhou a folga da rede como parâmetro,
+e o poste continua duro.
+
+E a barriga do corpo é quase invisível pela câmera de jogo: ela fica atrás de
+quem a faz. O que se vê de trás é a FITA dobrando em volta do atleta — por isso
+o corpo tem esfera de ombros e a grade é 47 x 9: com 37 x 6 a deformação cabia
+em dois pontos e saía dobra, não curva. Para conferir, fotografe DE CIMA.
+
 E dois ajustes que só a medida acertou:
 
 - **Rigidez e freio da malha são MEDIDOS no passo de 1/100 s**, não tirados da

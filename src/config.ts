@@ -158,9 +158,15 @@ export const REDE = {
 
   /** O pano que se ve'. So' desenho: nao toca na bola. */
   tecido: {
-    /** Pontos da malha: 37 x 6 da' um a cada 25 cm por 20 cm. */
-    colunas: 37,
-    linhas: 6,
+    /**
+     * Pontos da malha: 47 x 9 da' um a cada 20 cm por 12,5 cm.
+     *
+     * Com 37 x 6 (25 x 20 cm) um corpo entrando na rede deformava dois ou tres
+     * pontos, e a barriga saia como uma dobra em vez de curva. Sao 423 pontos,
+     * e o pano dormindo nao custa nada.
+     */
+    colunas: 47,
+    linhas: 9,
     /**
      * Velocidade da onda no pano, em m/s, nos dois sentidos.
      *
@@ -171,13 +177,13 @@ export const REDE = {
      * parecia um monte de retalhos. Com os cabos mais tensos que a malha, a
      * onda corre pela fita de um poste ao outro em ~0,7 s.
      */
-    onda: 7,
-    ondaDaFita: 14,
-    ondaDaBase: 10,
+    onda: 5.5,
+    ondaDaFita: 11,
+    ondaDaBase: 8,
     /** O que puxa cada ponto de volta pro plano. Fraco: quem segura e' a tensao. */
-    ancora: 20,
-    ancoraDaFita: 40,
-    ancoraDaBase: 30,
+    ancora: 12,
+    ancoraDaFita: 30,
+    ancoraDaBase: 25,
     /** Freio do pano, por segundo. Baixo o bastante pra balancar duas ou tres vezes. */
     amortecimento: 3,
     /** Raio em que a bola deforma o pano em volta do ponto de contato. */
@@ -187,20 +193,36 @@ export const REDE = {
   /**
    * Os corpos contra a rede.
    *
-   * O atleta nunca chega a menos de 35 cm do plano da rede (`Court.NET_GAP`),
-   * entao o tronco quase nao encosta: o que aparece e' o TRANCO de quem chega
-   * correndo ou pula colado nela — a velocidade do corpo em direcao a' rede vira
-   * velocidade do pano, pela fracao `repasse`.
+   * A primeira versao barrava o corpo a 35 cm do plano (`Court.NET_GAP`), uma
+   * parede invisivel ANTES da rede: o tronco so' rocava a malha (5 cm, medido)
+   * e o veredito foi "batendo de frente, a rede nem se mexe". Agora a partir
+   * dali a rede e' MOLA: o corpo entra ate' `folgaMinima` do plano, a malha
+   * cede em volta dele, e empurra de volta com `rigidez` por metro de entrada.
+   *
+   * Segurando o passo contra a rede, o motor acelera a 45 m/s^2 e a mola
+   * equilibra em 45 / 180 = 25 cm de entrada. Chegando correndo, o corpo vai
+   * ate' o fundo e volta — `freio` so' age em quem esta' ENTRANDO, pra rede
+   * nao virar trampolim.
    */
   corpo: {
-    /** Esferas do corpo, a partir dos pes: altura do centro e raio. */
-    tronco: { altura: 1.15, raio: 0.4 },
-    cabeca: { altura: 1.65, raio: 0.2 },
+    /**
+     * Esferas do corpo, a partir dos pes: altura do centro e raio. O raio do
+     * tronco e' o `NET_GAP`: a malha comeca a ceder exatamente onde a mola
+     * comeca a empurrar.
+     */
+    tronco: { altura: 1.2, raio: 0.35 },
+    ombros: { altura: 1.5, raio: 0.32 },
+    cabeca: { altura: 1.75, raio: 0.22 },
     /** As maos so' contam no ar, um palmo a' frente do corpo, na direcao da rede. */
     maos: { altura: 2.25, raio: 0.22, frente: 0.25 },
     /** Mais longe que isto do plano, o corpo nao tem nada com a rede. */
     alcance: 0.9,
-    repasse: 0.45,
+    /** Quanto da velocidade de quem entra na rede o pano leva junto. */
+    repasse: 0.8,
+    /** O mais perto do plano que o CENTRO do corpo chega: o fundo da rede pra um corpo. */
+    folgaMinima: 0.08,
+    rigidez: 180,
+    freio: 8,
   },
 } as const;
 

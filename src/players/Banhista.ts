@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ATHLETE, COURT } from '../config';
+import { ATHLETE, COURT, REDE } from '../config';
 import type { Input } from '../core/Input';
 import { clamp } from '../core/math';
 import type { Court } from '../world/Court';
@@ -73,7 +73,9 @@ export class Banhista {
         posicao.y,
         clamp(posicao.z, -this.limite.z, this.limite.z),
       );
-      for (const quadra of quadras) quadra.desviarDaRede(out, ATHLETE.radius, out);
+      // Na rede, o banhista tambem entra ate' o fundo e e' empurrado de volta
+      // (`Arena.encostarNaRede`); o poste continua duro.
+      for (const quadra of quadras) quadra.desviarDaRede(out, ATHLETE.radius, out, REDE.corpo.folgaMinima);
       return out;
     });
   }

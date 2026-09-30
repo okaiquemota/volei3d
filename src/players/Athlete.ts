@@ -89,9 +89,11 @@ export abstract class Athlete implements Tocador {
      * e pergunta a cada quadro, que e' exatamente pra isso que a abstracao
      * existe.
      */
+    // O CORPO usa `limitarCorpo`, que deixa entrar na rede; alvo de corrida e
+    // mira continuam em `limitarArea`, que para antes dela.
     this.motor = new Motor((posicao, out) => (this.sacando
       ? this.court.limitarAreaDeSaque(posicao, this.side, out)
-      : this.court.limitarArea(posicao, this.side, out)));
+      : this.court.limitarCorpo(posicao, this.side, out)));
     this.voltarParaOSpawn();
   }
 

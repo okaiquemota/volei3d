@@ -1,5 +1,23 @@
 import { COURT, REDE } from '../config';
 
+/** O vao da rede pra quem joga: daqui pra dentro, a rede e' mola. Igual ao `Court.NET_GAP`. */
+export const VAO_DA_REDE = 0.35;
+
+/**
+ * A rede empurrando um corpo de volta, como aceleracao em z LOCAL.
+ *
+ * Mola pela ENTRADA (quanto o centro do corpo passou do vao), e freio so' pra
+ * quem ainda esta' ENTRANDO: freando tambem quem sai, a rede seguraria o corpo
+ * grudado nela. O sinal ja' vem pro lado do corpo. Zero fora da rede.
+ */
+export function molaDoCorpo(z: number, vz: number): number {
+  const entrada = VAO_DA_REDE - Math.abs(z);
+  if (entrada <= 0) return 0;
+  const lado = z < 0 ? -1 : 1;
+  const entrando = Math.max(0, -lado * vz);
+  return lado * (REDE.corpo.rigidez * entrada + REDE.corpo.freio * entrando);
+}
+
 /**
  * O PANO da rede: uma grade de pontos que se mexe pra frente e pra tras.
  *
@@ -18,9 +36,10 @@ import { COURT, REDE } from '../config';
  * restricoes de distancia e iteracoes pra desenhar exatamente o mesmo.
  *
  * Integracao semi-implicita (velocidade primeiro, posicao depois) em passo
- * FIXO de 1/100 s, o mesmo da bola. O modo mais rapido e' o da fita (14 m/s
- * com pontos a 25 cm): w * dt ~ 1,2, dentro do limite de estabilidade (2).
- * Subir `ondaDaFita` muito alem disso faz o pano explodir, e o teste pega.
+ * FIXO de 1/100 s, o mesmo da bola. O modo mais rapido e' o da fita (11 m/s
+ * com pontos a 20 cm, somado ao vertical a 12,5 cm): w * dt ~ 1,4, dentro do
+ * limite de estabilidade (2). Adensar a grade ou subir as ondas encosta nesse
+ * limite, e o pano explode — o teste das pontas presas pega.
  */
 
 const PASSO = 1 / 100;

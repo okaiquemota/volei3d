@@ -6,7 +6,8 @@ import { BALL, COURT, REDE } from '../src/config';
 import { AABB } from '../src/core/math';
 import { Court } from '../src/world/Court';
 import { PASSO, novoContatoNaRede, simularBola, type TipoDeContato } from '../src/world/Physics';
-import { TecidoDaRede } from '../src/world/tecidoDaRede';
+import { TecidoDaRede, VAO_DA_REDE, molaDoCorpo } from '../src/world/tecidoDaRede';
+import { Motor } from '../src/players/Motor';
 import type { Colisores } from '../src/world/buildCourt';
 
 /**
@@ -218,4 +219,58 @@ test('o pano nao mexe na bola', () => {
   const semPano = voar(new THREE.Vector3(0, 1.7, -3), new THREE.Vector3(0, 0, 22));
   assert.deepEqual(voo.pos.toArray(), semPano.pos.toArray());
   assert.ok(BALL.radius > 0);
+});
+
+// -------------------------------------------------------------- o corpo na rede
+
+test('o vao da rede e o do Court sao o mesmo numero', () => {
+  assert.equal(Court.NET_GAP, VAO_DA_REDE);
+});
+
+/**
+ * O corpo entra na malha ate' o fundo, e nao passa pro outro lado.
+ *
+ * Perto dos postes nao ha' malha pra ceder: ali o limite continua nos 35 cm.
+ */
+test('o corpo entra na rede ate o fundo, e perto do poste nao entra', () => {
+  const p = new THREE.Vector3();
+  court.limitarCorpo(new THREE.Vector3(0, 0, -0.01), 'home', p);
+  assert.ok(Math.abs(p.z + REDE.corpo.folgaMinima) < 1e-9, `no meio parou em ${p.z.toFixed(3)}`);
+  court.limitarCorpo(new THREE.Vector3(0, 0, 0.5), 'home', p);
+  assert.ok(p.z < 0, 'o corpo passou pro outro lado da rede');
+  court.limitarCorpo(new THREE.Vector3(REDE.meiaLargura, 0, -0.01), 'home', p);
+  assert.ok(Math.abs(p.z + Court.NET_GAP) < 1e-9, `junto do poste parou em ${p.z.toFixed(3)}`);
+  court.limitarCorpo(new THREE.Vector3(0, 0, 0.01), 'away', p);
+  assert.ok(Math.abs(p.z - REDE.corpo.folgaMinima) < 1e-9, 'o lado away nao e o espelho do home');
+});
+
+/** Um corpo que corre pra rede, com a mola dela, do jeito que a arena aplica. */
+function correrPraRede(segurando: number, soltando: number): { menorDistancia: number; distanciaSegurando: number; final: number } {
+  const m = new Motor((pos, out) => court.limitarCorpo(pos, 'home', out));
+  m.colocarEm(new THREE.Vector3(0, 0, -3), new THREE.Vector3(0, 0, 1));
+  let menor = Infinity;
+  let zAntes = m.posicao.z;
+  const passo = (dir: number): void => {
+    const vz = (m.posicao.z - zAntes) * 60;
+    zAntes = m.posicao.z;
+    m.empurrar(0, molaDoCorpo(m.posicao.z, vz));
+    m.moverPara(new THREE.Vector3(0, 0, dir));
+    m.update(1 / 60);
+    menor = Math.min(menor, Math.abs(m.posicao.z));
+  };
+  for (let i = 0; i < segurando * 60; i++) passo(1);
+  const distanciaSegurando = Math.abs(m.posicao.z);
+  for (let i = 0; i < soltando * 60; i++) passo(0);
+  return { menorDistancia: menor, distanciaSegurando, final: Math.abs(m.posicao.z) };
+}
+
+test('segurando o passo contra a rede, o corpo entra e para no equilibrio', () => {
+  const { menorDistancia, distanciaSegurando, final } = correrPraRede(3, 2);
+  // O motor acelera a 45 m/s2: a mola equilibra em 45 / rigidez de entrada.
+  const esperado = Court.NET_GAP - 45 / REDE.corpo.rigidez;
+  assert.ok(Math.abs(distanciaSegurando - esperado) < 0.04,
+    `segurando, parou a ${distanciaSegurando.toFixed(2)} m do plano; o equilibrio e ${esperado.toFixed(2)}`);
+  assert.ok(menorDistancia >= REDE.corpo.folgaMinima - 1e-9, 'passou do fundo da rede');
+  assert.ok(menorDistancia < Court.NET_GAP - 0.15, `o corpo so' chegou a ${menorDistancia.toFixed(2)} m: a rede nao cedeu`);
+  assert.ok(final >= Court.NET_GAP - 0.02, `soltando, a rede deixou o corpo a ${final.toFixed(2)} m: nao devolveu`);
 });

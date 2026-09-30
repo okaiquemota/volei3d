@@ -59,7 +59,23 @@ export class Motor {
    */
   private corpo: Corpo = { ...CORPO_PADRAO };
 
+  /** Aceleracao de fora, em mundo, pro proximo passo. Ver `empurrar`. */
+  private empurraoX = 0;
+  private empurraoZ = 0;
+
   constructor(private limitarArea: LimitarArea) {}
+
+  /**
+   * Uma aceleracao vinda de fora — a rede empurrando de volta quem entrou nela.
+   *
+   * Soma a' corrida em vez de substitui-la: quem segura o passo contra a rede
+   * continua acelerando pra frente, e fica onde as duas se equilibram. Vale
+   * so' pro proximo `update`; quem empurra, empurra todo quadro.
+   */
+  empurrar(ax: number, az: number): void {
+    this.empurraoX += ax;
+    this.empurraoZ += az;
+  }
 
   definirCorpo(corpo: Corpo): void {
     this.corpo = { ...corpo };
@@ -197,6 +213,10 @@ export class Motor {
       : this.direcaoDesejada.lengthSq() > 1e-4 ? ATHLETE.acceleration
       : ATHLETE.deceleration;
     moverEmDirecaoA(this.velocidadeHorizontal, _alvo, taxa * dt);
+    this.velocidadeHorizontal.x += this.empurraoX * dt;
+    this.velocidadeHorizontal.z += this.empurraoZ * dt;
+    this.empurraoX = 0;
+    this.empurraoZ = 0;
 
     // ------------------------------------------------------------ vertical
     // Colar no chao: sem esse -2 o atleta "flutua" um quadro a cada degrau de

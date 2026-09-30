@@ -207,8 +207,9 @@ A rede é pano, e não parede. A bola que entra na malha afunda (uma cortada de
 24 m/s afunda uns 35 cm), é segurada e volta cansada para o lado de onde veio.
 A bola que raspa na fita quica e pode cair de qualquer lado. A malha estufa onde
 a bola entra, o tranco corre pela fita até os postes, e ela balança e volta. Os
-corpos também contam: quem chega correndo ou pula colado na rede a empurra, e
-isso vale para você andando pela praia.
+corpos também contam: quem chega correndo entra na rede, que cede em volta dele
+(uns 20 cm, com a fita dobrando junto) e o empurra de volta. Segurando o passo
+contra ela, você fica inclinado na malha. Vale para você andando pela praia.
 
 Por baixo são duas contas separadas: a da bola, fechada e determinística
 (mola e amortecedor contra o plano da rede, e um cilindro na fita), e a do pano,

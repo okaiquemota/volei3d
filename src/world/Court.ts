@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { COURT } from '../config';
+import { COURT, REDE } from '../config';
+import { VAO_DA_REDE } from './tecidoDaRede';
 import { clamp } from '../core/math';
 
 /** Lado da quadra. Home e' o jogador (Z negativo), Away e' a CPU (Z positivo). */
@@ -48,8 +49,13 @@ export class Court {
   readonly halfLengthFree = COURT.length / 2 + COURT.freeZone;
   readonly halfWidthFree = COURT.width / 2 + COURT.freeZone;
 
-  /** Vao entre o atleta e a rede. Sem ele da' pra encostar o corpo na malha. */
-  static readonly NET_GAP = 0.35;
+  /**
+   * Vao entre o atleta e a rede, pra ALVO: onde a IA para, onde se mira.
+   *
+   * O corpo passa dele e entra na malha, que cede e empurra de volta — ver
+   * `limitarCorpo` e `molaDoCorpo`, que usa o mesmo numero.
+   */
+  static readonly NET_GAP = VAO_DA_REDE;
 
   constructor(posicao = new THREE.Vector3(), rotacaoY = 0) {
     this.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rotacaoY);
@@ -220,6 +226,33 @@ export class Court {
   }
 
   /**
+   * Limita o CORPO de quem joga: a mesma area de `limitarArea`, mas deixando o
+   * corpo entrar na rede.
+   *
+   * `limitarArea` para a 35 cm do plano, e continua sendo o que vale pra ALVO
+   * (pra onde a IA corre, onde se mira): ninguem escolhe ficar dentro da rede.
+   * O corpo, nao — quem chega correndo passa do ponto e entra na malha, que
+   * cede e empurra de volta (`Arena.encostarNaRede`). Aqui so' mora o fundo:
+   * o centro do corpo nunca passa de `folgaMinima` do plano.
+   *
+   * Perto dos postes o fundo volta aos 35 cm, numa rampa: ali nao ha' malha
+   * pra ceder, e o corpo entraria no poste.
+   */
+  limitarCorpo(mundo: THREE.Vector3, lado: Side, out = new THREE.Vector3()): THREE.Vector3 {
+    this.paraLocal(mundo, _local);
+
+    _local.x = clamp(_local.x, -this.halfWidthFree, this.halfWidthFree);
+    const dosPostes = REDE.meiaLargura - Math.abs(_local.x);
+    const t = clamp((dosPostes - 0.05) / 0.5, 0, 1);
+    const folga = Court.NET_GAP + (REDE.corpo.folgaMinima - Court.NET_GAP) * t;
+    _local.z = lado === 'home'
+      ? clamp(_local.z, -this.halfLengthFree, -folga)
+      : clamp(_local.z, folga, this.halfLengthFree);
+
+    return this.paraMundo(_local, out);
+  }
+
+  /**
    * Empurra um corpo pra fora da rede e dos postes desta quadra.
    *
    * Quem joga nunca precisou disto: o limite de area ja' o prende na propria
@@ -234,11 +267,17 @@ export class Court {
    * mexem, e atravessar um de raspao le' como dois jogadores disputando a bola;
    * atravessar a rede nao le' como nada.
    */
-  desviarDaRede(mundo: THREE.Vector3, raio: number, out = new THREE.Vector3()): THREE.Vector3 {
+  desviarDaRede(
+    mundo: THREE.Vector3,
+    raio: number,
+    out = new THREE.Vector3(),
+    /** Distancia minima do centro ao plano da rede. Sem ela, espessura + raio. */
+    folgaDaRede = COURT.netThickness / 2 + raio,
+  ): THREE.Vector3 {
     this.paraLocal(mundo, _local);
     let empurrou = false;
 
-    const meiaEspessura = COURT.netThickness / 2 + raio;
+    const meiaEspessura = folgaDaRede;
     if (Math.abs(_local.x) <= this.halfWidth + raio && Math.abs(_local.z) < meiaEspessura) {
       // z === 0 exato nao tem lado: manda pro campo away, que e' uma escolha
       // qualquer mas precisa ser uma.
