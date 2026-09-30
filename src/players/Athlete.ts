@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { AI, COURT, PLAYER } from '../config';
+import { AI, BALL, COURT, PLAYER } from '../config';
 import type { Ball, Tocador } from '../ball/Ball';
 import { Court, oposto, type Side } from '../world/Court';
-import { construirAtleta, type AtletaVisual } from './buildAthlete';
+import { BOLA_NA_MAO, construirAtleta, type AtletaVisual } from './buildAthlete';
 import { copiarModelo, vestirModelo, type ModeloDoAtleta } from './buildAtletaModelo';
 import type { Aparencia } from '../match/personagens';
 import { Animador, estadoDoMotor } from './Animador';
@@ -10,13 +10,18 @@ import type { EstadoDoCorpo } from './animacoes';
 import { Hitter, type Acao } from './Hitter';
 import { duracaoDoToque } from './poses';
 import { Motor } from './Motor';
+import { Olhar } from './olhar';
 
 const _direcao = new THREE.Vector3();
 const _ponto = new THREE.Vector3();
 const _local = new THREE.Vector3();
+const _palma = new THREE.Vector3();
+const _dedos = new THREE.Vector3();
+/** Do osso da palma ate' a pele, com a mao virada pra cima. */
+const MEIA_MAO = 0.02;
 const _estado: EstadoDoCorpo = {
-  noChao: true, mergulhando: false, levantando: false, velocidade: 0, anguloDoAndar: 0,
-  gesto: null, marcaDoGesto: 0,
+  noChao: true, mergulhando: false, levantando: false, pousando: false, segurandoBola: false,
+  velocidade: 0, anguloDoAndar: 0, gesto: null, marcaDoGesto: 0,
 };
 
 /** O que o atleta precisa saber sobre o rally, sem conhecer o Match inteiro. */
@@ -55,6 +60,9 @@ export abstract class Athlete implements Tocador {
    */
   private aparencia: Aparencia | null = null;
   private animador: Animador | null = null;
+  private olhar: Olhar | null = null;
+  /** Os dois ossos que marcam a palma esquerda: a bola do saque vai em cima. */
+  private palma: readonly [THREE.Object3D, THREE.Object3D] | null = null;
 
   /**
    * O gesto de toque tocando agora, e quanto falta dele.
@@ -148,12 +156,20 @@ export abstract class Athlete implements Tocador {
     }
     this.animador?.dispose();
     this.animador = null;
+    this.olhar = null;
+    this.palma = null;
+    this.visual.ancoraDeSaque.position.set(BOLA_NA_MAO.lado, COURT.serveBallHeight, BOLA_NA_MAO.frente);
 
     if (modelo) {
       this.corpo = copiarModelo(modelo.molde, this.cor);
       vestirModelo(this.corpo, this.aparencia, this.cor);
       this.visual.root.add(this.corpo);
       this.animador = new Animador(this.corpo, modelo.animacoes);
+      // Depois de pendurar na raiz: o olhar mede a frente da cabeca contra ela.
+      this.olhar = new Olhar(this.visual.root, this.corpo);
+      const base = this.corpo.getObjectByName('Middle1L');
+      const ponta = this.corpo.getObjectByName('Middle2L');
+      this.palma = base && ponta ? [base, ponta] : null;
     }
 
     this.visual.capsulas.visible = modelo === null;
@@ -190,7 +206,34 @@ export abstract class Athlete implements Tocador {
     const estado = estadoDoMotor(this.motor, _estado);
     estado.gesto = this.gesto;
     estado.marcaDoGesto = this.toquesVistos;
+    estado.segurandoBola = this.sacando;
+
+    this.olhar?.antesDoClipe();
     this.animador.update(estado, dt);
+    // Quem vai sacar olha pra frente, e nao pra bola na propria mao.
+    this.olhar?.depoisDoClipe(this.sacando ? null : this.ball.posicao, dt);
+    if (this.sacando) this.levarBolaNaMao();
+  }
+
+  /**
+   * A bola do saque vai EM CIMA DA PALMA, e nao num ponto fixo do corpo.
+   *
+   * O ponto fixo (`BOLA_NA_MAO`) e' a palma com o corpo em repouso. Mas o
+   * `Idle` curva o tronco e desce a mao 5 cm, e andando ela ainda sobe e desce
+   * outros 5: a bola boiava acima da mao. Seguindo o osso ela fica apoiada
+   * seja qual for o clipe de baixo — e sobe junto com a mao quando o sacador
+   * ergue a bola. O saque sai de onde a bola estiver (`Hitter.sacar` le' a
+   * posicao dela), entao nada na mira muda. Sem modelo, fica o ponto fixo.
+   */
+  private levarBolaNaMao(): void {
+    if (!this.palma) return;
+    const [base, ponta] = this.palma;
+    ponta.updateWorldMatrix(true, false);
+    _palma.setFromMatrixPosition(base.matrixWorld)
+      .add(_dedos.setFromMatrixPosition(ponta.matrixWorld)).multiplyScalar(0.5);
+    // Sacando o corpo esta' de pe': o "cima" da raiz e' o do mundo.
+    this.visual.root.worldToLocal(_palma);
+    this.visual.ancoraDeSaque.position.set(_palma.x, _palma.y + BALL.radius + MEIA_MAO, _palma.z);
   }
 
   /** Direcao horizontal, em mundo, que aponta deste atleta pra rede. */

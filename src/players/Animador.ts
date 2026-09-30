@@ -1,9 +1,20 @@
 import * as THREE from 'three';
-import { clipeDoCorpo, type EstadoDoCorpo } from './animacoes';
+import { CLIPE_DO_TOQUE, camadaDoCorpo, clipeDoCorpo, type EstadoDoCorpo } from './animacoes';
 import { DE_UMA_VEZ } from './poses';
 import type { Motor } from './Motor';
 
 const _andar = new THREE.Vector3();
+
+/**
+ * O pouso: quanto dura o amortecimento, e que voo pede um.
+ *
+ * A janela e' a duracao do clipe `Aterrissagem` menos a mistura de saida,
+ * senao ele acaba parado no ultimo quadro antes de soltar. O voo minimo corta
+ * o que nao e' salto: um quadro fora do chao num degrau de ponto flutuante
+ * nao pode fazer o boneco agachar.
+ */
+const JANELA_DO_POUSO = 0.26;
+const VOO_QUE_POUSA = 0.2;
 
 /**
  * Toca a animacao do corpo, e faz a transicao entre elas.
@@ -31,6 +42,25 @@ const CRUZAMENTO = 0.18;
  * como um ataque de verdade se parece.
  */
 const CRUZAMENTO_DO_GESTO = 0.06;
+const GESTOS: ReadonlySet<string> = new Set(Object.values(CLIPE_DO_TOQUE));
+
+/**
+ * A do pouso, no meio das duas. O pe' toca a areia num quadro so', e um
+ * amortecimento que leva 0,18 s pra chegar chegaria depois de acabado; a
+ * 0,06 os bracos cairiam do alto do pulo num estalo.
+ */
+const CRUZAMENTO_DO_POUSO = 0.08;
+
+/**
+ * O peso da CAMADA contra o clipe de baixo.
+ *
+ * O mixer do three nao tem mascara por osso: ele faz a media ponderada de
+ * todo clipe ativo em cada osso. A camada so' escreve bracos e peito, entao
+ * nas pernas o clipe de baixo continua sozinho (peso 1 de 1); nos bracos, 10
+ * contra 1 da' 91% da camada — a mao segura a bola e ainda balanca um fio com
+ * o passo, que e' o que uma mao de verdade faz.
+ */
+const PESO_DA_CAMADA = 10;
 
 export class Animador {
   private readonly mixer: THREE.AnimationMixer;
@@ -38,6 +68,8 @@ export class Animador {
   private atual: THREE.AnimationAction | null = null;
   private nomeAtual = '';
   private marcaTocada = -1;
+  private camada: THREE.AnimationAction | null = null;
+  private nomeDaCamada: string | null = null;
 
   constructor(private readonly raiz: THREE.Object3D, clipes: readonly THREE.AnimationClip[]) {
     this.mixer = new THREE.AnimationMixer(raiz);
@@ -81,7 +113,23 @@ export class Animador {
     if (estado.gesto !== null) this.marcaTocada = estado.marcaDoGesto;
 
     this.trocar(clipeDoCorpo(estado), reiniciar);
+    this.trocarCamada(camadaDoCorpo(estado));
     this.mixer.update(dt);
+  }
+
+  /**
+   * Liga, troca ou desliga a camada de cima.
+   *
+   * Sai rapido (a mistura do gesto) porque quem a desliga quase sempre e' um
+   * gesto comecando — o saque — e a mao que segurava tem que largar a bola no
+   * mesmo instante em que o braco de bater sobe.
+   */
+  private trocarCamada(nome: string | null): void {
+    if (nome === this.nomeDaCamada) return;
+    this.camada?.fadeOut(CRUZAMENTO_DO_GESTO);
+    this.camada = nome ? this.acoes.get(nome) ?? null : null;
+    this.camada?.reset().setEffectiveTimeScale(1).setEffectiveWeight(PESO_DA_CAMADA).fadeIn(CRUZAMENTO).play();
+    this.nomeDaCamada = nome;
   }
 
   private trocar(nome: string, reiniciar = false): void {
@@ -106,8 +154,9 @@ export class Animador {
       return;
     }
 
-    const mistura = DE_UMA_VEZ.has(nome) && nome !== 'Pulo' && nome !== 'Mergulho'
-      ? CRUZAMENTO_DO_GESTO : CRUZAMENTO;
+    const mistura = GESTOS.has(nome) ? CRUZAMENTO_DO_GESTO
+      : nome === 'Aterrissagem' ? CRUZAMENTO_DO_POUSO
+      : CRUZAMENTO;
 
     proxima.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).fadeIn(mistura).play();
     this.atual?.fadeOut(mistura);
@@ -129,8 +178,9 @@ export class Animador {
  * as mesmas animacoes — e a conta do angulo e' o tipo de coisa que, duplicada,
  * fica certa num lugar e invertida no outro.
  *
- * NAO mexe em `gesto` nem em `marcaDoGesto`: toque nao e' assunto do Motor, e'
- * do `Hitter`. Quem tem um preenche depois; o banhista deixa como esta'.
+ * NAO mexe em `gesto`, `marcaDoGesto` nem `segurandoBola`: toque e saque nao
+ * sao assunto do Motor, sao do `Hitter` e do `Match`. Quem tem um preenche
+ * depois; o banhista deixa como esta'.
  */
 export function estadoDoMotor(motor: Motor, out: EstadoDoCorpo): EstadoDoCorpo {
   _andar.copy(motor.velocidadeHorizontal);
@@ -141,6 +191,7 @@ export function estadoDoMotor(motor: Motor, out: EstadoDoCorpo): EstadoDoCorpo {
   out.mergulhando = motor.mergulhando;
   out.levantando = motor.levantando;
   out.velocidade = velocidade;
+  out.pousando = motor.tempoNoChao < JANELA_DO_POUSO && motor.ultimoVoo >= VOO_QUE_POUSA;
 
   /**
    * `atan2(cruz, escalar)` devolve angulo COM SINAL, de -pi a pi, e o sinal e'

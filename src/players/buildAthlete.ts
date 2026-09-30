@@ -56,6 +56,17 @@ export function descartarGeometriasDeAtleta(): void {
   geometrias = null;
 }
 
+/**
+ * Onde a bola do saque fica, no espaco do corpo (frente +Z, esquerda +X).
+ *
+ * MEDIDO: e' a palma esquerda da pose `EsperaDoSaque`, com o corpo em repouso,
+ * mais o raio da bola; a altura e' o `COURT.serveBallHeight`, que a pose foi
+ * ajustada pra bater. Com modelo, a bola segue o osso da palma
+ * (`Athlete.levarBolaNaMao`) e este ponto so' vale ate' o primeiro quadro; na
+ * capsula ele e' a mao. O teste das poses confere que os dois batem.
+ */
+export const BOLA_NA_MAO = { lado: 0.25, frente: 0.48 } as const;
+
 export function construirAtleta(cor: number, alturaDaBolaNoSaque: number): AtletaVisual {
   const g = garantirGeometrias();
   const root = new THREE.Group();
@@ -83,16 +94,18 @@ export function construirAtleta(cor: number, alturaDaBolaNoSaque: number): Atlet
   adicionar(g.frente, materialClaro, 0, 1.68, 0.17);
 
   /**
-   * A bola do saque: a' frente do corpo e PRA FORA DO EIXO, na altura da mao.
+   * A bola do saque: NA MAO ESQUERDA, a' frente do corpo e pra fora do eixo.
    *
    * Centrada, ela some. A camera olha o sacador de cima e de tras, e uma bola
-   * a 55 cm a' frente do peito fica exatamente atras do tronco nessa linha de
-   * visao — o jogador perde de vista justamente a bola que esta' prestes a
-   * sacar. Meio metro pro lado resolve, e ainda e' como se segura uma bola pra
-   * sacar: o braco esticado, nao o peito.
+   * a' frente do peito fica exatamente atras do tronco nessa linha de visao — o
+   * jogador perde de vista justamente a bola que esta' prestes a sacar.
+   *
+   * O ponto e' a palma da pose `EsperaDoSaque` (ver `BOLA_NA_MAO`). Antes era
+   * um ponto escolhido a olho, do outro lado do corpo, e a bola boiava ao lado
+   * de um braco caido.
    */
   const ancoraDeSaque = new THREE.Object3D();
-  ancoraDeSaque.position.set(-0.42, alturaDaBolaNoSaque, 0.42);
+  ancoraDeSaque.position.set(BOLA_NA_MAO.lado, alturaDaBolaNoSaque, BOLA_NA_MAO.frente);
   root.add(ancoraDeSaque);
 
   return {

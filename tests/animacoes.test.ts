@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import * as THREE from 'three';
 
-import { clipeDoCorpo, type EstadoDoCorpo } from '../src/players/animacoes';
+import { camadaDoCorpo, clipeDoCorpo, type EstadoDoCorpo } from '../src/players/animacoes';
 import { estadoDoMotor } from '../src/players/Animador';
 import { Motor } from '../src/players/Motor';
 
@@ -21,7 +21,7 @@ import { Motor } from '../src/players/Motor';
  */
 
 const corpo = (p: Partial<EstadoDoCorpo> = {}): EstadoDoCorpo => ({
-  noChao: true, mergulhando: false, levantando: false,
+  noChao: true, mergulhando: false, levantando: false, pousando: false, segurandoBola: false,
   velocidade: 0, anguloDoAndar: 0, gesto: null, marcaDoGesto: 0, ...p,
 });
 
@@ -74,7 +74,7 @@ test('caido ganha do andar: o corpo no chao nao corre', () => {
  * acontece de verdade num rally — os quatro podem valer no mesmo quadro.
  */
 test('o gesto de toque ganha do pulo e do andar', () => {
-  assert.equal(clipeDoCorpo(corpo({ gesto: 'cortada', noChao: false })), 'Ataque');
+  assert.equal(clipeDoCorpo(corpo({ gesto: 'cortada', noChao: false })), 'Cortada');
   assert.equal(clipeDoCorpo(corpo({ gesto: 'manchete', velocidade: 6.5 })), 'Manchete');
   assert.equal(clipeDoCorpo(corpo({ gesto: 'levantamento' })), 'Levantamento');
   assert.equal(clipeDoCorpo(corpo({ gesto: 'saque' })), 'Saque');
@@ -87,8 +87,13 @@ test('mergulhando, o mergulho ganha ate do gesto', () => {
   assert.equal(clipeDoCorpo(corpo({ gesto: 'manchete', mergulhando: true, noChao: false })), 'Mergulho');
 });
 
-test('a batida de pe e a cortada sao a mesma pose', () => {
-  assert.equal(clipeDoCorpo(corpo({ gesto: 'ataque' })), clipeDoCorpo(corpo({ gesto: 'cortada' })));
+/**
+ * A batida de pe' e a cortada ja' foram o mesmo clipe, e a cortada saia de
+ * perna reta no ar. Agora sao dois: o braco e' o mesmo gesto, a perna nao.
+ */
+test('a batida de pe e a cortada tem clipes proprios', () => {
+  assert.equal(clipeDoCorpo(corpo({ gesto: 'ataque' })), 'Ataque');
+  assert.equal(clipeDoCorpo(corpo({ gesto: 'cortada', noChao: false })), 'Cortada');
 });
 
 /**
@@ -131,4 +136,55 @@ test('e a ponta a ponta: andar pra direita toca Run_Right', () => {
   for (let i = 0; i < 30; i++) m.update(1 / 60);   // chega na velocidade de corrida
 
   assert.equal(clipeDoCorpo(estadoDoMotor(m, corpo())), 'Run_Right');
+});
+
+/**
+ * O POUSO. Sem ele o `Pulo` ficava congelado de braco pro alto ate' o pe'
+ * tocar a areia, e cortava seco pro `Idle`: o boneco pousava feito peca de
+ * metal.
+ */
+test('quem acaba de cair de um salto amortece, a nao ser correndo', () => {
+  assert.equal(clipeDoCorpo(corpo({ pousando: true })), 'Aterrissagem');
+  assert.equal(clipeDoCorpo(corpo({ pousando: true, velocidade: 2 })), 'Aterrissagem');
+  // Correndo, a corrida e' o amortecimento: agachar deslizaria pela areia.
+  assert.equal(clipeDoCorpo(corpo({ pousando: true, velocidade: 6.5 })), 'Run');
+  // O gesto continua na frente: a cortada comeca no ar e termina no chao.
+  assert.equal(clipeDoCorpo(corpo({ pousando: true, gesto: 'cortada' })), 'Cortada');
+});
+
+test('o Motor marca o pouso de um salto, e so de um salto', () => {
+  const m = motorParado();
+  // Andar no chao nao e' pousar: o corpo "cai" 2 m/s por quadro no chao.
+  m.moverPara(PRA_FRENTE);
+  for (let i = 0; i < 30; i++) m.update(1 / 60);
+  assert.equal(estadoDoMotor(m, corpo()).pousando, false, 'andando ja marcou pouso');
+
+  m.moverPara(new THREE.Vector3());
+  m.pular();
+  let quadros = 0;
+  do { m.update(1 / 60); quadros++; } while (!m.noChao && quadros < 200);
+  assert.ok(m.noChao, 'nao voltou pro chao');
+  assert.ok(Math.abs(m.ultimoVoo - quadros / 60) < 0.05, `voo de ${m.ultimoVoo.toFixed(2)} s, contado ${(quadros / 60).toFixed(2)}`);
+  assert.equal(estadoDoMotor(m, corpo()).pousando, true, 'caiu do salto e nao amorteceu');
+
+  for (let i = 0; i < 20; i++) m.update(1 / 60);
+  assert.equal(estadoDoMotor(m, corpo()).pousando, false, 'o pouso nao acaba');
+});
+
+/**
+ * A CAMADA da espera do saque: bracos por cima, pernas de baixo.
+ *
+ * O sacador anda pela linha de fundo escolhendo o lugar; um clipe de corpo
+ * inteiro com a bola na mao faria ele deslizar de pe' parado.
+ */
+test('quem espera pra sacar segura a bola parado e andando, e larga pra bater', () => {
+  assert.equal(camadaDoCorpo(corpo({ segurandoBola: true })), 'EsperaDoSaque');
+  assert.equal(camadaDoCorpo(corpo({ segurandoBola: true, velocidade: 2 })), 'EsperaDoSaque');
+  // As pernas continuam sendo do corpo.
+  assert.equal(clipeDoCorpo(corpo({ segurandoBola: true })), 'Idle');
+  assert.equal(clipeDoCorpo(corpo({ segurandoBola: true, velocidade: 2 })), 'Walk');
+
+  assert.equal(camadaDoCorpo(corpo()), null);
+  assert.equal(camadaDoCorpo(corpo({ segurandoBola: true, gesto: 'saque' })), null, 'bateu segurando');
+  assert.equal(camadaDoCorpo(corpo({ segurandoBola: true, noChao: false })), null, 'pulou segurando');
 });

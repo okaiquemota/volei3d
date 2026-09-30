@@ -41,6 +41,17 @@ export class Motor {
   private tempoForaDoChao = 0;
   private pediuPulo = false;
 
+  /**
+   * O pouso: ha' quanto tempo o pe' voltou pra areia, e quanto durou o voo.
+   *
+   * Nao da' pra tirar do `tempoForaDoChao`: aquele e' o relogio do coyote, e o
+   * pulo o empurra de proposito pro fim da janela. Estes dois sao so' leitura,
+   * pra quem anima — o Motor nao muda nada por causa deles.
+   */
+  private tempoNoAr = 0;
+  private desdeOPouso = 99;
+  private vooAnterior = 0;
+
   // ------------------------------------------------------------- mergulho
   private pediuMergulho = false;
   private direcaoDoMergulho = new THREE.Vector3();
@@ -114,6 +125,18 @@ export class Motor {
   /** Da' pra correr, pular e mergulhar? */
   get livre(): boolean { return !this.voando && this.tempoDeLevantar <= 0; }
 
+  /** Segundos desde o ultimo pouso. Alto quando o corpo nunca saiu do chao. */
+  get tempoNoChao(): number { return this.desdeOPouso; }
+
+  /**
+   * Quanto durou o ultimo voo, em segundos.
+   *
+   * E' o que separa POUSO de tropeco: o corpo "sai do chao" por um quadro em
+   * degrau de ponto flutuante, e amortecer isso seria o boneco agachando do
+   * nada no meio da corrida.
+   */
+  get ultimoVoo(): number { return this.vooAnterior; }
+
   /** O quanto o corpo esta' deitado, de 0 a 1. Pro visual e pro que mais quiser. */
   get inclinacaoDoCorpo(): number { return this.deitado; }
 
@@ -166,6 +189,9 @@ export class Motor {
     this.voando = false;
     this.tempoDeLevantar = 0;
     this.deitado = 0;
+    this.tempoNoAr = 0;
+    this.desdeOPouso = 99;
+    this.vooAnterior = 0;
     this.encarar(olharPara);
   }
 
@@ -251,6 +277,16 @@ export class Motor {
       }
     } else {
       this.noChao = false;
+    }
+
+    if (!this.noChao) {
+      this.tempoNoAr += dt;
+    } else if (this.tempoNoAr > 0) {
+      this.vooAnterior = this.tempoNoAr;
+      this.tempoNoAr = 0;
+      this.desdeOPouso = 0;
+    } else {
+      this.desdeOPouso += dt;
     }
 
     // Limite de area. Bater no limite tambem mata a velocidade naquele eixo,

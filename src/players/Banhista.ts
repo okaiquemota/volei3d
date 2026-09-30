@@ -14,8 +14,8 @@ import { direcaoDoTeclado } from './controle';
 const _direcao = new THREE.Vector3();
 // Sem gesto, sempre: quem passeia pela praia nao toca em bola.
 const _estado: EstadoDoCorpo = {
-  noChao: true, mergulhando: false, levantando: false, velocidade: 0, anguloDoAndar: 0,
-  gesto: null, marcaDoGesto: 0,
+  noChao: true, mergulhando: false, levantando: false, pousando: false, segurandoBola: false,
+  velocidade: 0, anguloDoAndar: 0, gesto: null, marcaDoGesto: 0,
 };
 
 /**

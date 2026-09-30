@@ -13,11 +13,16 @@ import type { Acao } from './Hitter';
  * existe pra usar.
  */
 
-/** Qual gesto cada toque vira. `cortada` e `ataque` sao a mesma batida por cima. */
+/**
+ * Qual gesto cada toque vira.
+ *
+ * `cortada` e `ataque` sao a mesma batida por cima, e ja' foram o mesmo clipe:
+ * a cortada saia de perna reta no ar. Agora a do ar tem pernas proprias.
+ */
 export const CLIPE_DO_TOQUE: Readonly<Record<Acao, string>> = {
   manchete: 'Manchete',
   levantamento: 'Levantamento',
-  cortada: 'Ataque',
+  cortada: 'Cortada',
   ataque: 'Ataque',
   saque: 'Saque',
 };
@@ -40,6 +45,15 @@ export interface EstadoDoCorpo {
    * porque o NOME do clipe nao mudou, e a manchete sairia so' na primeira bola.
    */
   marcaDoGesto: number;
+  /**
+   * Acabou de cair de um salto: o corpo amortece (`Aterrissagem`).
+   *
+   * Quem decide o que e' "acabou de" e o que e' "salto" e' o `estadoDoMotor`;
+   * aqui so' se escolhe o clipe.
+   */
+  pousando: boolean;
+  /** Esperando pra sacar, com a bola na mao. Ver `camadaDoCorpo`. */
+  segurandoBola: boolean;
   /** Modulo da velocidade horizontal, em m/s. */
   velocidade: number;
   /**
@@ -85,11 +99,20 @@ export function clipeDoCorpo(estado: EstadoDoCorpo): string {
    */
   if (estado.mergulhando || estado.levantando) return 'Mergulho';
 
-  // O gesto vence o pulo: quase toda cortada e' no ar, e o `Ataque` ja' vem com
-  // as pernas recolhidas justamente pra poder substituir o `Pulo` la' em cima.
+  // O gesto vence o pulo: a cortada e' no ar, e a `Cortada` vem com as pernas
+  // recolhidas justamente pra poder substituir o `Pulo` la' em cima.
   if (estado.gesto) return CLIPE_DO_TOQUE[estado.gesto];
 
   if (!estado.noChao) return 'Pulo';
+
+  /**
+   * O pouso so' vale abaixo da corrida.
+   *
+   * O clipe dobra os joelhos com o pe' plantado, e quem cai de um salto ja'
+   * correndo pra proxima bola deslizaria agachado pela areia. Correndo, a
+   * propria corrida e' o amortecimento.
+   */
+  if (estado.pousando && estado.velocidade < CORRENDO) return 'Aterrissagem';
 
   if (estado.velocidade < PARADO) return 'Idle';
 
@@ -105,4 +128,18 @@ export function clipeDoCorpo(estado: EstadoDoCorpo): string {
   if (volta <= QUARTO) return 'Run';
   if (volta >= TRES_QUARTOS) return 'Run_Back';
   return a > 0 ? 'Run_Right' : 'Run_Left';
+}
+
+/**
+ * O clipe que toca POR CIMA do corpo, so' nos bracos, ou null.
+ *
+ * Existe por um caso: o sacador segura a bola e pode andar pela linha de fundo
+ * escolhendo de onde sacar. As pernas sao de `clipeDoCorpo` (parado ou
+ * andando); o braco que segura e' daqui. Pulando, mergulhando ou batendo, a
+ * camada sai — o gesto e o pulo sao do corpo inteiro.
+ */
+export function camadaDoCorpo(estado: EstadoDoCorpo): string | null {
+  if (!estado.segurandoBola || estado.gesto) return null;
+  if (!estado.noChao || estado.mergulhando || estado.levantando) return null;
+  return 'EsperaDoSaque';
 }

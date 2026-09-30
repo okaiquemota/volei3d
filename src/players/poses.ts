@@ -42,12 +42,31 @@ export interface Quadro {
   pose: Pose;
   /** Quanto o quadril desce, em metros. Ver `pernasDe`. */
   descer: number;
+  /**
+   * Torcao de um osso em torno de si mesmo, em radianos, depois de apontar.
+   *
+   * `apontar` deixa esse giro livre, e na maioria dos ossos ninguem ve'. Na
+   * MAO ve': o repouso do rig tem a palma virada pro corpo, polegar pra cima,
+   * e segurar a bola por baixo pede a palma pra cima. O osso continua
+   * apontando pro mesmo lugar; so' gira em volta do proprio eixo.
+   */
+  giros?: Record<string, number>;
 }
 
 export interface Receita {
   nome: string;
   duracao: number;
   quadros: Quadro[];
+  /**
+   * So' do peito pra cima, tocando POR CIMA do clipe de baixo.
+   *
+   * O clipe nao leva perna, quadril nem pe': quem manda neles continua sendo o
+   * `Idle` ou o `Walk` que estiver tocando, e o `Animador` mistura este com
+   * peso alto so' nos ossos que ele escreve. E' o que deixa o sacador segurar
+   * a bola ANDANDO — um clipe de corpo inteiro faria o boneco deslizar de pe'
+   * parado. Sem pernas, `descer` tem que ser zero: nao ha' quadril pra baixar.
+   */
+  camada?: boolean;
 }
 
 /**
@@ -99,14 +118,30 @@ function pernasDe(descer: number): Pose {
 const PERNAS = ['UpperLegR', 'LowerLegR', 'UpperLegL', 'LowerLegL'] as const;
 
 /**
+ * Os PES, e a canela que cada um segue.
+ *
+ * `FootL` e `FootR` nao sao os pes da cadeia da perna: sao alvos de IK
+ * pendurados no `Root`. E a pele do sapato e' presa a DOIS ossos — o cano a'
+ * canela, a sola ao `Foot`. As animacoes do pack movem o `Foot` em todo quadro;
+ * as escritas aqui nao moviam, e o pe' ficava parado onde estava enquanto a
+ * canela ia embora. A pele esticava entre os dois, e o sapato virava uma
+ * prancha de meio metro no chao — no pulo de forma gritante, e em TODO gesto de
+ * leve, porque a pose de repouso deste modelo e' um passo de caminhada e as
+ * pernas "de pe'" daqui poem o tornozelo embaixo do quadril, longe dali.
+ *
+ * Por isso todo clipe grava os dois pes, quadro a quadro — ver `pesDoQuadro`.
+ */
+const PES = [['FootL', 'LowerLegL'], ['FootR', 'LowerLegR']] as const;
+
+/**
  * Um quadro-chave. `pose` e' so' o que a receita escreveu a mao.
  *
  * As pernas vem por baixo, de `pernasDe`, na hora de montar o clipe — e o que a
  * receita escrever sobre perna VENCE. E' como pulo e mergulho recolhem e
  * esticam as pernas, que nesses dois nao estao pisando em nada.
  */
-function quadro(t: number, descer: number, pose: Pose): Quadro {
-  return { t, descer, pose };
+function quadro(t: number, descer: number, pose: Pose, giros?: Record<string, number>): Quadro {
+  return giros ? { t, descer, pose, giros } : { t, descer, pose };
 }
 
 // ---------------------------------------------------------------- as poses
@@ -133,8 +168,14 @@ const PULO: Receita = {
       // o salto ter subida visivel, o quadro de saida tem que comecar baixo.
       UpperArmR: mix([C, 0.4], [F, 1]), LowerArmR: mix([C, 0.8], [F, 1]),
       UpperArmL: mix([C, 0.4], [F, 1]), LowerArmL: mix([C, 0.8], [F, 1]),
-      UpperLegR: mix([B, 3], [T, 1]), LowerLegR: mix([B, 2], [T, 1.2]),
-      UpperLegL: mix([B, 3], [T, 1]), LowerLegL: mix([B, 2], [T, 1.2]),
+      /**
+       * Perna quase ESTICADA e embaixo do corpo: e' a saida do chao, a perna
+       * que acabou de empurrar. A primeira versao jogava coxa E canela pra
+       * tras, e o corpo inteiro virava uma diagonal — de lado lia como boneco
+       * caindo pra frente, e nao como salto.
+       */
+      UpperLegR: mix([B, 6], [F, 0.25]), LowerLegR: mix([B, 6], [T, 0.6]),
+      UpperLegL: mix([B, 6], [F, 0.1]), LowerLegL: mix([B, 6], [T, 0.7]),
     }),
     quadro(0.6, 0, {
       // Dois bracos RETOS e juntos no alto, como quem bloqueia. E' a silhueta
@@ -143,8 +184,10 @@ const PULO: Receita = {
       // coisa a' distancia da camera de jogo.
       UpperArmR: mix([C, 5], [F, 1]), LowerArmR: mix([C, 5], [F, 1]),
       UpperArmL: mix([C, 5], [F, 1]), LowerArmL: mix([C, 5], [F, 1]),
-      UpperLegR: mix([B, 4], [T, 1]), LowerLegR: mix([B, 3], [T, 1]),
-      UpperLegL: mix([B, 4], [T, 1]), LowerLegL: mix([B, 3], [T, 1]),
+      // No alto os joelhos dobram: coxa um pouco a' frente, canela pra tras, e
+      // o pe' (preso na canela) fica apontado embaixo do quadril.
+      UpperLegR: mix([B, 3], [F, 0.9]), LowerLegR: mix([B, 2], [T, 1.3]),
+      UpperLegL: mix([B, 3], [F, 0.6]), LowerLegL: mix([B, 2], [T, 1.5]),
     }),
   ],
 };
@@ -190,15 +233,12 @@ const MERGULHO: Receita = {
 };
 
 /**
- * ATAQUE — a cortada, e a batida de pe'.
+ * ATAQUE — a batida DE PE'. A do ar e' a `Cortada`.
  *
  * t=0 e' o contato: braco direito no alto e ESTICADO (o `LowerArm` aponta quase
- * pra onde o `UpperArm` aponta), que e' o que separa uma cortada de um tapa.
- * Depois o braco varre pra baixo e pra frente, e o ultimo quadro ja' e' a
- * aterrissagem agachada.
- *
- * Tem perna recolhida porque a cortada quase sempre e' no ar: sem ela o `Pulo`
- * sai do ar assim que o gesto entra, e o boneco atacaria de perna reta.
+ * pra onde o `UpperArm` aponta), que e' o que separa uma batida de um tapa.
+ * Depois o braco varre pra baixo e pra frente, e o ultimo quadro agacha pra
+ * absorver.
  */
 const ATAQUE: Receita = {
   nome: 'Ataque',
@@ -230,6 +270,48 @@ const ATAQUE: Receita = {
       UpperArmR: mix([B, 3], [F, 1]), LowerArmR: mix([B, 3], [F, 1]),
       UpperArmL: mix([B, 3], [F, 0.6]), LowerArmL: mix([B, 3], [F, 0.6]),
       Chest: mix([C, 8], [F, 1]),
+    }),
+  ],
+};
+
+/**
+ * CORTADA — o ataque no AR.
+ *
+ * Separada do `Ataque` porque as pernas sao outras. A batida de pe' pisa na
+ * areia; a cortada acontece no alto do salto, com o corpo em arco: joelhos
+ * dobrados e pes pra tras no contato, e o corpo fechando feito canivete na
+ * varrida — e' o fechar que da' a pancada. O `Ataque` antigo servia pros dois,
+ * e a cortada saia de perna reta, pendurada no ar.
+ *
+ * Perna escrita a mao = quadro no ar: o pe' vai preso na canela, apontado.
+ */
+const CORTADA: Receita = {
+  nome: 'Cortada',
+  duracao: 0.45,
+  quadros: [
+    quadro(0, 0, {
+      UpperArmR: mix([C, 4], [F, 1]), LowerArmR: mix([C, 4], [F, 1.3]),
+      UpperArmL: mix([B, 2], [T, 0.6], [E, 0.5]), LowerArmL: mix([B, 2], [F, 0.3]),
+      // O arco: peito pra tras, e as pernas dobradas atras do corpo.
+      Chest: mix([C, 6], [T, 1]),
+      UpperLegR: mix([B, 3], [F, 0.35]), LowerLegR: mix([B, 1.3], [T, 2]),
+      UpperLegL: mix([B, 3], [F, 0.1]), LowerLegL: mix([B, 1.5], [T, 1.7]),
+    }),
+    quadro(0.16, 0, {
+      // O canivete: braco varre pra baixo, peito fecha, coxas sobem.
+      UpperArmR: mix([F, 1.5], [B, 2.2], [E, 0.4]), LowerArmR: mix([B, 3], [F, 1.2]),
+      UpperArmL: mix([B, 2.5], [T, 0.5]), LowerArmL: mix([B, 2.5], [F, 0.4]),
+      Chest: mix([C, 3], [F, 2]),
+      UpperLegR: mix([B, 2], [F, 1]), LowerLegR: mix([B, 2], [T, 1.1]),
+      UpperLegL: mix([B, 2], [F, 0.8]), LowerLegL: mix([B, 2], [T, 1.2]),
+    }),
+    quadro(0.45, 0, {
+      // Descendo: pernas estendem pra receber o chao, bracos soltos.
+      UpperArmR: mix([B, 3], [F, 1]), LowerArmR: mix([B, 3], [F, 1]),
+      UpperArmL: mix([B, 3], [F, 0.6]), LowerArmL: mix([B, 3], [F, 0.6]),
+      Chest: mix([C, 8], [F, 1]),
+      UpperLegR: mix([B, 5], [F, 0.5]), LowerLegR: mix([B, 5], [T, 0.4]),
+      UpperLegL: mix([B, 5], [F, 0.3]), LowerLegL: mix([B, 5], [T, 0.5]),
     }),
   ],
 };
@@ -348,7 +430,66 @@ const SAQUE: Receita = {
   ],
 };
 
-export const RECEITAS: readonly Receita[] = [PULO, MERGULHO, ATAQUE, MANCHETE, LEVANTAMENTO, SAQUE];
+/**
+ * ATERRISSAGEM — o amortecimento de quem cai de um salto.
+ *
+ * Sem ela o `Pulo` ficava congelado de braco pro alto ate' o pe' tocar a areia
+ * e dai' cortava seco pra corrida: o boneco pousava duro, feito peca de metal.
+ * Quem cai de um salto dobra o joelho e baixa os bracos pra frente, e sobe.
+ * E' curta, e quem decide quando entra e' `clipeDoCorpo` (`pousando`).
+ */
+const ATERRISSAGEM: Receita = {
+  nome: 'Aterrissagem',
+  duracao: 0.3,
+  quadros: [
+    quadro(0, 0.17, {
+      UpperArmR: mix([B, 3], [F, 1], [D, 0.4]), LowerArmR: mix([B, 2], [F, 1.2]),
+      UpperArmL: mix([B, 3], [F, 1], [E, 0.4]), LowerArmL: mix([B, 2], [F, 1.2]),
+      Chest: mix([C, 5], [F, 1.2]),
+    }),
+    quadro(0.3, 0.03, {
+      UpperArmR: mix([B, 4], [F, 0.5]), LowerArmR: mix([B, 4], [F, 0.6]),
+      UpperArmL: mix([B, 4], [F, 0.5]), LowerArmL: mix([B, 4], [F, 0.6]),
+      Chest: mix([C, 8], [F, 0.6]),
+    }),
+  ],
+};
+
+/**
+ * ESPERA DO SAQUE — a bola na mao esquerda, a direita solta.
+ *
+ * O sacador ficava de braco caido com a bola boiando ao lado do corpo. E' como
+ * se saca destro: a esquerda segura (e depois larga, que e' o braco esticado do
+ * `Saque`), a direita bate. No jogo a bola vai em cima do osso desta palma
+ * (`Athlete.levarBolaNaMao`), entao a palma tem que ficar virada pra CIMA — ha'
+ * teste pra isso, com o `Idle` por baixo como no jogo.
+ *
+ * E' CAMADA: o sacador pode andar pela linha de fundo escolhendo o lugar, e a
+ * bola tem que continuar na mao enquanto as pernas andam.
+ */
+const ESPERA_DO_SAQUE: Receita = {
+  nome: 'EsperaDoSaque',
+  duracao: 0.8,
+  camada: true,
+  quadros: [
+    // A palma vira pra cima com a torcao dividida entre antebraco e punho: um
+    // quarto de volta num osso so' estrangulava a pele do pulso.
+    quadro(0, 0, {
+      UpperArmL: mix([B, 2.5], [F, 1], [E, 0.8]), LowerArmL: mix([F, 2], [E, 0.35]),
+      UpperArmR: mix([B, 4], [F, 0.4], [D, 0.2]), LowerArmR: mix([B, 3], [F, 0.8]),
+      Chest: mix([C, 9], [F, 0.5]),
+    }, { LowerArmL: -0.8, WristL: -0.77 }),
+    quadro(0.8, 0, {
+      UpperArmL: mix([B, 2.5], [F, 1], [E, 0.8]), LowerArmL: mix([F, 2], [E, 0.35]),
+      UpperArmR: mix([B, 4], [F, 0.5], [D, 0.2]), LowerArmR: mix([B, 3], [F, 1]),
+      Chest: mix([C, 9], [F, 0.6]),
+    }, { LowerArmL: -0.8, WristL: -0.77 }),
+  ],
+};
+
+export const RECEITAS: readonly Receita[] = [
+  PULO, MERGULHO, ATAQUE, CORTADA, MANCHETE, LEVANTAMENTO, SAQUE, ATERRISSAGEM, ESPERA_DO_SAQUE,
+];
 
 /**
  * Os clipes que tocam UMA VEZ e param no ultimo quadro.
@@ -358,6 +499,9 @@ export const RECEITAS: readonly Receita[] = [PULO, MERGULHO, ATAQUE, MANCHETE, L
  * manter — voltar ao inicio no meio do voo seria o corpo se recolhendo no ar.
  */
 export const DE_UMA_VEZ: ReadonlySet<string> = new Set(RECEITAS.map((r) => r.nome));
+
+/** Os clipes de camada: tocam por cima do corpo, so' nos ossos que escrevem. */
+export const CAMADAS: ReadonlySet<string> = new Set(RECEITAS.filter((r) => r.camada).map((r) => r.nome));
 
 /** Quanto o gesto segura o corpo, em segundos. Sai da propria receita. */
 export function duracaoDoToque(acao: Acao): number {
@@ -370,6 +514,7 @@ export function duracaoDoToque(acao: Acao): number {
 const _alvo = new THREE.Vector3();
 const _paiInv = new THREE.Quaternion();
 const _local = new THREE.Quaternion();
+const _torcao = new THREE.Quaternion();
 
 /**
  * O quaternion LOCAL que faz este osso apontar pra `direcao`, em espaco do corpo.
@@ -428,6 +573,8 @@ export function montarClipes(raiz: THREE.Object3D, receitas: readonly Receita[] 
   raiz.traverse((o) => { if ((o as THREE.Bone).isBone) ossos.set(o.name, o as THREE.Bone); });
 
   const corpoRepouso = ossos.get('Body')?.position.clone() ?? new THREE.Vector3();
+  raiz.updateMatrixWorld(true);
+  const pes = medirPes(ossos);
 
   const repouso = new Map<string, THREE.Quaternion>();
   const eixos = new Map<string, THREE.Vector3>();
@@ -436,18 +583,28 @@ export function montarClipes(raiz: THREE.Object3D, receitas: readonly Receita[] 
     eixos.set(nome, eixoDoOsso(osso, new THREE.Vector3()));
   }
 
+  const corpo = ossos.get('Body');
   const voltarAoRepouso = (): void => {
     for (const [nome, osso] of ossos) osso.quaternion.copy(repouso.get(nome)!);
+    corpo?.position.copy(corpoRepouso);
     raiz.updateMatrixWorld(true);
   };
 
   const clipes: THREE.AnimationClip[] = [];
 
   for (const receita of receitas) {
+    const camada = receita.camada === true;
+    if (camada && receita.quadros.some((q) => q.descer !== 0)) {
+      throw new Error(`"${receita.nome}" e' camada e nao tem quadril: descer tem que ser 0`);
+    }
+
     // Que ossos esta receita toca, em qualquer quadro. Os que ela nao toca ficam
     // de fora do clipe, e assim continuam vindo da animacao de baixo.
-    const usados = new Set<string>(PERNAS);
-    for (const q of receita.quadros) for (const nome of Object.keys(q.pose)) usados.add(nome);
+    const usados = new Set<string>(camada ? [] : PERNAS);
+    for (const q of receita.quadros) {
+      for (const nome of Object.keys(q.pose)) usados.add(nome);
+      for (const nome of Object.keys(q.giros ?? {})) usados.add(nome);
+    }
 
     for (const nome of usados) {
       if (!ossos.has(nome)) throw new Error(`pose de "${receita.nome}": osso "${nome}" nao existe no modelo`);
@@ -468,19 +625,36 @@ export function montarClipes(raiz: THREE.Object3D, receitas: readonly Receita[] 
 
     // O quadril, que nao e' pose e sim altura. Ver `pernasDe`.
     const alturas: number[] = [];
+    // Os pes: posicao e giro por quadro, pros dois. Ver `PES`.
+    const pesPos = pes.map(() => [] as number[]);
+    const pesGiro = pes.map(() => [] as number[]);
 
     for (const quadro of receita.quadros) {
       voltarAoRepouso();
 
+      /**
+       * O quadril desce AQUI, antes de posar, e nao so' na trilha do clipe.
+       *
+       * Os pes sao medidos a partir da canela, e a canela pendura no `Body`:
+       * com o quadril ainda na altura de repouso, a perna dobrada de
+       * `pernasDe` sobe o tornozelo, e o pe' era gravado `descer` metros acima
+       * da areia — 12 cm no fim do ataque. O teste da sola pegou.
+       */
+      corpo?.position.set(corpoRepouso.x, corpoRepouso.y - quadro.descer, corpoRepouso.z);
+      raiz.updateMatrixWorld(true);
+
       // As pernas por baixo, o que a receita escreveu por cima.
-      const pose: Pose = { ...pernasDe(quadro.descer), ...quadro.pose };
+      const pose: Pose = camada ? quadro.pose : { ...pernasDe(quadro.descer), ...quadro.pose };
 
       for (const nome of emOrdem) {
         const direcao = pose[nome];
-        if (!direcao) continue;   // sem direcao neste quadro: fica no repouso
+        const giro = quadro.giros?.[nome];
+        if (!direcao && !giro) continue;   // nada neste quadro: fica no repouso
 
         const osso = ossos.get(nome)!;
-        apontar(osso, eixos.get(nome)!, direcao, _local);
+        if (direcao) apontar(osso, eixos.get(nome)!, direcao, _local);
+        else _local.copy(osso.quaternion);
+        if (giro) _local.multiply(_torcao.setFromAxisAngle(eixos.get(nome)!, giro));
         osso.quaternion.copy(_local);
         raiz.updateMatrixWorld(true);
       }
@@ -491,12 +665,24 @@ export function montarClipes(raiz: THREE.Object3D, receitas: readonly Receita[] 
       }
 
       alturas.push(corpoRepouso.x, corpoRepouso.y - quadro.descer, corpoRepouso.z);
+
+      const noAr = PERNAS.some((n) => n in quadro.pose);
+      pes.forEach((pe, i) => {
+        pesDoQuadro(pe, noAr, _pePos, _peGiro);
+        pesPos[i]!.push(_pePos.x, _pePos.y, _pePos.z);
+        pesGiro[i]!.push(_peGiro.x, _peGiro.y, _peGiro.z, _peGiro.w);
+      });
     }
 
     voltarAoRepouso();
 
     const trilhas: THREE.KeyframeTrack[] = [...usados].map((nome) =>
       new THREE.QuaternionKeyframeTrack(`${nome}.quaternion`, tempos, valores.get(nome)!));
+
+    if (camada) {
+      clipes.push(new THREE.AnimationClip(receita.nome, receita.duracao, trilhas));
+      continue;
+    }
 
     /**
      * O `Body` entra em TODO clipe, e e' ele quem agacha: as pernas penduram
@@ -515,10 +701,79 @@ export function montarClipes(raiz: THREE.Object3D, receitas: readonly Receita[] 
     trilhas.push(new THREE.QuaternionKeyframeTrack('Body.quaternion', tempos,
       tempos.flatMap(() => [bq.x, bq.y, bq.z, bq.w])));
 
+    pes.forEach((pe, i) => {
+      trilhas.push(new THREE.VectorKeyframeTrack(`${pe.pe.name}.position`, tempos, pesPos[i]!));
+      trilhas.push(new THREE.QuaternionKeyframeTrack(`${pe.pe.name}.quaternion`, tempos, pesGiro[i]!));
+    });
+
     clipes.push(new THREE.AnimationClip(receita.nome, receita.duracao, trilhas));
   }
 
   return clipes;
+}
+
+/** Um pe' e a canela dele, medidos no repouso. */
+interface MedidaDoPe {
+  pe: THREE.Bone;
+  canela: THREE.Bone;
+  /** A canela e o pe' em mundo, no repouso: a amarra que nao estica o sapato. */
+  canelaRepouso: THREE.Matrix4;
+  peRepouso: THREE.Matrix4;
+  /** Do tornozelo (ponta da canela) ate' a origem do pe', em mundo, no repouso. */
+  doTornozelo: THREE.Vector3;
+  /** O giro do pe' em mundo no repouso: sola plana. */
+  giroPlano: THREE.Quaternion;
+}
+
+/** Mede os dois pes no repouso. Chamar com o esqueleto em repouso e atualizado. */
+function medirPes(ossos: Map<string, THREE.Bone>): MedidaDoPe[] {
+  return PES.map(([nomeDoPe, nomeDaCanela]) => {
+    const pe = ossos.get(nomeDoPe);
+    const canela = ossos.get(nomeDaCanela);
+    if (!pe || !canela) throw new Error(`o modelo nao tem ${nomeDoPe}/${nomeDaCanela}`);
+    const tornozelo = canela.localToWorld(new THREE.Vector3(0, OSSO_DA_PERNA, 0));
+    return {
+      pe,
+      canela,
+      canelaRepouso: canela.matrixWorld.clone(),
+      peRepouso: pe.matrixWorld.clone(),
+      doTornozelo: pe.getWorldPosition(new THREE.Vector3()).sub(tornozelo),
+      giroPlano: pe.getWorldQuaternion(new THREE.Quaternion()),
+    };
+  });
+}
+
+const _mundo = new THREE.Matrix4();
+const _inv = new THREE.Matrix4();
+const _pePos = new THREE.Vector3();
+const _peGiro = new THREE.Quaternion();
+const _escala = new THREE.Vector3();
+const _tornozelo = new THREE.Vector3();
+
+/**
+ * Onde o pe' vai neste quadro, em espaco do pai dele (o `Root`).
+ *
+ * Dois jeitos, e quem decide e' a receita escrever perna ou nao:
+ *
+ * - NO AR (perna escrita): o pe' vai AMARRADO na canela, exatamente como no
+ *   repouso — a canela gira, o pe' gira junto. Os dois ossos que seguram o
+ *   sapato andam juntos, entao o sapato nao deforma nada; e o pe' fica
+ *   apontado pra onde a canela aponta, que e' o pe' de quem salta.
+ * - NO CHAO (perna de `pernasDe`): a sola fica PLANA, com o giro do repouso,
+ *   embaixo do tornozelo. A canela inclina e o pe' nao: o sapato dobra no
+ *   tornozelo, que e' o que um tornozelo faz. E' tambem o que as animacoes do
+ *   pack fazem com os pes na corrida.
+ */
+function pesDoQuadro(m: MedidaDoPe, noAr: boolean, pos: THREE.Vector3, giro: THREE.Quaternion): void {
+  if (noAr) {
+    _mundo.copy(m.canela.matrixWorld).multiply(_inv.copy(m.canelaRepouso).invert()).multiply(m.peRepouso);
+  } else {
+    m.canela.localToWorld(_tornozelo.set(0, OSSO_DA_PERNA, 0));
+    _mundo.compose(_tornozelo.add(m.doTornozelo), m.giroPlano, _escala.set(1, 1, 1));
+  }
+  const pai = m.pe.parent;
+  if (pai) _mundo.premultiply(_inv.copy(pai.matrixWorld).invert());
+  _mundo.decompose(pos, giro, _escala);
 }
 
 function profundidade(osso: THREE.Object3D): number {

@@ -231,9 +231,10 @@ A locomoção usa as **quatro direções** (`Run`, `Run_Back`, `Run_Left`,
 metade da partida seria o boneco deslizando de lado com as pernas correndo para
 a frente.
 
-Ainda faltam pulo e mergulho — o pack não tem. No ar e no mergulho o corpo vai
-rígido, que é exatamente o que a cápsula fazia, e quem deita o corpo continua
-sendo o `Motor`.
+O vôlei o pack não tem — pulo, mergulho, os toques, o pouso e a espera do saque
+são escritos à mão (ver *As animações que o pack não tinha*). Quem deita o corpo
+no mergulho e quem sobe no pulo continua sendo o `Motor`; a animação só dá a
+pose. E a **cabeça acompanha a bola** por cima de qualquer clipe (`olhar.ts`).
 
 **Cor.** O renderer usa tone mapping filmico (ACES). Sem ele o que passa de 1 é
 cortado seco, e a saturação morre justamente onde há mais luz — dois tons de
@@ -482,7 +483,8 @@ src/
     buildAtletaModelo.ts carrega o modelo e monta as animações
     animacoes.ts        qual clipe tocar, dado o estado do corpo
     Animador.ts         o AnimationMixer e as transições
-    poses.ts            pulo, mergulho e os toques, escritos à mão
+    poses.ts            pulo, mergulho, pouso e os toques, escritos à mão
+    olhar.ts            a cabeça acompanhando a bola, por cima do clipe
   match/Match.ts        placar, saque, toques, fim de jogo — lógica pura
   match/Circuito.ts     torneios, chave e carreira — lógica pura
   match/personagens.ts  o ELENCO: 24 personagens e as notas deles
@@ -576,7 +578,8 @@ for (let t = 0; t < 10; t += 1 / 60) __VOLEI.update(1 / 60);
 ### As animações que o pack não tinha são escritas à mão
 
 O pack de personagens traz `Idle`, `Walk`, `Run` nas quatro direções — e nada de
-vôlei. Faltavam pulo, mergulho, manchete, levantamento, ataque e saque.
+vôlei. Faltavam pulo, mergulho, manchete, levantamento, ataque (de pé), cortada
+(no ar), saque, o pouso depois do salto e a espera do saque com a bola na mão.
 
 Elas estão em **`poses.ts`**, como número e comentário, do mesmo jeito que o
 resto do projeto é escrito. O que torna isso viável é o formato: a pose **não**
@@ -623,6 +626,22 @@ longe uns dos outros:
 | `Pulo` | 1,81 — acima da cabeça | 0,00 — dois braços |
 | `Saque` | 1,80 | 0,31 — um braço |
 | `Ataque` | 1,81 | 0,78 — um braço |
+
+**O pé.** `FootL`/`FootR` não são o pé da perna: são alvos de IK pendurados na
+raiz, e a pele do sapato é presa neles *e* na canela. Clipe que dobra a perna sem
+mover esses dois ossos estica o sapato até virar uma prancha — era o pulo. Agora
+todo clipe escrito à mão grava os pés: no chão a sola fica plana embaixo do
+tornozelo (o sapato dobra no tornozelo, como o do pack na corrida); no ar o pé vai
+amarrado na canela, apontado, sem deformar nada.
+
+**Os detalhes que faltavam.** A cortada no ar ganhou clipe próprio, com as pernas
+recolhidas (antes era o ataque de pé tocando no ar, de perna reta). Quem cai de
+um salto **amortece** — dobra o joelho e desce os braços por 0,3 s — a não ser que
+já saia correndo. O sacador **segura a bola na mão esquerda**, com a palma virada
+para cima (uma torção no antebraço e no punho, que `apontar` sozinho não dá), e a
+bola segue o osso da palma: parado ou andando pela linha de fundo, ela fica
+apoiada. Essa espera é uma **camada** — só braços e peito, misturada com peso 10
+contra 1 por cima do `Idle`/`Walk`, que continuam mandando nas pernas.
 
 ### Um estádio de futebol vira arena de vôlei cortando 73% dele
 

@@ -4,8 +4,9 @@ import fs from 'node:fs';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-import { montarClipes, RECEITAS } from '../src/players/poses';
-import { MERGULHO } from '../src/config';
+import { CAMADAS, montarClipes, RECEITAS } from '../src/players/poses';
+import { BOLA_NA_MAO } from '../src/players/buildAthlete';
+import { COURT, MERGULHO } from '../src/config';
 
 /**
  * O que estes testes protegem:
@@ -264,4 +265,168 @@ test('a manchete e o unico gesto com as maos abaixo do peito', async () => {
     const s = silhueta(raiz, feitos.get(nome)!, 0);
     assert.ok(s.maoAlta - manchete.maoAlta > 0.4, `${nome} perto demais da manchete`);
   }
+});
+
+/**
+ * O PE' acompanha a perna em todo quadro de todo clipe.
+ *
+ * `FootL`/`FootR` sao alvos de IK pendurados no `Root`, fora da perna, e a pele
+ * do sapato e' presa a eles E a' canela. Os clipes escritos aqui dobravam a
+ * canela e deixavam o pe' onde estava: o sapato esticava ate' virar uma prancha
+ * no chao — no pulo, meio metro. Este teste nao existia porque o de cima
+ * conferia a PONTA DA CANELA na areia, e ela estava certa; quem estava errado
+ * era o osso que segura a sola.
+ *
+ * A medida: a distancia do tornozelo (ponta da canela) ate' a origem do pe'
+ * tem que ser a do repouso. Se mudar, a pele entre os dois esta' esticando.
+ */
+test('o pe acompanha a canela em todo quadro, e o sapato nao estica', async () => {
+  const raiz = await carregar();
+  const ossos = new Map<string, THREE.Object3D>();
+  raiz.traverse((o) => { if ((o as THREE.Bone).isBone) ossos.set(o.name, o); });
+  const repouso = (lado: 'R' | 'L'): number =>
+    ossos.get(`LowerLeg${lado}`)!.localToWorld(new THREE.Vector3(0, 0.433, 0))
+      .distanceTo(ossos.get(`Foot${lado}`)!.getWorldPosition(new THREE.Vector3()));
+  const vao = { R: repouso('R'), L: repouso('L') };
+
+  const feitos = new Map(montarClipes(raiz, RECEITAS).map((c) => [c.name, c]));
+  let conferidos = 0;
+  for (const receita of RECEITAS) {
+    for (const quadro of receita.quadros) {
+      const { tornozelo, onde, soltar } = posar(raiz, feitos.get(receita.nome)!, quadro.t);
+      for (const lado of ['R', 'L'] as const) {
+        const d = tornozelo(lado).distanceTo(onde(`Foot${lado}`));
+        assert.ok(Math.abs(d - vao[lado]) < 0.01,
+          `${receita.nome} em t=${quadro.t}: pe ${lado} a ${d.toFixed(3)} m do tornozelo, no repouso ${vao[lado].toFixed(3)}`);
+      }
+      soltar();
+      conferidos++;
+    }
+  }
+  assert.ok(conferidos >= RECEITAS.length * 2, `so ${conferidos} quadros conferidos`);
+});
+
+/** No chao, a sola fica plana e na areia: e' o pe' de quem pisa, nao o de quem salta. */
+test('nos quadros de pe, a sola fica plana e na altura do repouso', async () => {
+  const raiz = await carregar();
+  const pe0 = new Map<string, { y: number; giro: THREE.Quaternion }>();
+  raiz.traverse((o) => {
+    if (o.name === 'FootL' || o.name === 'FootR') {
+      pe0.set(o.name, { y: o.getWorldPosition(new THREE.Vector3()).y, giro: o.getWorldQuaternion(new THREE.Quaternion()) });
+    }
+  });
+  const feitos = new Map(montarClipes(raiz, RECEITAS).map((c) => [c.name, c]));
+  for (const receita of RECEITAS) {
+    for (const quadro of receita.quadros) {
+      if (quadro.pose['UpperLegR']) continue;
+      const { soltar } = posar(raiz, feitos.get(receita.nome)!, quadro.t);
+      for (const nome of ['FootL', 'FootR']) {
+        const o = raiz.getObjectByName(nome)!;
+        const y = o.getWorldPosition(new THREE.Vector3()).y;
+        const giro = o.getWorldQuaternion(new THREE.Quaternion());
+        assert.ok(Math.abs(y - pe0.get(nome)!.y) < 0.015, `${receita.nome} t=${quadro.t}: ${nome} a ${y.toFixed(3)} do chao`);
+        assert.ok(giro.angleTo(pe0.get(nome)!.giro) < 0.02, `${receita.nome} t=${quadro.t}: ${nome} inclinado`);
+      }
+      soltar();
+    }
+  }
+});
+
+/**
+ * No ar, o pe' vai APONTADO com a canela: nada de sola plana de quem pisa.
+ *
+ * Aqui o boneco nao sai do chao — quem levanta o corpo no jogo e' o Motor — e
+ * por isso a prova e' o GIRO do pe', e nao a altura dele.
+ */
+test('no pulo e na cortada o pe vai apontado, preso na canela', async () => {
+  const raiz = await carregar();
+  const plano = new Map<string, THREE.Quaternion>();
+  raiz.traverse((o) => { if (o.name === 'FootL' || o.name === 'FootR') plano.set(o.name, o.getWorldQuaternion(new THREE.Quaternion())); });
+  const feitos = new Map(montarClipes(raiz, RECEITAS).map((c) => [c.name, c]));
+  for (const nome of ['Pulo', 'Cortada', 'Mergulho']) {
+    const receita = RECEITAS.find((r) => r.nome === nome)!;
+    assert.ok(receita.quadros.every((q) => q.pose['UpperLegR']), `${nome} tem quadro sem perna escrita`);
+    const { soltar } = posar(raiz, feitos.get(nome)!, 0);
+    for (const pe of ['FootL', 'FootR']) {
+      const giro = raiz.getObjectByName(pe)!.getWorldQuaternion(new THREE.Quaternion());
+      assert.ok(giro.angleTo(plano.get(pe)!) > 0.2, `${nome}: ${pe} continua plano, como quem pisa`);
+    }
+    soltar();
+  }
+});
+
+/**
+ * Camada e' so' do peito pra cima: nenhuma trilha de perna, quadril ou pe'.
+ *
+ * Uma trilha dessas que escapasse brigaria com o `Walk` de baixo, e o
+ * sacador andando pela linha de fundo sairia com as pernas meio paradas.
+ */
+test('a camada nao leva perna, quadril nem pe', async () => {
+  const feitos = await clipes();
+  assert.ok(CAMADAS.size > 0, 'nenhuma camada');
+  for (const nome of CAMADAS) {
+    const trilhas = feitos.get(nome)!.tracks.map((t) => t.name.split('.')[0]!);
+    for (const osso of trilhas) {
+      assert.ok(!/Leg|Foot|^PT|^Body$/.test(osso), `${nome} escreve ${osso}`);
+    }
+  }
+});
+
+/**
+ * A bola do saque esta' NA palma esquerda da `EsperaDoSaque`, e a palma
+ * esta' virada pra cima — por baixo da bola, segurando.
+ *
+ * No jogo a bola segue o osso da palma (`Athlete.levarBolaNaMao`), e vai
+ * sempre PRA CIMA dele: se a palma virar de lado, a bola fica ao lado da mao
+ * sem nada segurando. Por isso a palma e' conferida com o `Idle` por baixo,
+ * como no jogo, e ao longo do ciclo inteiro dele. `BOLA_NA_MAO` e' o ponto
+ * de quem nao tem modelo, e tem que bater com a pose sozinha.
+ */
+test('a bola do saque fica na palma esquerda, com a palma pra cima', async () => {
+  const buf = fs.readFileSync(new URL('../src/assets/atleta.glb', import.meta.url));
+  const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
+  const gltf = await new Promise<{ scene: THREE.Object3D; animations: THREE.AnimationClip[] }>((ok, err) =>
+    new GLTFLoader().parse(ab, '', ok as never, err));
+  const raiz = gltf.scene;
+  raiz.updateMatrixWorld(true);
+  const espera = montarClipes(raiz, RECEITAS).find((c) => c.name === 'EsperaDoSaque')!;
+  const idle = gltf.animations.find((c) => c.name === 'Idle')!;
+
+  const palma = (): { centro: THREE.Vector3; normal: THREE.Vector3 } => {
+    raiz.updateMatrixWorld(true);
+    const w = (n: string): THREE.Vector3 => raiz.getObjectByName(n)!.getWorldPosition(new THREE.Vector3());
+    return {
+      centro: w('Middle1L').add(w('Middle2L')).multiplyScalar(0.5),
+      normal: new THREE.Vector3(0, 0, -1)
+        .applyQuaternion(raiz.getObjectByName('WristL')!.getWorldQuaternion(new THREE.Quaternion())),
+    };
+  };
+
+  // Sozinha: o ponto fixo de quem nao tem modelo.
+  const so = new THREE.AnimationMixer(raiz);
+  so.clipAction(espera).play();
+  so.setTime(0);
+  const p = palma();
+  const bola = new THREE.Vector3(BOLA_NA_MAO.lado, COURT.serveBallHeight, BOLA_NA_MAO.frente);
+  const acima = bola.y - p.centro.y;
+  // Raio da bola (0,105) mais meia mao: a bola apoia, nao atravessa.
+  assert.ok(acima > 0.1 && acima < 0.15, `bola ${acima.toFixed(3)} m acima da palma`);
+  assert.ok(Math.hypot(bola.x - p.centro.x, bola.z - p.centro.z) < 0.04, 'bola fora da palma');
+  so.stopAllAction();
+  so.uncacheRoot(raiz);
+
+  // Por cima do Idle, com o peso do `Animador`.
+  const jogo = new THREE.AnimationMixer(raiz);
+  jogo.clipAction(idle).play();
+  const camada = jogo.clipAction(espera);
+  camada.setLoop(THREE.LoopOnce, 1);
+  camada.clampWhenFinished = true;
+  camada.setEffectiveWeight(10).play();
+  for (let i = 0; i <= 8; i++) {
+    jogo.setTime((idle.duration * i) / 8);
+    const { normal } = palma();
+    assert.ok(normal.y > 0.9, `Idle ${i}/8: palma virada pra ${normal.toArray().map((v) => v.toFixed(2))}`);
+  }
+  jogo.stopAllAction();
+  jogo.uncacheRoot(raiz);
 });

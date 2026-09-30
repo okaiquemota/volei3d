@@ -949,7 +949,6 @@ export class Game {
   };
 
   /** Um passo de jogo. Publico: e' a porta de entrada dos testes. */
-  /** Um passo de jogo. Publico: e' a porta de entrada dos testes. */
   update(dt: number): void {
     /**
      * O tempo do JOGO e o tempo do RELOGIO se separam aqui, e so' aqui.

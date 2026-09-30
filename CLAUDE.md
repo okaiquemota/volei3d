@@ -1161,8 +1161,9 @@ correria no lugar enquanto tudo em volta arrasta.
 
 ## As poses escritas à mão: medir o rig antes, não depois
 
-O pack não tinha nenhuma animação de vôlei. As seis que faltavam (`Pulo`,
-`Mergulho`, `Ataque`, `Manchete`, `Levantamento`, `Saque`) estão em `poses.ts`,
+O pack não tinha nenhuma animação de vôlei. As que faltavam (`Pulo`,
+`Mergulho`, `Ataque`, `Cortada`, `Manchete`, `Levantamento`, `Saque`,
+`Aterrissagem` e a camada `EsperaDoSaque`) estão em `poses.ts`,
 escritas como direção — "para onde o osso aponta" — e resolvidas **contra o
 esqueleto carregado**, em `montarClipes`.
 
@@ -1231,6 +1232,71 @@ existiam — pé na areia, simetria, cotovelo dobrado — passavam todos. O que 
 isso mede a silhueta (altura da mão, desnível, separação) e exige que os gestos
 fiquem **distantes uns dos outros**, porque é isso que o olho usa quando o boneco
 tem 90 pixels de altura.
+
+## O sapato esticava, e o teste do pé media o osso errado
+
+O pulo *"deforma totalmente o pé"*: o sapato virava uma prancha de meio metro
+no chão. E havia teste de pé — `em todo quadro de pe, a sola continua na areia`
+— passando.
+
+O teste conferia a **ponta da canela**. Ela estava certa. Quem estava errado era
+outro osso: `FootL`/`FootR` são alvos de IK pendurados no `Root`, **fora** da
+corrente da perna, e a pele do sapato é presa neles *e* na `LowerLeg`. Os clipes
+escritos à mão dobravam a canela e nunca gravavam o pé, então o pé ficava no
+repouso (a passada do rig) e a pele entre os dois esticava. Os clipes do pack
+não têm o defeito porque animam `Foot` em posição e giro.
+
+O conserto é gravar os pés em todo clipe (`pesDoQuadro`): no chão, sola plana
+embaixo do tornozelo; no ar (quadro que escreve perna), o pé amarrado na canela
+exatamente como no repouso — os dois ossos que seguram o sapato andam juntos e
+nada deforma. O teste novo mede o que a pele sente: **a distância do tornozelo
+até o osso do pé tem que ser a do repouso**, em todo quadro de todo clipe.
+
+Dois tropeços no caminho, os dois de ordem:
+
+- O pé era medido com o quadril ainda no repouso, e a perna dobrada de
+  `pernasDe` sobe o tornozelo: o pé saía gravado `descer` metros acima da areia
+  (12 cm no ataque). O `Body` tem que descer **antes** de posar e medir.
+- "O pé fora do chão no pulo" não serve de teste: quem sobe é o `Motor`, o clipe
+  fica no chão. O que prova o pé de quem salta é o **giro** dele (apontado com a
+  canela), não a altura.
+
+A lição é a do sinal do passo lateral, de novo: **o teste tem que medir o que o
+defeito estraga**, e aqui o defeito é pele esticando entre dois ossos. Medir um
+dos dois ossos, por mais certo que ele esteja, não mede nada.
+
+## Três armadilhas do mixer: camada, bola na mão e cabeça
+
+**Não há máscara por osso.** A espera do saque tinha que ser só dos braços — o
+sacador anda pela linha de fundo, e um clipe de corpo inteiro faria o boneco
+deslizar de pé parado. O `AnimationMixer` do three faz a média **ponderada** de
+todo clipe ativo em cada osso. Então a camada é um clipe sem trilha de perna,
+quadril ou pé (`camada: true` em `montarClipes`) tocando com peso 10 por cima do
+clipe de baixo: nos braços dá 91% camada; nas pernas o de baixo está sozinho e
+fica com 100%. Peso 1 contra 1 faria média meio a meio nos braços.
+
+**A pose medida não é a pose tocada.** A bola do saque foi posta num ponto
+medido na palma da `EsperaDoSaque` — e no jogo ela boiava 5 cm acima da mão. O
+teste posava o clipe **sozinho**; no jogo ele toca por cima do `Idle`, que curva
+o tronco e desce a mão. Andando, a mão ainda sobe e desce outros 5 cm. Em vez de
+caçar o número, a âncora passou a **seguir o osso da palma** a cada quadro
+(`Athlete.levarBolaNaMao`), e o teste confere o que importa para isso: com o
+`Idle` por baixo, ao longo do ciclo inteiro, a palma continua virada para cima.
+O saque sai de onde a bola estiver (`Hitter.sacar` lê a posição), então a mira
+não muda.
+
+A palma para cima, aliás, `apontar` não dá: ele resolve a direção do osso e deixa
+livre o giro em torno dele, e o repouso do rig tem a mão de lado, polegar para
+cima. O quadro ganhou `giros` (torção em torno do próprio eixo), dividida entre
+antebraço e punho — um quarto de volta num osso só estrangula a pele do pulso.
+
+**O mixer só escreve osso que algum clipe ativo anima.** A cabeça gira para a
+bola **depois** do mixer (`olhar.ts`). Os clipes do pack animam `Neck`/`Head`;
+os escritos à mão, não. Durante um gesto, então, o mixer não toca na cabeça, e o
+giro deste quadro somaria com o do anterior até a cabeça sair rodando. O `Olhar`
+guarda o que o clipe deixou e devolve os ossos a isso **antes** do mixer rodar.
+O limite do giro é contado da frente do **corpo** (a raiz que o `Motor` gira),
+não da cabeça: bola nas costas para no ombro em vez de virar o rosto 180°.
 
 ## O peso de um asset não está onde a intuição diz
 
@@ -1654,7 +1720,9 @@ foram exercitados de verdade; a dificuldade da rampa só se sente jogando.
 As poses foram conferidas em imagem, no enquadramento da câmera de jogo, e
 medidas por sonda — não por olho de animador. Elas **lêem** como o gesto certo à
 distância; não são referência anatômica, e a transição entre elas só se julga
-jogando.
+jogando. O olhar foi medido num rally entre bots (o rosto fica a 5–15° da bola
+na maior parte do tempo, mais logo depois de um saque, quando a bola dispara);
+se a cabeça "segue demais" ou "de menos" é gosto, e só se decide jogando.
 
 O equilíbrio da IA contra um humano de verdade. O que se mediu foi um piloto
 automático dos dois lados — e ele é mais preciso que qualquer pessoa: não tem
