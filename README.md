@@ -612,9 +612,15 @@ Três fatos do rig que a conta esconde, e que o teste protege:
 - **As pernas penduram no `Body`.** Dobrar o joelho *levanta o pé*, não abaixa o
   quadril. Quem agacha é o `Body` descendo, e o joelho dobra o tanto exato para a
   sola continuar na areia — os dois juntos, ou o atleta joga flutuando.
-- **O `Body` vem com 27° de giro que o `Torso` desfaz com -27,7°.** Mexer em um
-  sem o outro torce o tronco inteiro, e o sintoma é uma mão 12 cm mais funda que
-  a outra numa pose simétrica.
+- **O `Body` vem com 27° de giro que o `Torso` desfaz com -27,7°** — o quadril
+  virado de uma base de luta, que é o `Idle` do pack. Mexer em um sem o outro
+  torce o tronco inteiro (uma mão 12 cm mais funda que a outra numa pose
+  simétrica). As poses escritas aqui fazem o que a caminhada do pack faz: `Body`
+  reto **e** `Torso` compensado, sempre os dois.
+- **Apontar um osso não decide a torção dele.** Na perna isso aparece: o repouso
+  tem a perna esquerda virada ~50° pra fora, e o joelho dobrava pra frente com a
+  rótula virada pro lado. Coxa, canela e pé são montados com o eixo do lado
+  fixo — a convenção medida na caminhada do pack.
 
 Todo gesto começa na pose **do contato**, e não numa armada. O atleta só sabe que
 tocou a bola depois de tocar — o `Hitter` resolve e a bola sai no mesmo quadro,
@@ -639,9 +645,10 @@ longe uns dos outros:
 **O pé.** `FootL`/`FootR` não são o pé da perna: são alvos de IK pendurados na
 raiz, e a pele do sapato é presa neles *e* na canela. Clipe que dobra a perna sem
 mover esses dois ossos estica o sapato até virar uma prancha — era o pulo. Agora
-todo clipe escrito à mão grava os pés: no chão a sola fica plana embaixo do
-tornozelo (o sapato dobra no tornozelo, como o do pack na corrida); no ar o pé vai
-amarrado na canela, apontado, sem deformar nada.
+todo clipe escrito à mão grava os pés: no chão a sola fica plana e **de frente**
+embaixo do tornozelo (o sapato dobra no tornozelo, como o do pack na corrida); no
+ar o pé inclina com a canela e estica o bico pra baixo — sempre de frente, nunca
+virado pro lado.
 
 **Os detalhes que faltavam.** A cortada no ar ganhou clipe próprio, com as pernas
 recolhidas (antes era o ataque de pé tocando no ar, de perna reta). Quem cai de

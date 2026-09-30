@@ -1188,9 +1188,11 @@ Quatro fatos que só a sonda revelou, e que nenhum deles quebra alto:
   (`pernasDe`) para a sola continuar na areia. Foi o primeiro defeito a aparecer:
   uma manchete sem agachamento lê como zumbi, e agachar sem a conta enterra o pé.
 - **O `Body` vem com +27° em Y e o `Torso` desfaz com -27,7°.** Fixar o `Body` na
-  identidade parecia mais limpo e torcia o tronco inteiro. Tem que ser fixado no
-  **repouso** — e a pose tem que ser resolvida contra o mesmo valor que a trilha
-  escreve, senão a conta sai medida num corpo torto e tocada num corpo reto.
+  identidade SOZINHO torcia o tronco inteiro. Hoje ele vai reto com o `Torso`
+  compensado junto (`medirQuadrilReto`), que é o que a caminhada do pack faz — e
+  a pose tem que ser resolvida contra o mesmo valor que a trilha escreve, senão a
+  conta sai medida num corpo torto e tocada num corpo reto. Ver *A torção*
+  abaixo.
 - **`LoopRepeat` esconde o último quadro.** Amostrar em `t == duração` volta para
   o zero. Por isso todo clipe escrito à mão é `LoopOnce` + `clampWhenFinished` —
   e em `Pulo`/`Mergulho` isso não é detalhe: o último quadro **é** a pose de
@@ -1271,6 +1273,40 @@ Dois tropeços no caminho, os dois de ordem:
 A lição é a do sinal do passo lateral, de novo: **o teste tem que medir o que o
 defeito estraga**, e aqui o defeito é pele esticando entre dois ossos. Medir um
 dos dois ossos, por mais certo que ele esteja, não mede nada.
+
+## A torção: apontar um osso não diz como ele gira em volta de si
+
+Depois do conserto do sapato, o pulo continuava *"a perna contorce e os pés
+ficam pra mesma direção"*. E todo teste de posição passava: joelho no lugar,
+tornozelo no lugar, distância do tornozelo ao pé igual à do repouso.
+
+O defeito não era de posição. `apontar` resolve PRA ONDE o osso aponta e deixa
+livre o giro em volta dele — no braço ninguém vê. Na perna, esse giro é pra
+onde a rótula olha. O repouso deste modelo é torto de propósito: o `Body` virado
+27° (a base de luta do `Idle`) e a perna esquerda virada ~50° pra fora, com o pé
+esquerdo ~60° pra fora. As poses dobravam o joelho pra frente com a rótula
+virada pro lado, e o pé, preso à canela, ia junto: no ar os dois pés apontavam
+pro mesmo lado (a sonda mediu -80° e -35°).
+
+O conserto não foi chutar ângulos. A convenção certa estava no próprio pack: na
+caminhada, a coxa tem o +Z local de lado (-X na esquerda, +X na direita), a
+canela e o pé têm o +X local pra +X, o bico do pé é o +Y local e o +Z sai da
+sola pro chão. Com a direção do osso e esse eixo do lado, a rotação inteira está
+decidida — `orientarPerna` e `PE_PLANO` montam a base direto, sem torção
+sobrando pra sair errada. E o quadril reto (`Body` a 0, `Torso` compensado) é
+também o que a caminhada faz.
+
+Três lições:
+
+- **Um teste de posição não enxerga giro.** O teste novo mede EIXOS: coxa, canela
+  e pé com o eixo do lado de lado, em todo quadro de todo clipe, e o bico do pé
+  nunca pra trás. É a medida do que o jogador viu.
+- **A sonda relativa ao repouso mente num repouso torto.** A primeira medida
+  dizia "pé a 0°" no chão porque comparava com o repouso — que já estava 60°
+  virado. A referência tem que ser absoluta: os eixos do osso no mundo.
+- **Quando o pack já resolve o problema, copiar a convenção dele vence
+  qualquer ângulo escrito à mão.** Os clipes do pack são a medida do que este
+  rig espera.
 
 ## Três armadilhas do mixer: camada, bola na mão e cabeça
 

@@ -575,6 +575,7 @@ export function montarClipes(raiz: THREE.Object3D, receitas: readonly Receita[] 
   const corpoRepouso = ossos.get('Body')?.position.clone() ?? new THREE.Vector3();
   raiz.updateMatrixWorld(true);
   const pes = medirPes(ossos);
+  const reto = medirQuadrilReto(ossos);
 
   const repouso = new Map<string, THREE.Quaternion>();
   const eixos = new Map<string, THREE.Vector3>();
@@ -584,6 +585,7 @@ export function montarClipes(raiz: THREE.Object3D, receitas: readonly Receita[] 
   }
 
   const corpo = ossos.get('Body');
+  const torso = ossos.get('Torso');
   const voltarAoRepouso = (): void => {
     for (const [nome, osso] of ossos) osso.quaternion.copy(repouso.get(nome)!);
     corpo?.position.copy(corpoRepouso);
@@ -641,6 +643,12 @@ export function montarClipes(raiz: THREE.Object3D, receitas: readonly Receita[] 
        * da areia — 12 cm no fim do ataque. O teste da sola pegou.
        */
       corpo?.position.set(corpoRepouso.x, corpoRepouso.y - quadro.descer, corpoRepouso.z);
+      // Quadril reto e tronco compensado, como a caminhada do pack. A camada
+      // nao: ela toca por cima do Idle, que mantem o quadril virado.
+      if (!camada) {
+        corpo?.quaternion.copy(reto.corpo);
+        torso?.quaternion.copy(reto.torso);
+      }
       raiz.updateMatrixWorld(true);
 
       // As pernas por baixo, o que a receita escreveu por cima.
@@ -652,7 +660,8 @@ export function montarClipes(raiz: THREE.Object3D, receitas: readonly Receita[] 
         if (!direcao && !giro) continue;   // nada neste quadro: fica no repouso
 
         const osso = ossos.get(nome)!;
-        if (direcao) apontar(osso, eixos.get(nome)!, direcao, _local);
+        if (direcao && ehPerna(nome)) orientarPerna(osso, nome, direcao, _local);
+        else if (direcao) apontar(osso, eixos.get(nome)!, direcao, _local);
         else _local.copy(osso.quaternion);
         if (giro) _local.multiply(_torcao.setFromAxisAngle(eixos.get(nome)!, giro));
         osso.quaternion.copy(_local);
@@ -689,17 +698,23 @@ export function montarClipes(raiz: THREE.Object3D, receitas: readonly Receita[] 
      * nele, entao dobrar joelho levanta o pe' e quem abaixa o corpo e' este
      * osso descendo.
      *
-     * A rotacao vai junto, PRESA NO REPOUSO — e repouso quer dizer os 27 graus
-     * de giro em Y que ele tem, nao a identidade. Zerar parecia mais limpo e
-     * torcia o boneco inteiro: o modelo foi desenhado com o `Body` girado +27 e
-     * o `Torso` girado -27,7 de volta, um cancelando o outro. Mexendo so' num
-     * dos dois, o tronco saia de lado — dava pra ver na sonda, com a mao
-     * esquerda 12 cm mais funda que a direita em todas as poses.
+     * E a rotacao vai RETA, com o `Torso` junto. O modelo foi desenhado com o
+     * `Body` girado +27 graus e o `Torso` -27 de volta — o quadril virado de
+     * uma base de luta, que e' o Idle do pack. Essas poses herdavam o quadril
+     * virado, e as pernas saiam do quadril torto. A caminhada e a corrida do
+     * pack fazem o que se faz aqui: `Body` a 0 e o `Torso` compensado. Mexer so'
+     * num dos dois torce o tronco — a mao esquerda ia 12 cm mais funda que a
+     * direita — e por isso os dois vao sempre juntos (`medirQuadrilReto`).
      */
-    const bq = repouso.get('Body') ?? new THREE.Quaternion();
+    const bq = reto.corpo;
+    const tq = reto.torso;
     trilhas.push(new THREE.VectorKeyframeTrack('Body.position', tempos, alturas));
     trilhas.push(new THREE.QuaternionKeyframeTrack('Body.quaternion', tempos,
       tempos.flatMap(() => [bq.x, bq.y, bq.z, bq.w])));
+    if (torso && !usados.has('Torso')) {
+      trilhas.push(new THREE.QuaternionKeyframeTrack('Torso.quaternion', tempos,
+        tempos.flatMap(() => [tq.x, tq.y, tq.z, tq.w])));
+    }
 
     pes.forEach((pe, i) => {
       trilhas.push(new THREE.VectorKeyframeTrack(`${pe.pe.name}.position`, tempos, pesPos[i]!));
@@ -712,17 +727,97 @@ export function montarClipes(raiz: THREE.Object3D, receitas: readonly Receita[] 
   return clipes;
 }
 
+/**
+ * A TORCAO da perna: o que `apontar` nao sabe.
+ *
+ * `apontar` diz pra onde o osso aponta e deixa livre o giro em volta dele. No
+ * braco ninguem ve'; na perna ve' todo mundo. O repouso deste modelo tem a
+ * perna esquerda virada ~50 graus pra fora (a passada do rig), e as poses
+ * dobravam o joelho pra frente com a rotula virada pro lado: a perna parecia
+ * torcida, e o pe', preso na canela, ia junto — no pulo os dois pes apontavam
+ * pro mesmo lado.
+ *
+ * A convencao foi MEDIDA na caminhada do pack, que esta' certa: a coxa tem o
+ * +Z local de lado (pra -X na esquerda, +X na direita); a canela e o pe' tem o
+ * +X local pra +X; o bico do pe' e' o +Y local, e o +Z sai da sola pro chao. Com o osso
+ * apontado (+Y) e o lado fixo, a rotacao inteira esta' decidida — sem torcao
+ * sobrando pra escolher errado.
+ */
+const COXAS: Readonly<Record<string, number>> = { UpperLegL: -1, UpperLegR: 1 };
+function ehPerna(nome: string): boolean {
+  return nome.startsWith('UpperLeg') || nome.startsWith('LowerLeg');
+}
+
+const _bx = new THREE.Vector3();
+const _by = new THREE.Vector3();
+const _bz = new THREE.Vector3();
+const _base = new THREE.Matrix4();
+const _giroMundo = new THREE.Quaternion();
+
+/** Tira de `v` a parte ao longo de `eixo` (unitario) e normaliza. */
+function ortogonal(v: THREE.Vector3, eixo: THREE.Vector3): THREE.Vector3 {
+  return v.addScaledVector(eixo, -v.dot(eixo)).normalize();
+}
+
+/** O quaternion LOCAL da coxa ou da canela, apontada pra `direcao` e sem torcao. */
+function orientarPerna(osso: THREE.Bone, nome: string, direcao: number[], out: THREE.Quaternion): void {
+  _by.set(direcao[0]!, direcao[1]!, direcao[2]!).normalize();
+  const lado = COXAS[nome];
+  if (lado !== undefined) {
+    ortogonal(_bz.set(lado, 0, 0), _by);
+    _bx.crossVectors(_by, _bz);
+  } else {
+    ortogonal(_bx.set(1, 0, 0), _by);
+    _bz.crossVectors(_bx, _by);
+  }
+  _giroMundo.setFromRotationMatrix(_base.makeBasis(_bx, _by, _bz));
+  const pai = osso.parent;
+  if (pai) out.copy(pai.getWorldQuaternion(_paiInv).invert()).multiply(_giroMundo);
+  else out.copy(_giroMundo);
+}
+
+/**
+ * O `Body` sem os 27 graus, e o `Torso` que mantem o tronco de frente com ele.
+ *
+ * As duas medidas saem juntas porque uma so' vale com a outra: o `Torso`
+ * compensa o giro do `Body`, e trocar um sem o outro vira o peito de lado.
+ */
+function medirQuadrilReto(ossos: Map<string, THREE.Bone>): { corpo: THREE.Quaternion; torso: THREE.Quaternion } {
+  const corpo = ossos.get('Body');
+  const torso = ossos.get('Torso');
+  if (!corpo?.parent || !torso?.parent) {
+    return { corpo: corpo?.quaternion.clone() ?? new THREE.Quaternion(), torso: torso?.quaternion.clone() ?? new THREE.Quaternion() };
+  }
+  const corpoMundo = corpo.getWorldQuaternion(new THREE.Quaternion());
+  const torsoMundo = torso.getWorldQuaternion(new THREE.Quaternion());
+  const frente = new THREE.Vector3(0, 0, 1).applyQuaternion(corpoMundo);
+  const retoMundo = new THREE.Quaternion()
+    .setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.atan2(frente.x, frente.z))
+    .multiply(corpoMundo);
+  const corpoLocal = corpo.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(retoMundo);
+
+  // O Torso e' medido com o Body ja' reto, e o repouso volta no fim.
+  const antes = corpo.quaternion.clone();
+  corpo.quaternion.copy(corpoLocal);
+  corpo.updateMatrixWorld(true);
+  const torsoLocal = torso.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(torsoMundo);
+  corpo.quaternion.copy(antes);
+  corpo.updateMatrixWorld(true);
+  return { corpo: corpoLocal, torso: torsoLocal };
+}
+
 /** Um pe' e a canela dele, medidos no repouso. */
 interface MedidaDoPe {
   pe: THREE.Bone;
   canela: THREE.Bone;
-  /** A canela e o pe' em mundo, no repouso: a amarra que nao estica o sapato. */
-  canelaRepouso: THREE.Matrix4;
-  peRepouso: THREE.Matrix4;
-  /** Do tornozelo (ponta da canela) ate' a origem do pe', em mundo, no repouso. */
+  /**
+   * Do tornozelo (ponta da canela) ate' a origem do pe', no espaco DO PE'.
+   *
+   * Preso ao pe', e nao ao mundo: o pe' gira em volta do tornozelo, e a
+   * distancia entre os dois ossos que seguram o sapato nunca muda — e' o que
+   * impede o sapato de esticar.
+   */
   doTornozelo: THREE.Vector3;
-  /** O giro do pe' em mundo no repouso: sola plana. */
-  giroPlano: THREE.Quaternion;
 }
 
 /** Mede os dois pes no repouso. Chamar com o esqueleto em repouso e atualizado. */
@@ -732,45 +827,65 @@ function medirPes(ossos: Map<string, THREE.Bone>): MedidaDoPe[] {
     const canela = ossos.get(nomeDaCanela);
     if (!pe || !canela) throw new Error(`o modelo nao tem ${nomeDoPe}/${nomeDaCanela}`);
     const tornozelo = canela.localToWorld(new THREE.Vector3(0, OSSO_DA_PERNA, 0));
+    const giro = pe.getWorldQuaternion(new THREE.Quaternion());
     return {
       pe,
       canela,
-      canelaRepouso: canela.matrixWorld.clone(),
-      peRepouso: pe.matrixWorld.clone(),
-      doTornozelo: pe.getWorldPosition(new THREE.Vector3()).sub(tornozelo),
-      giroPlano: pe.getWorldQuaternion(new THREE.Quaternion()),
+      doTornozelo: pe.getWorldPosition(new THREE.Vector3()).sub(tornozelo).applyQuaternion(giro.invert()),
     };
   });
 }
+
+/**
+ * O pe' plano e de frente: bico (+Y local) pra frente, +Z saindo da sola pra baixo, e o
+ * +X de lado. E' o pe' plantado da caminhada do pack. O do repouso NAO serve:
+ * o esquerdo vem virado ~60 graus pra fora.
+ */
+const PE_PLANO = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(
+  new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, -1, 0)));
+
+/** No ar, o bico desce ALEM da canela: pe' esticado de quem saltou. */
+const PONTA_DO_PE = 0.35;
 
 const _mundo = new THREE.Matrix4();
 const _inv = new THREE.Matrix4();
 const _pePos = new THREE.Vector3();
 const _peGiro = new THREE.Quaternion();
-const _escala = new THREE.Vector3();
+const _peMundo = new THREE.Vector3();
+const _escala = new THREE.Vector3(1, 1, 1);
 const _tornozelo = new THREE.Vector3();
+const _joelho = new THREE.Vector3();
+const _canela = new THREE.Vector3();
+const _eixoX = new THREE.Vector3(1, 0, 0);
+const _inclinar = new THREE.Quaternion();
 
 /**
  * Onde o pe' vai neste quadro, em espaco do pai dele (o `Root`).
  *
  * Dois jeitos, e quem decide e' a receita escrever perna ou nao:
  *
- * - NO AR (perna escrita): o pe' vai AMARRADO na canela, exatamente como no
- *   repouso — a canela gira, o pe' gira junto. Os dois ossos que seguram o
- *   sapato andam juntos, entao o sapato nao deforma nada; e o pe' fica
- *   apontado pra onde a canela aponta, que e' o pe' de quem salta.
- * - NO CHAO (perna de `pernasDe`): a sola fica PLANA, com o giro do repouso,
- *   embaixo do tornozelo. A canela inclina e o pe' nao: o sapato dobra no
- *   tornozelo, que e' o que um tornozelo faz. E' tambem o que as animacoes do
- *   pack fazem com os pes na corrida.
+ * - NO CHAO (perna de `pernasDe`): sola plana, de frente, embaixo do
+ *   tornozelo. A canela inclina e o pe' nao: o sapato dobra no tornozelo, que
+ *   e' o que um tornozelo faz.
+ * - NO AR (perna escrita): o pe' inclina com a canela em volta do eixo do
+ *   lado — sempre de frente, nunca virado — e o bico desce mais
+ *   `PONTA_DO_PE`, o pe' esticado de quem salta.
+ *
+ * Nos dois, a origem do pe' fica a' mesma distancia do tornozelo que no
+ * repouso, medida no espaco do pe': o sapato nao estica.
  */
 function pesDoQuadro(m: MedidaDoPe, noAr: boolean, pos: THREE.Vector3, giro: THREE.Quaternion): void {
+  m.canela.localToWorld(_tornozelo.set(0, OSSO_DA_PERNA, 0));
+  _giroMundo.copy(PE_PLANO);
   if (noAr) {
-    _mundo.copy(m.canela.matrixWorld).multiply(_inv.copy(m.canelaRepouso).invert()).multiply(m.peRepouso);
-  } else {
-    m.canela.localToWorld(_tornozelo.set(0, OSSO_DA_PERNA, 0));
-    _mundo.compose(_tornozelo.add(m.doTornozelo), m.giroPlano, _escala.set(1, 1, 1));
+    m.canela.getWorldPosition(_joelho);
+    _canela.subVectors(_tornozelo, _joelho).normalize();
+    // O angulo em volta do eixo do lado que leva "pra baixo" ate' a canela.
+    const inclinacao = Math.atan2(-_canela.z, -_canela.y);
+    _giroMundo.premultiply(_inclinar.setFromAxisAngle(_eixoX, inclinacao + PONTA_DO_PE));
   }
+  _peMundo.copy(m.doTornozelo).applyQuaternion(_giroMundo).add(_tornozelo);
+  _mundo.compose(_peMundo, _giroMundo, _escala.set(1, 1, 1));
   const pai = m.pe.parent;
   if (pai) _mundo.premultiply(_inv.copy(pai.matrixWorld).invert());
   _mundo.decompose(pos, giro, _escala);

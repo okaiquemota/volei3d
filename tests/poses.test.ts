@@ -306,17 +306,16 @@ test('o pe acompanha a canela em todo quadro, e o sapato nao estica', async () =
   assert.ok(conferidos >= RECEITAS.length * 2, `so ${conferidos} quadros conferidos`);
 });
 
-/** No chao, a sola fica plana e na areia: e' o pe' de quem pisa, nao o de quem salta. */
-test('nos quadros de pe, a sola fica plana e na altura do repouso', async () => {
+/** No chao, a sola fica plana, DE FRENTE e na altura do repouso. */
+test('nos quadros de pe, a sola fica plana, de frente e na altura do repouso', async () => {
   const raiz = await carregar();
-  const pe0 = new Map<string, { y: number; giro: THREE.Quaternion }>();
+  const y0 = new Map<string, number>();
   raiz.traverse((o) => {
-    if (o.name === 'FootL' || o.name === 'FootR') {
-      pe0.set(o.name, { y: o.getWorldPosition(new THREE.Vector3()).y, giro: o.getWorldQuaternion(new THREE.Quaternion()) });
-    }
+    if (o.name === 'FootL' || o.name === 'FootR') y0.set(o.name, o.getWorldPosition(new THREE.Vector3()).y);
   });
   const feitos = new Map(montarClipes(raiz, RECEITAS).map((c) => [c.name, c]));
   for (const receita of RECEITAS) {
+    if (receita.camada) continue;
     for (const quadro of receita.quadros) {
       if (quadro.pose['UpperLegR']) continue;
       const { soltar } = posar(raiz, feitos.get(receita.nome)!, quadro.t);
@@ -324,8 +323,12 @@ test('nos quadros de pe, a sola fica plana e na altura do repouso', async () => 
         const o = raiz.getObjectByName(nome)!;
         const y = o.getWorldPosition(new THREE.Vector3()).y;
         const giro = o.getWorldQuaternion(new THREE.Quaternion());
-        assert.ok(Math.abs(y - pe0.get(nome)!.y) < 0.015, `${receita.nome} t=${quadro.t}: ${nome} a ${y.toFixed(3)} do chao`);
-        assert.ok(giro.angleTo(pe0.get(nome)!.giro) < 0.02, `${receita.nome} t=${quadro.t}: ${nome} inclinado`);
+        const bico = new THREE.Vector3(0, 1, 0).applyQuaternion(giro);
+        // O +Z local do pe' sai da sola, pra baixo — como no pe' plantado da caminhada.
+        const sola = new THREE.Vector3(0, 0, 1).applyQuaternion(giro);
+        assert.ok(Math.abs(y - y0.get(nome)!) < 0.015, `${receita.nome} t=${quadro.t}: ${nome} a ${y.toFixed(3)} do chao`);
+        assert.ok(bico.z > 0.99, `${receita.nome} t=${quadro.t}: ${nome} com o bico pra ${bico.toArray().map((v) => v.toFixed(2))}`);
+        assert.ok(sola.y < -0.99, `${receita.nome} t=${quadro.t}: ${nome} com a sola inclinada`);
       }
       soltar();
     }
@@ -333,23 +336,62 @@ test('nos quadros de pe, a sola fica plana e na altura do repouso', async () => 
 });
 
 /**
- * No ar, o pe' vai APONTADO com a canela: nada de sola plana de quem pisa.
+ * A TORCAO: joelho dobrando pra frente, pe' de frente, em todo quadro.
+ *
+ * O defeito que isto protege nao mexe em posicao nenhuma — o joelho estava no
+ * lugar, o tornozelo tambem. O que estava errado era o GIRO dos ossos em volta
+ * deles mesmos: a perna esquerda herdava os ~50 graus pra fora do repouso, a
+ * rotula dobrava de lado e, no pulo, os dois pes apontavam pro mesmo lado.
+ * Medido nos eixos que a caminhada do pack usa: coxa com o +Z de lado,
+ * canela e pe' com o +X de lado.
+ */
+test('a perna dobra de frente e o pe nunca vira de lado', async () => {
+  const raiz = await carregar();
+  const feitos = new Map(montarClipes(raiz, RECEITAS).map((c) => [c.name, c]));
+  const eixo = (nome: string, local: THREE.Vector3): THREE.Vector3 =>
+    local.clone().applyQuaternion(raiz.getObjectByName(nome)!.getWorldQuaternion(new THREE.Quaternion()));
+  const X = new THREE.Vector3(1, 0, 0);
+  const Z = new THREE.Vector3(0, 0, 1);
+  let conferidos = 0;
+  for (const receita of RECEITAS) {
+    if (receita.camada) continue;
+    for (const quadro of receita.quadros) {
+      const { soltar } = posar(raiz, feitos.get(receita.nome)!, quadro.t);
+      const onde = `${receita.nome} t=${quadro.t}`;
+      assert.ok(eixo('UpperLegL', Z).x < -0.97, `${onde}: coxa esquerda torcida`);
+      assert.ok(eixo('UpperLegR', Z).x > 0.97, `${onde}: coxa direita torcida`);
+      for (const lado of ['L', 'R']) {
+        assert.ok(eixo(`LowerLeg${lado}`, X).x > 0.97, `${onde}: canela ${lado} torcida`);
+        assert.ok(eixo(`Foot${lado}`, X).x > 0.97, `${onde}: pe ${lado} virado de lado`);
+        // E o bico nunca aponta pra tras: no ar ele desce, mas de frente.
+        assert.ok(eixo(`Foot${lado}`, new THREE.Vector3(0, 1, 0)).z > 0, `${onde}: pe ${lado} com o bico pra tras`);
+      }
+      // O quadril reto, como na caminhada: nada dos 27 graus do repouso.
+      const frente = eixo('Body', Z);
+      assert.ok(Math.abs(Math.atan2(frente.x, frente.z)) < 0.02, `${onde}: quadril virado`);
+      soltar();
+      conferidos++;
+    }
+  }
+  assert.ok(conferidos >= 15, `so ${conferidos} quadros`);
+});
+
+/**
+ * No ar, o pe' vai ESTICADO: bico pra baixo, alem da canela.
  *
  * Aqui o boneco nao sai do chao — quem levanta o corpo no jogo e' o Motor — e
  * por isso a prova e' o GIRO do pe', e nao a altura dele.
  */
-test('no pulo e na cortada o pe vai apontado, preso na canela', async () => {
+test('no pulo e na cortada o pe vai esticado, de bico pra baixo', async () => {
   const raiz = await carregar();
-  const plano = new Map<string, THREE.Quaternion>();
-  raiz.traverse((o) => { if (o.name === 'FootL' || o.name === 'FootR') plano.set(o.name, o.getWorldQuaternion(new THREE.Quaternion())); });
   const feitos = new Map(montarClipes(raiz, RECEITAS).map((c) => [c.name, c]));
   for (const nome of ['Pulo', 'Cortada', 'Mergulho']) {
     const receita = RECEITAS.find((r) => r.nome === nome)!;
     assert.ok(receita.quadros.every((q) => q.pose['UpperLegR']), `${nome} tem quadro sem perna escrita`);
     const { soltar } = posar(raiz, feitos.get(nome)!, 0);
     for (const pe of ['FootL', 'FootR']) {
-      const giro = raiz.getObjectByName(pe)!.getWorldQuaternion(new THREE.Quaternion());
-      assert.ok(giro.angleTo(plano.get(pe)!) > 0.2, `${nome}: ${pe} continua plano, como quem pisa`);
+      const bico = new THREE.Vector3(0, 1, 0).applyQuaternion(raiz.getObjectByName(pe)!.getWorldQuaternion(new THREE.Quaternion()));
+      assert.ok(bico.y < -0.3, `${nome}: ${pe} continua plano, como quem pisa`);
     }
     soltar();
   }
