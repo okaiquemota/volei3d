@@ -141,7 +141,7 @@ amistoso. **MEU JOGADOR** é o criador do seu atleta (ver *Monte o seu jogador*)
 |---|---|---|---|---|
 | **MUNICIPAL** | na praia | 9 personagens, de 1,9 a 4,1 | 10 | 30 |
 | **ESTADUAL** | no ginásio | 9 personagens, de 4,0 a 6,8 | 25 | 80 |
-| **MUNDIAL** | no estádio, com torcida | 9 personagens, de 6,6 a 9,4 | 60 | 200 |
+| **MUNDIAL** | no estádio, com torcida | 10 personagens, de 6,6 a 9,8 | 60 | 200 |
 
 Cada torneio é uma chave eliminatória de oito: quartas, semi e final. Ganhar a
 final abre a etapa seguinte. Perder elimina — e **não há "jogar de novo"** a
@@ -155,8 +155,9 @@ sequência, saldo de pontos e o **retrospecto contra cada personagem**, e
 
 ### Os personagens
 
-São 27, pelo menos oito por etapa: 24 inventados e a galera, que entra pela
-*Ficha da Galera*. Cada um tem nome, frase, **um corpo próprio** (montado com
+São 28, de oito a dez por etapa: os inventados e a galera, que entra pela
+*Ficha da Galera*. Dez é o teto: numa etapa cheia, quem chega da galera tira o
+inventado de geral mais perto do dele. Cada um tem nome, frase, **um corpo próprio** (montado com
 as mesmas peças do criador — ver *Monte o seu jogador*) e uma **ficha de oito
 notas de 1 a 10**:
 

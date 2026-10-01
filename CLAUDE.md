@@ -1671,6 +1671,12 @@ vira uma linha do `ELENCO` com `homem/mulher(fonte, pele, { camisa: cor, cabelo 
 estadual). A frase perde o acento, como todo texto do jogo. Uma etapa com mais de
 oito ganha colunas na tela de adversários (`--colunas`), não uma terceira fileira.
 
+**Dez por etapa, no máximo** (o dono pediu; tem teste). Numa etapa cheia, quem
+chega da galera tira o INVENTADO de geral mais perto do dele, e a galera nunca
+sai pra entrar inventado. Tirar um inventado que um teste cita pelo id (o dos
+estilos, `o estilo sai das notas`) pede trocar o exemplo do teste por outro que
+prove o mesmo estilo.
+
 O save guarda o **id** do personagem na chave, e não a ficha. Ajustar uma nota
 vale até pro torneio salvo no meio. O outro lado disso: torneio com id que o
 elenco não conhece é descartado ao carregar (a carreira fica) — é o que limpa os

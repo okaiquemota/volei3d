@@ -36,6 +36,11 @@ import { visualDaFonte, CABELOS, type Familia, type Visual } from '../players/co
  * A `etapa` diz em que torneio o personagem joga. Cada etapa precisa de pelo
  * menos SETE (sao sete vagas de CPU numa chave de oito); com mais que isso,
  * sobra gente de fora a cada torneio, e o sorteio varia.
+ *
+ * E no maximo DEZ. A galera (gente de verdade, pela Ficha da Galera) entra no
+ * lugar dos inventados: numa etapa cheia, quem chega tira o inventado de
+ * GERAL mais perto do dele — assim a etapa continua com a mesma escada de
+ * forca, e quem saiu e' quem a pessoa substituiu de fato.
  */
 
 export type Atributo =
@@ -309,6 +314,12 @@ export const ELENCO: readonly Personagem[] = [
     frase: 'Nota 8 em tudo e 9 na forca.',
     notas: n(9, 8, 8, 8, 8, 8, 8, 8),
     cor: COR.preto, visual: homem('swat', PELE.clara, { camisa: COR.preto, cabelo: CABELO.PRETO }),
+  },
+  {
+    id: 'big-boss', nome: 'BIG BOSS', etapa: 'mundial',
+    frase: 'Atacante Supremo.',
+    notas: n(10, 10, 10, 10, 9, 9, 10, 10),
+    cor: COR.preto, visual: homem('suit', PELE.clara, { camisa: COR.preto, cabelo: CABELO.PRETO }),
   },
 ];
 

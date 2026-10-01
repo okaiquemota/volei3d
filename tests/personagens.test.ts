@@ -35,10 +35,12 @@ test('toda nota e inteira, de 1 a 10, e ninguem esquece nenhuma', () => {
   }
 });
 
-test('cada etapa tem gente pra encher a chave', () => {
+test('cada etapa tem gente pra encher a chave, e no maximo dez', () => {
   for (const etapa of ETAPAS) {
     const n = elencoDaEtapa(etapa).length;
     assert.ok(n >= VAGAS_DA_CPU, `${etapa} tem ${n}, a chave precisa de ${VAGAS_DA_CPU}`);
+    // Dez e' o teto: a galera entra no lugar dos inventados, e nao por cima deles.
+    assert.ok(n <= 10, `${etapa} tem ${n}: o teto e' dez, tire um inventado pra cada um da galera que entrar`);
   }
 });
 
