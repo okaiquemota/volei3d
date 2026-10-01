@@ -120,7 +120,7 @@ const homem = (fonte: string, pele: number, muda?: Partial<Visual>): Visual => c
 const mulher = (fonte: string, pele: number, muda?: Partial<Visual>): Visual => corpo('feminino', fonte, pele, muda);
 
 /**
- * Os vinte e quatro.
+ * Os vinte e quatro, e a galera.
  *
  * Os nomes sao inventados e com apelido de praia — nome de atleta de verdade
  * aqui seria colocar gente real perdendo pra um boneco. E o apelido e'
@@ -237,6 +237,13 @@ export const ELENCO: readonly Personagem[] = [
     frase: 'Duas vezes campea estadual. Faz tudo bem, e sabe disso.',
     notas: n(6, 7, 6, 6, 7, 7, 7, 8),
     cor: COR.rosa, visual: mulher('suit', PELE.parda, { camisa: COR.rosa }),
+  },
+  // A galera: gente de verdade, pela Ficha da Galera, com as notas que deu pra si.
+  {
+    id: 'kaique-mota', nome: 'KAIQUE MOTA', etapa: 'estadual',
+    frase: 'O importante e participar.',
+    notas: n(4, 6, 5, 4, 8, 7, 5, 4),
+    cor: COR.roxo, visual: homem('suit', PELE.clara, { camisa: COR.roxo, cabelo: CABELO.PRETO }),
   },
 
   // ------------------------------------------------------------------ MUNDIAL

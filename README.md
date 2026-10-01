@@ -140,7 +140,7 @@ amistoso. **MEU JOGADOR** é o criador do seu atleta (ver *Monte o seu jogador*)
 | etapa | onde se joga | quem joga (geral) | por vitória | pelo título |
 |---|---|---|---|---|
 | **MUNICIPAL** | na praia | 8 personagens, de 1,9 a 4,1 | 10 | 30 |
-| **ESTADUAL** | no ginásio | 8 personagens, de 4,0 a 6,8 | 25 | 80 |
+| **ESTADUAL** | no ginásio | 9 personagens, de 4,0 a 6,8 | 25 | 80 |
 | **MUNDIAL** | no estádio, com torcida | 8 personagens, de 6,6 a 9,4 | 60 | 200 |
 
 Cada torneio é uma chave eliminatória de oito: quartas, semi e final. Ganhar a
@@ -155,8 +155,9 @@ sequência, saldo de pontos e o **retrospecto contra cada personagem**, e
 
 ### Os personagens
 
-São 24, oito por etapa, cada um com nome, frase, **um corpo próprio** (montado
-com as mesmas peças do criador — ver *Monte o seu jogador*) e uma **ficha de oito
+São 25, pelo menos oito por etapa: 24 inventados e a galera, que entra pela
+*Ficha da Galera*. Cada um tem nome, frase, **um corpo próprio** (montado com
+as mesmas peças do criador — ver *Monte o seu jogador*) e uma **ficha de oito
 notas de 1 a 10**:
 
 | nota | o que ela mexe em quadra |
@@ -551,7 +552,7 @@ src/
     olhar.ts            a cabeça acompanhando a bola, por cima do clipe
   match/Match.ts        placar, saque, toques, fim de jogo — lógica pura
   match/Circuito.ts     torneios, chave e carreira — lógica pura
-  match/personagens.ts  o ELENCO: 24 personagens e as notas deles
+  match/personagens.ts  o ELENCO: os personagens e as notas deles
   match/habilidade.ts   de notas de 1 a 10 pra números de jogo
   match/salvar.ts       o progresso no localStorage, à prova de falha
   ui/

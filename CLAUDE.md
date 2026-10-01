@@ -1659,6 +1659,18 @@ da ficha, e quase sempre a da camisa. Os testes conferem que todo corpo do
 elenco fecha, que não há dois iguais, e que as jogadoras usam o esqueleto
 feminino.
 
+**A galera entra pela Ficha da Galera** (o artefato
+https://claude.ai/artifact/RGUTPF8Mat9R3Q18xBNxoZ). Cada pessoa preenche a própria
+ficha e manda o texto de volta; a última linha, `VOLEI3D1:<base64url>`, é um JSON
+`{n, c: 'm'|'f', v: fonte do pack, p, h, k, a: [8 notas], f}` em que `p`, `h` e `k`
+são índices em `PELES`, `CABELOS` (−1 = como veio) e nas cores da ficha (as
+`CORES_DE_ROUPA` sem azul e sem jeans, na mesma ordem). O dono cola as fichas na
+página e elas ficam na coleção `galera`, já com as cores em hex; dali cada uma
+vira uma linha do `ELENCO` com `homem/mulher(fonte, pele, { camisa: cor, cabelo })`,
+`cor` = a cor da ficha, e a etapa pelo geral (até 4,2 municipal, até 6,8
+estadual). A frase perde o acento, como todo texto do jogo. Uma etapa com mais de
+oito ganha colunas na tela de adversários (`--colunas`), não uma terceira fileira.
+
 O save guarda o **id** do personagem na chave, e não a ficha. Ajustar uma nota
 vale até pro torneio salvo no meio. O outro lado disso: torneio com id que o
 elenco não conhece é descartado ao carregar (a carreira fica) — é o que limpa os

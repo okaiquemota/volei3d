@@ -160,6 +160,7 @@ export class TelaElenco {
 
     // Do mais forte pro mais fraco, numerado: e' o ranking da etapa.
     const daEtapa = elencoDaEtapa(this.etapa);
+    this.lista.style.setProperty('--colunas', String(Math.min(6, Math.max(4, Math.ceil(daEtapa.length / 2)))));
     const escolhido = daEtapa.find((p) => p.id === this.escolhido) ?? daEtapa[0]!;
 
     this.lista.replaceChildren(...daEtapa.map((p, i) => {

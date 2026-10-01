@@ -1396,8 +1396,13 @@ body.tela-aberta.veu-livre #veu { opacity: 0; }
   min-height: 0;
 }
 
-/* As cartas: 4 x 2, como um album. A cor de cima e' a do personagem de novo. */
-.elenco-lista { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.7rem; }
+/*
+ * As cartas: duas fileiras, como um album. Quatro colunas com oito na etapa;
+ * com a galera entrando a etapa passa de oito, e as colunas crescem (ate' seis)
+ * em vez de abrir uma terceira fileira por cima do rodape. A cor de cima e' a
+ * do personagem de novo.
+ */
+.elenco-lista { display: grid; grid-template-columns: repeat(var(--colunas, 4), minmax(0, 1fr)); gap: 0.7rem; }
 .carta {
   position: relative;
   display: grid;
