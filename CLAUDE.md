@@ -1853,7 +1853,10 @@ extra, mas o render target sai em espaço linear e sem tone mapping, e a foto
 teria que ser convertida à mão.
 
 E o criador não tem prévia: o boneco é o banhista posado no fundo da quadra em
-foco (`Game.cameraDoCriador`), com a câmera do jogo de frente. `Banhista.posar`
+foco (`Game.cameraDoCriador`), com a câmera do jogo de frente. Ele é a única tela
+SEM o véu escuro (`body.veu-livre`): o véu existe pra o texto ler sobre a cena,
+mas ali a cena é o assunto, e o escuro por cima apagava a cor que se estava
+escolhendo. O texto se segura com sombra e as linhas com vidro próprio. `Banhista.posar`
 mexe só no desenho, nunca no `Motor` — fechado o criador, o próximo `update`
 devolve o corpo pra onde ele estava.
 

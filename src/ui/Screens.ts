@@ -452,6 +452,9 @@ export class Screens {
   private sincronizarVeu(atraso?: number): void {
     const aberta = this.telaAberta();
     document.body.classList.toggle('tela-aberta', aberta !== null);
+    // No criador o veu sai: o boneco e' o assunto da tela, e o escuro por cima
+    // dele escondia justamente a cor que se esta' escolhendo.
+    document.body.classList.toggle('veu-livre', aberta === this.jogador);
     if (this.abertaAntes && this.abertaAntes !== aberta) this.nav.aoFechar(this.abertaAntes);
     this.abertaAntes = aberta;
 
