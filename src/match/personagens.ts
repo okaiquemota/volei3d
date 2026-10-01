@@ -188,6 +188,13 @@ export const ELENCO: readonly Personagem[] = [
     notas: n(4, 4, 4, 4, 4, 4, 4, 5),
     cor: COR.verde, visual: homem('casual_hoodie', PELE.negra, { camisa: COR.verde }),
   },
+  // A galera: gente de verdade, pela Ficha da Galera, com as notas que deu pra si.
+  {
+    id: 'stefany-hallal', nome: 'STEFANY HALLAL', etapa: 'municipal',
+    frase: 'Recebo bem no meio.',
+    notas: n(6, 5, 5, 1, 3, 5, 6, 1),
+    cor: COR.cinza, visual: mulher('suit', PELE.clara, { camisa: COR.cinza, cabelo: CABELO.CASTANHO }),
+  },
 
   // ----------------------------------------------------------------- ESTADUAL
   {
