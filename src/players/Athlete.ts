@@ -3,8 +3,8 @@ import { AI, BALL, COURT, PLAYER } from '../config';
 import type { Ball, Tocador } from '../ball/Ball';
 import { Court, oposto, type Side } from '../world/Court';
 import { BOLA_NA_MAO, construirAtleta, type AtletaVisual } from './buildAthlete';
-import { copiarModelo, vestirModelo, type ModeloDoAtleta } from './buildAtletaModelo';
-import type { Aparencia } from '../match/personagens';
+import { Corpos } from './montarCorpo';
+import { VISUAL_PADRAO, chaveDoVisual, type Visual } from './corpos';
 import { Animador, estadoDoMotor } from './Animador';
 import type { EstadoDoCorpo } from './animacoes';
 import { Hitter, type Acao } from './Hitter';
@@ -50,15 +50,21 @@ export abstract class Athlete implements Tocador {
 
   /** O corpo de modelo, quando ha' um. Null enquanto o atleta e' capsula. */
   private corpo: THREE.Object3D | null = null;
+  /** As pecas do pack, quando chegam. */
+  private corpos: Corpos | null = null;
+  /** De que combinacao e' o corpo montado agora: vestir de novo o mesmo nao remonta. */
+  private montado = '';
 
   /**
-   * As cores de quem este atleta e', ou null pra roupa do time.
+   * Quem este atleta parece, ou null pro corpo de sempre dele (`visualPadrao`).
    *
-   * Guardada, e nao so' aplicada: o modelo chega DEPOIS (carrega em segundo
+   * Guardado, e nao so' aplicado: as pecas chegam DEPOIS (carregam em segundo
    * plano), e um personagem vestido enquanto ainda era capsula tem que
    * continuar vestido quando o boneco aparecer.
    */
-  private aparencia: Aparencia | null = null;
+  private aparencia: Visual | null = null;
+  /** O corpo de quem nao e' personagem. A CPU sorteia o dela. */
+  protected visualPadrao: Visual = VISUAL_PADRAO;
   private animador: Animador | null = null;
   private olhar: Olhar | null = null;
   /** Os dois ossos que marcam a palma esquerda: a bola do saque vai em cima. */
@@ -149,9 +155,34 @@ export abstract class Athlete implements Tocador {
    * pele entra dentro dela. Por isso o tombo do mergulho, o giro do corpo e o
    * limite de area continuam funcionando sem saber que o desenho mudou.
    */
-  usarModelo(modelo: ModeloDoAtleta | null): void {
+  usarModelo(corpos: Corpos | null): void {
+    this.corpos = corpos;
+    this.montado = '';
+    this.remontar();
+  }
+
+  /** Veste um corpo. `null` volta pro corpo de sempre deste atleta. */
+  vestir(visual: Visual | null): void {
+    this.aparencia = visual;
+    const v = visual ?? this.visualPadrao;
+    this.visual.pintar(v.camisa ?? this.cor);
+    this.remontar();
+  }
+
+  /** O corpo que este atleta esta' usando agora. */
+  get visualAtual(): Visual {
+    return this.aparencia ?? this.visualPadrao;
+  }
+
+  private remontar(): void {
+    const v = this.visualAtual;
+    const chave = this.corpos ? chaveDoVisual(v) : '';
+    if (chave === this.montado && (this.corpo !== null) === (this.corpos !== null)) return;
+    this.montado = chave;
+
     if (this.corpo) {
       this.visual.root.remove(this.corpo);
+      Corpos.descartar(this.corpo);
       this.corpo = null;
     }
     this.animador?.dispose();
@@ -160,11 +191,10 @@ export abstract class Athlete implements Tocador {
     this.palma = null;
     this.visual.ancoraDeSaque.position.set(BOLA_NA_MAO.lado, COURT.serveBallHeight, BOLA_NA_MAO.frente);
 
-    if (modelo) {
-      this.corpo = copiarModelo(modelo.molde, this.cor);
-      vestirModelo(this.corpo, this.aparencia, this.cor);
+    if (this.corpos) {
+      this.corpo = this.corpos.montar(v);
       this.visual.root.add(this.corpo);
-      this.animador = new Animador(this.corpo, modelo.animacoes);
+      this.animador = new Animador(this.corpo, this.corpos.animacoes(v.familia));
       // Depois de pendurar na raiz: o olhar mede a frente da cabeca contra ela.
       this.olhar = new Olhar(this.visual.root, this.corpo);
       const base = this.corpo.getObjectByName('Middle1L');
@@ -172,14 +202,7 @@ export abstract class Athlete implements Tocador {
       this.palma = base && ponta ? [base, ponta] : null;
     }
 
-    this.visual.capsulas.visible = modelo === null;
-  }
-
-  /** Veste as cores de um personagem. `null` volta pra roupa do time. */
-  vestir(aparencia: Aparencia | null): void {
-    this.aparencia = aparencia;
-    this.visual.pintar(aparencia?.colete ?? this.cor);
-    if (this.corpo) vestirModelo(this.corpo, aparencia, this.cor);
+    this.visual.capsulas.visible = this.corpos === null;
   }
 
   /** Leva a posicao do motor pro objeto da cena. Chamar no fim do update. */
@@ -296,6 +319,7 @@ export abstract class Athlete implements Tocador {
 
   dispose(): void {
     this.animador?.dispose();
+    if (this.corpo) Corpos.descartar(this.corpo);
     this.visual.dispose();
   }
 }

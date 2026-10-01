@@ -5,6 +5,7 @@ import { CORPO_PADRAO, fichaDe } from '../match/habilidade';
 import type { Personagem } from '../match/personagens';
 import { oposto } from '../world/Court';
 import { Athlete } from './Athlete';
+import { visualSorteado, type Visual } from './corpos';
 import type { Acao } from './Hitter';
 
 const _pouso = new THREE.Vector3();
@@ -29,6 +30,11 @@ const _direcao = new THREE.Vector3();
  */
 export class AIPlayer extends Athlete {
   private habilidade: AiSkill = AI_SKILL.normal;
+  /**
+   * A CPU sem nome tem um corpo qualquer, sorteado quando ela nasce. Sem isso
+   * as quatro CPUs das quadras seriam o mesmo boneco repetido.
+   */
+  protected override visualPadrao: Visual = visualSorteado(Math.random);
   private alvoDeCorrida = new THREE.Vector3();
   private esperaDoSaque = 0;
   private esperaDeDecisao = 0;

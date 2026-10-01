@@ -3,7 +3,7 @@ import { ESTADIO, COLORS, COURT, MATCH, REDE } from '../config';
 import { Ball } from '../ball/Ball';
 import { LigacaoDoRally, Match, type EventosDaPartida } from '../match/Match';
 import { AIPlayer } from '../players/AI';
-import type { ModeloDoAtleta } from '../players/buildAtletaModelo';
+import type { Corpos } from '../players/montarCorpo';
 import type { Athlete } from '../players/Athlete';
 import { Human } from '../players/Human';
 import { Court, sinalDe, type Side } from './Court';
@@ -240,9 +240,9 @@ export class Arena {
    * lembrar qual e' a pele, entrar numa quadra devolveria uma capsula no meio
    * de dois bonecos.
    */
-  private modeloDoAtleta: ModeloDoAtleta | null = null;
+  private modeloDoAtleta: Corpos | null = null;
 
-  usarModeloDeAtleta(modelo: ModeloDoAtleta | null): void {
+  usarModeloDeAtleta(modelo: Corpos | null): void {
     this.modeloDoAtleta = modelo;
     this.home.usarModelo(modelo);
     this.away.usarModelo(modelo);

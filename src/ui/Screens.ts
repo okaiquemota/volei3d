@@ -7,7 +7,10 @@ import type { Personagem } from '../match/personagens';
 import { chip, el, icone } from './dom';
 import { EVENTO_DE_PASSO, Navegacao, type Passo } from './navegacao';
 import { desenharCarreira, desenharChave, desenharEtapas } from './TelaCircuito';
-import { APARENCIA_DE_VOCE, TelaElenco, desenharBoneco } from './TelaElenco';
+import { TelaElenco } from './TelaElenco';
+import { TelaJogador } from './TelaJogador';
+import { desenharRetrato } from './retratos';
+import { VISUAL_PADRAO, type Visual } from '../players/corpos';
 
 export type Dificuldade = 'facil' | 'normal' | 'dificil';
 
@@ -129,6 +132,13 @@ export class Screens {
   private chaveArvore = elemento('chave-arvore');
   private chaveProximo = elemento('chave-proximo');
   private elenco = elemento('elenco');
+  private jogador = elemento('jogador');
+  private retratoDoBloco = elemento('tile-jogador-retrato');
+  private telaJogador = new TelaJogador(
+    elemento('criador-opcoes'),
+    elemento('criador-aviso'),
+    (v) => this.aoMudarJogador?.(v),
+  );
   private telaElenco = new TelaElenco(
     elemento('elenco-abas'),
     elemento('elenco-lista'),
@@ -155,6 +165,8 @@ export class Screens {
 
   /** De onde o menu le' a carreira. O Game liga; sem ele, o perfil some. */
   progresso: (() => Progresso) | null = null;
+  /** O seu corpo, do criador: o retrato do perfil e do VS. O Game liga. */
+  meuVisual: () => Visual = () => VISUAL_PADRAO;
 
   /** AMISTOSO no menu: contra a CPU sem nome, na dificuldade escolhida. */
   aoJogar: (() => void) | null = null;
@@ -184,6 +196,12 @@ export class Screens {
   /** DESAFIAR na ficha: amistoso contra aquele personagem. */
   aoDesafiar: ((p: Personagem) => void) | null = null;
 
+  /** MEU JOGADOR: abriu o criador, mudou uma escolha, girou o boneco, voltou. */
+  aoAbrirJogador: (() => void) | null = null;
+  aoMudarJogador: ((v: Visual) => void) | null = null;
+  aoGirarJogador: ((radianos: number) => void) | null = null;
+  aoVoltarDoJogador: (() => void) | null = null;
+
   constructor() {
     this.telas = [...this.raiz.querySelectorAll<HTMLElement>('.tela')];
     this.nav = new Navegacao(this.raiz, () => this.telaAberta());
@@ -206,6 +224,10 @@ export class Screens {
     ligar('btn-chave-jogar', () => this.aoJogarPartidaDoCircuito?.());
     ligar('btn-chave-voltar', () => this.aoAbrirCircuito?.());
     ligar('btn-go-circuito', () => this.aoSeguirNoCircuito?.());
+    ligar('btn-jogador', () => this.aoAbrirJogador?.());
+    ligar('btn-jogador-voltar', () => this.aoVoltarDoJogador?.());
+    ligar('btn-jogador-sortear', () => this.telaJogador.sortear());
+    this.ligarGiroDoBoneco();
 
     // As sub-telas: quem as abre diz qual, e o VOLTAR de dentro devolve.
     for (const botao of this.raiz.querySelectorAll<HTMLElement>('[data-tela]')) {
@@ -215,6 +237,12 @@ export class Screens {
       elemento(id).querySelector('[data-voltar]')?.addEventListener('click', () => this.voltarDaSubtela());
     }
 
+    // Q/E giram de 45 graus: tres toques e o boneco esta' de costas.
+    this.nav.registrar('jogador', {
+      KeyQ: () => this.aoGirarJogador?.(-Math.PI / 4),
+      KeyE: () => this.aoGirarJogador?.(Math.PI / 4),
+      KeyR: () => this.telaJogador.sortear(),
+    });
     this.nav.registrar('elenco', {
       KeyQ: () => this.telaElenco.trocarEtapa(-1),
       KeyE: () => this.telaElenco.trocarEtapa(1),
@@ -344,6 +372,7 @@ export class Screens {
       `Contra a CPU · ${NOME_DA_DIFICULDADE[dificuldade]} · ${NOME_DO_CENARIO[cenario]}`;
     this.descDosAjustes.textContent =
       `${NOME_DA_DIFICULDADE[dificuldade]} · ${NOME_DO_CENARIO[cenario]} · ${Math.round(resolucao * 100)}%`;
+    this.retratoDoBloco.replaceChildren(desenharRetrato(this.meuVisual(), 'carta'));
 
     const p = this.progresso?.();
     this.perfil.classList.toggle('hidden', !p);
@@ -352,7 +381,7 @@ export class Screens {
     const titulos = ETAPAS.reduce((n, e) => n + c.titulos[e], 0);
 
     const retrato = el('div', 'perfil-retrato');
-    retrato.append(desenharBoneco(APARENCIA_DE_VOCE));
+    retrato.append(desenharRetrato(this.meuVisual(), 'busto'));
     const numeros = el('div', 'perfil-numeros');
     for (const [rotulo, valor] of [['RANKING', c.ranking], ['TITULOS', titulos], ['V-D', `${c.vitorias}-${c.derrotas}`]] as const) {
       const n = el('span', '', rotulo);
@@ -566,7 +595,7 @@ export class Screens {
 
   mostrarChave(visivel: boolean, torneio?: Torneio, carreira?: Carreira): void {
     if (visivel && torneio) {
-      desenharChave(this.chaveArvore, this.chaveProximo, this.chaveTitulo, this.chaveRodada, torneio, carreira);
+      desenharChave(this.chaveArvore, this.chaveProximo, this.chaveTitulo, this.chaveRodada, torneio, this.meuVisual(), carreira);
       // Sem adversario (campeao ou eliminado) nao ha' partida pra jogar.
       elemento('btn-chave-jogar').classList.toggle('hidden', adversarioAtual(torneio) === null);
     }
@@ -579,6 +608,34 @@ export class Screens {
     if (visivel && carreira) this.telaElenco.mostrar(carreira);
     this.elenco.classList.toggle('hidden', !visivel);
     this.sincronizarVeu();
+  }
+
+  /** MEU JOGADOR. Quem posa e' o Game; daqui sai so' a lista de escolhas. */
+  mostrarJogador(visivel: boolean, v?: Visual): void {
+    if (visivel && v) this.telaJogador.mostrar(v);
+    this.jogador.classList.toggle('hidden', !visivel);
+    this.sincronizarVeu();
+  }
+
+  /**
+   * Arrastar na metade vazia da tela gira o boneco, como um provador de jogo.
+   * So' fora do painel: arrastar em cima de uma linha e' clicar nela.
+   */
+  private ligarGiroDoBoneco(): void {
+    let x: number | null = null;
+    this.jogador.addEventListener('pointerdown', (e) => {
+      if ((e.target as Element).closest('.painel, .rodape, .cabecalho')) return;
+      x = e.clientX;
+      this.jogador.setPointerCapture(e.pointerId);
+    });
+    this.jogador.addEventListener('pointermove', (e) => {
+      if (x === null) return;
+      this.aoGirarJogador?.((e.clientX - x) * 0.012);
+      x = e.clientX;
+    });
+    const soltar = (): void => { x = null; };
+    this.jogador.addEventListener('pointerup', soltar);
+    this.jogador.addEventListener('pointercancel', soltar);
   }
 
   esconderFim(): void {

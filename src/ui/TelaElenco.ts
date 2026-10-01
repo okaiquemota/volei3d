@@ -1,10 +1,10 @@
 import { DEFINICAO, ETAPAS, type Carreira, type Etapa, type Retrospecto } from '../match/Circuito';
 import {
   ATRIBUTOS, DESCRICAO_DO_ATRIBUTO, NOME_DO_ATRIBUTO, elencoDaEtapa, estiloDe, geralEscrito,
-  type Aparencia, type Personagem,
+  type Personagem,
 } from '../match/personagens';
-import { COLORS } from '../config';
 import { corCss, el } from './dom';
+import { desenharRetrato } from './retratos';
 
 /**
  * A FICHA de um personagem, e a tela que lista todos eles.
@@ -12,59 +12,6 @@ import { corCss, el } from './dom';
  * So' desenha, como o `TelaCircuito`: o estado vem de fora, e o unico efeito
  * que sai daqui e' o clique no DESAFIAR, que volta por callback.
  */
-
-const SVG = 'http://www.w3.org/2000/svg';
-
-/**
- * Voce, em bonequinho: as cores do modelo como ele vem, com o colete do time.
- *
- * O jogador nao tem ficha nem `Aparencia` — veste o que o modelo traz. Isto e'
- * so' o retrato do perfil e do VS, e por isso mora aqui, com o desenho.
- */
-export const APARENCIA_DE_VOCE: Aparencia = {
-  pele: 0xd8a47a, colete: COLORS.home, camisa: 0x8e9296, calca: 0x5a4a34, capacete: 0xf0b92a, bigode: true,
-};
-
-function forma(tag: string, atributos: Record<string, string | number>): SVGElement {
-  const e = document.createElementNS(SVG, tag);
-  for (const [k, v] of Object.entries(atributos)) e.setAttribute(k, String(v));
-  return e;
-}
-
-/**
- * O bonequinho, nas cores do personagem.
- *
- * Nao e' retrato: e' a MESMA divisao de cores do boneco 3D — capacete, pele,
- * camisa, colete com a faixa do capacete, calca — pra que quem olhou a ficha
- * reconheca o adversario do outro lado da rede sem ler o placar.
- */
-export function desenharBoneco(a: Aparencia): SVGElement {
-  const svg = forma('svg', { viewBox: '0 0 40 64', class: 'boneco', 'aria-hidden': 'true' });
-  const cor = (x: number): string => corCss(x);
-
-  svg.append(
-    // bracos (manga da camisa) e maos
-    forma('rect', { x: 5, y: 25, width: 6, height: 15, rx: 3, fill: cor(a.camisa) }),
-    forma('rect', { x: 29, y: 25, width: 6, height: 15, rx: 3, fill: cor(a.camisa) }),
-    forma('circle', { cx: 8, cy: 42, r: 2.6, fill: cor(a.pele) }),
-    forma('circle', { cx: 32, cy: 42, r: 2.6, fill: cor(a.pele) }),
-    // pernas e botas
-    forma('rect', { x: 13, y: 41, width: 6.5, height: 16, rx: 2, fill: cor(a.calca) }),
-    forma('rect', { x: 20.5, y: 41, width: 6.5, height: 16, rx: 2, fill: cor(a.calca) }),
-    forma('rect', { x: 12, y: 56, width: 8, height: 4, rx: 1.5, fill: '#2a2b2e' }),
-    forma('rect', { x: 20, y: 56, width: 8, height: 4, rx: 1.5, fill: '#2a2b2e' }),
-    // tronco: camisa, colete por cima, faixa do colete
-    forma('rect', { x: 10, y: 24, width: 20, height: 19, rx: 4, fill: cor(a.camisa) }),
-    forma('rect', { x: 12.5, y: 24, width: 15, height: 18, rx: 2.5, fill: cor(a.colete) }),
-    forma('rect', { x: 12.5, y: 33, width: 15, height: 2.2, fill: cor(a.capacete) }),
-    // cabeca e capacete
-    forma('circle', { cx: 20, cy: 16, r: 7, fill: cor(a.pele) }),
-    forma('path', { d: 'M12.2 14.2 a7.8 7.8 0 0 1 15.6 0 z', fill: cor(a.capacete) }),
-    forma('rect', { x: 11, y: 13.2, width: 18, height: 2.2, rx: 1, fill: cor(a.capacete) }),
-  );
-  if (a.bigode) svg.append(forma('rect', { x: 16.5, y: 19, width: 7, height: 1.8, rx: 0.9, fill: '#3b2415' }));
-  return svg;
-}
 
 /** A faixa de cor da nota. Ler 10 barras iguais cansa; quatro tons se leem de relance. */
 function faixa(nota: number): string {
@@ -99,10 +46,10 @@ export interface OpcoesDaFicha {
  */
 export function desenharFicha(p: Personagem, opcoes: OpcoesDaFicha = {}): HTMLElement {
   const ficha = el('article', 'ficha');
-  ficha.style.setProperty('--cor', corCss(p.visual.colete));
+  ficha.style.setProperty('--cor', corCss(p.cor));
 
   const retrato = el('div', 'ficha-retrato');
-  retrato.append(desenharBoneco(p.visual));
+  retrato.append(desenharRetrato(p.visual, 'busto'));
 
   const quem = el('div', 'ficha-quem');
   quem.append(
@@ -218,7 +165,7 @@ export class TelaElenco {
     this.lista.replaceChildren(...daEtapa.map((p, i) => {
       const carta = el('button', 'carta');
       carta.type = 'button';
-      carta.style.setProperty('--cor', corCss(p.visual.colete));
+      carta.style.setProperty('--cor', corCss(p.cor));
       carta.style.setProperty('--i', String(i));
       carta.setAttribute('aria-pressed', String(p === escolhido));
       // A carta escolhida e' a selecao inicial da tela, e nao a primeira aba.
@@ -227,7 +174,7 @@ export class TelaElenco {
 
       const rotulos = el('span', 'carta-rotulos');
       rotulos.append(el('span', 'n', p.nome), el('span', 'e', estiloDe(p)));
-      carta.append(el('b', 'g', geralEscrito(p)), el('span', 'pos', `#${i + 1}`), desenharBoneco(p.visual), rotulos);
+      carta.append(el('b', 'g', geralEscrito(p)), el('span', 'pos', `#${i + 1}`), desenharRetrato(p.visual, 'carta'), rotulos);
 
       const escolher = (): void => {
         if (this.escolhido === p.id) return;

@@ -5,13 +5,19 @@ import { clamp } from '../core/math';
 import type { Court } from '../world/Court';
 import { LIMITE_DA_PRAIA } from '../world/praia';
 import { construirAtleta, type AtletaVisual } from './buildAthlete';
-import { copiarModelo, type ModeloDoAtleta } from './buildAtletaModelo';
+import { Corpos } from './montarCorpo';
+import { VISUAL_PADRAO, chaveDoVisual, type Visual } from './corpos';
 import { Animador, estadoDoMotor } from './Animador';
 import type { EstadoDoCorpo } from './animacoes';
 import { Motor } from './Motor';
 import { direcaoDoTeclado } from './controle';
 
 const _direcao = new THREE.Vector3();
+/** Parado, pro criador: de pe', sem andar, sem gesto. */
+const PARADO: Readonly<EstadoDoCorpo> = {
+  noChao: true, mergulhando: false, levantando: false, pousando: false, segurandoBola: false,
+  velocidade: 0, anguloDoAndar: 0, gesto: null, marcaDoGesto: 0,
+};
 // Sem gesto, sempre: quem passeia pela praia nao toca em bola.
 const _estado: EstadoDoCorpo = {
   noChao: true, mergulhando: false, levantando: false, pousando: false, segurandoBola: false,
@@ -44,8 +50,12 @@ export class Banhista {
   input: Input | null = null;
 
   private corpo: THREE.Object3D | null = null;
+  private corpos: Corpos | null = null;
   private animador: Animador | null = null;
   private readonly cor: number;
+  /** Voce: o corpo que o criador montou. */
+  private aparencia: Visual = VISUAL_PADRAO;
+  private montado = '';
 
   /**
    * As quadras que ele nao pode atravessar.
@@ -85,24 +95,41 @@ export class Banhista {
    *
    * Duplicada e nao herdada porque `Banhista` NAO e' um `Athlete` — e' a
    * decisao que abre este arquivo. O que os dois compartilham de verdade
-   * (`Motor`, `Animador`, a leitura do estado) ja' esta' compartilhado; o que
-   * sobra aqui sao seis linhas de plumbing.
+   * (`Motor`, `Animador`, a leitura do estado, a montagem em `Corpos`) ja'
+   * esta' compartilhado; o que sobra aqui e' guardar e trocar a pele.
    */
-  usarModelo(modelo: ModeloDoAtleta | null): void {
+  usarModelo(corpos: Corpos | null): void {
+    this.corpos = corpos;
+    this.montado = '';
+    this.remontar();
+  }
+
+  vestir(visual: Visual): void {
+    this.aparencia = visual;
+    this.visual.pintar(visual.camisa ?? this.cor);
+    this.remontar();
+  }
+
+  private remontar(): void {
+    const chave = this.corpos ? chaveDoVisual(this.aparencia) : '';
+    if (chave === this.montado && (this.corpo !== null) === (this.corpos !== null)) return;
+    this.montado = chave;
+
     if (this.corpo) {
       this.visual.root.remove(this.corpo);
+      Corpos.descartar(this.corpo);
       this.corpo = null;
     }
     this.animador?.dispose();
     this.animador = null;
 
-    if (modelo) {
-      this.corpo = copiarModelo(modelo.molde, this.cor);
+    if (this.corpos) {
+      this.corpo = this.corpos.montar(this.aparencia);
       this.visual.root.add(this.corpo);
-      this.animador = new Animador(this.corpo, modelo.animacoes);
+      this.animador = new Animador(this.corpo, this.corpos.animacoes(this.aparencia.familia));
     }
 
-    this.visual.capsulas.visible = modelo === null;
+    this.visual.capsulas.visible = this.corpos === null;
   }
 
   get objeto(): THREE.Object3D { return this.visual.root; }
@@ -112,6 +139,18 @@ export class Banhista {
   colocarEm(posicao: THREE.Vector3, olharPara: THREE.Vector3): void {
     this.motor.colocarEm(posicao, olharPara);
     this.visual.root.position.copy(this.motor.posicao);
+  }
+
+  /**
+   * Posando no criador: num ponto, virado pra `giro`, na espera do pack.
+   *
+   * Mexe so' no desenho, e nao no `Motor`: fechado o criador, o proximo
+   * `update` devolve o corpo pra onde o motor esta'.
+   */
+  posar(posicao: THREE.Vector3, giro: number, dt: number): void {
+    this.visual.root.position.copy(posicao);
+    this.visual.root.rotation.set(0, giro, 0);
+    this.animador?.update(PARADO, dt);
   }
 
   update(dt: number): void {
@@ -134,6 +173,7 @@ export class Banhista {
 
   dispose(): void {
     this.animador?.dispose();
+    if (this.corpo) Corpos.descartar(this.corpo);
     this.visual.dispose();
   }
 }

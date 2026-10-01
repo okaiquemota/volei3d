@@ -8,7 +8,10 @@ import { HUD } from '../ui/HUD';
 import { Screens, type Cenario, type PlacarDaPausa } from '../ui/Screens';
 import { Human } from '../players/Human';
 import { Banhista } from '../players/Banhista';
-import { carregarAtletaModelo, type ModeloDoAtleta } from '../players/buildAtletaModelo';
+import { carregarCorpos } from '../players/carregarCorpos';
+import { carregarMeuVisual, guardarMeuVisual, type Visual } from '../players/corpos';
+import type { Corpos } from '../players/montarCorpo';
+import { usarCorposNosRetratos } from '../ui/retratos';
 import { AIPlayer } from '../players/AI';
 import { descartarGeometriasDeAtleta } from '../players/buildAthlete';
 import { Arena } from '../world/Arena';
@@ -34,6 +37,25 @@ const _olhar = new THREE.Vector3();
 const _centroDoMenu = new THREE.Vector3();
 const _destinoDoVoo = new THREE.Vector3();
 const _giroDoVoo = new THREE.Quaternion();
+const _cameraAlvo = new THREE.Vector3();
+
+/**
+ * O criador de personagem: onde o boneco posa e de onde a camera olha, em
+ * metros da quadra em foco. Ao lado da quadra, fora da areia de jogo, com a
+ * camera de fora pra dentro — o fundo e' a rede e a quadra.
+ */
+const CRIADOR = {
+  /** O boneco: alem da lateral, na altura do meio da quadra. */
+  boneco: { lado: 3, fundo: 3 },
+  /** A camera: um passo a' frente dele e na altura do peito. */
+  camera: { frente: 4.1, lado: 1.0, altura: 1.2 },
+  alturaDoOlhar: 0.95,
+  /** Vira o olhar pra esquerda: joga o boneco pra direita, longe do painel. */
+  desvio: 0.3,
+  /** Quanto a camera leva pra chegar, e pra voltar ao menu. Relogio, nao jogo. */
+  voo: 0.9,
+};
+const suave = (t: number): number => t * t * (3 - 2 * t);
 
 /** Segundos do voo da camera, do menu ate' atras do jogador. */
 const VOO_DO_MENU = 1.3;
@@ -111,6 +133,9 @@ export class Game {
   private modo: 'amistoso' | 'circuito' = 'amistoso';
   private readonly armazem = armazemDoNavegador();
   private progresso: Progresso = carregar(this.armazem);
+  /** O seu corpo, do criador. Guardado a parte do circuito: nao e' progresso. */
+  private meuVisual: Visual = carregarMeuVisual(this.armazem);
+
   private cenarioForcado: Cenario | null = null;
   /** O adversario da partida do circuito em curso. Null no amistoso. */
   private adversario: Jogador | null = null;
@@ -130,13 +155,13 @@ export class Game {
   private ceu!: CeuConstruido;
 
   /**
-   * O corpo de modelo dos atletas, quando ele chega.
+   * As pecas de corpo dos atletas, quando chegam.
    *
    * Mesmo desenho da quadra de modelo: carrega em segundo plano, e ate' chegar
-   * todo mundo joga de capsula. Sao 1,5 MB — travar a primeira pintura por
+   * todo mundo joga de capsula. Sao 4 MB — travar a primeira pintura por
    * causa disso seria pagar caro pelo que e' so' aparencia.
    */
-  private modeloDoAtleta: ModeloDoAtleta | null = null;
+  private corpos: Corpos | null = null;
 
   /**
    * As quadras que estao VIVAS: desenhadas e simuladas.
@@ -223,6 +248,17 @@ export class Game {
   private poseDoMenu: { posicao: THREE.Vector3; giro: THREE.Quaternion } | null = null;
   /** O voo em andamento: de onde saiu, e quanto ja' andou (0 a 1). */
   private voo: { posicao: THREE.Vector3; giro: THREE.Quaternion; t: number } | null = null;
+
+  /**
+   * O criador aberto: o giro que o jogador pediu, o giro que o boneco ja'
+   * fez (anda atras do pedido, pra virar e nao saltar), de onde a camera
+   * saiu e quanto do voo ja' foi.
+   */
+  private criador: {
+    giro: number; giroVisto: number; de: { posicao: THREE.Vector3; giro: THREE.Quaternion }; t: number; visivelAntes: boolean;
+  } | null = null;
+  /** A camera voltando do criador pra volta do menu. */
+  private voltaDoCriador: { posicao: THREE.Vector3; giro: THREE.Quaternion; t: number } | null = null;
   private lastTime = 0;
   private lastFrameDt = 0;
   private resolution = 1;
@@ -310,6 +346,7 @@ export class Game {
     this.banhista = new Banhista(COLORS.home, this.arenas.map((a) => a.court));
     this.banhista.camera = this.camera;
     this.banhista.input = this.input;
+    this.banhista.vestir(this.meuVisual);
     this.banhista.objeto.visible = false;
     this.scene.add(this.banhista.objeto);
     this.descartaveis.push(this.banhista);
@@ -443,6 +480,10 @@ export class Game {
   private ligarTelas(): void {
     this.screens.aoJogar = () => { this.desafiado = null; this.comecarAmistoso(); };
     this.screens.aoJogarDeNovo = () => this.comecarAmistoso();
+    this.screens.aoAbrirJogador = () => this.abrirCriador();
+    this.screens.aoVoltarDoJogador = () => this.fecharCriador();
+    this.screens.aoMudarJogador = (v) => this.mudarMeuVisual(v);
+    this.screens.aoGirarJogador = (r) => { if (this.criador) this.criador.giro += r; };
     this.screens.aoAbrirElenco = () => this.abrirElenco();
     this.screens.aoVoltarDoElenco = () => this.voltarDoElenco();
     this.screens.aoDesafiar = (p) => this.desafiar(p);
@@ -457,6 +498,7 @@ export class Game {
     this.screens.aoIrProMenu = () => this.menuDepoisDoFim();
     this.screens.aoMudarAjustes = () => this.aplicarAjustes();
     this.screens.progresso = () => ({ carreira: this.progresso.carreira, torneio: this.progresso.torneio });
+    this.screens.meuVisual = () => this.meuVisual;
 
     this.screens.mostrarMenu(true);
     this.hud.definirNomes(MEU_NOME, 'CPU');
@@ -479,9 +521,10 @@ export class Game {
    */
   private async buscarModeloDoAtleta(): Promise<void> {
     try {
-      this.modeloDoAtleta = await carregarAtletaModelo();
-      for (const arena of this.arenas) arena.usarModeloDeAtleta(this.modeloDoAtleta);
-      this.banhista.usarModelo(this.modeloDoAtleta);
+      this.corpos = await carregarCorpos();
+      for (const arena of this.arenas) arena.usarModeloDeAtleta(this.corpos);
+      this.banhista.usarModelo(this.corpos);
+      usarCorposNosRetratos(this.corpos);
     } catch (erro) {
       console.warn('nao deu pra carregar o corpo dos atletas; seguindo de capsula', erro);
     }
@@ -777,6 +820,71 @@ export class Game {
     return outro instanceof AIPlayer ? outro : null;
   }
 
+  // ---------------------------------------------------------- o criador
+
+  /** MEU JOGADOR: o banhista posa ao lado da quadra, e a camera vai ate' ele. */
+  private abrirCriador(): void {
+    this.screens.mostrarMenu(false);
+    this.criador = {
+      giro: 0,
+      giroVisto: 0,
+      de: { posicao: this.camera.position.clone(), giro: this.camera.quaternion.clone() },
+      t: 0,
+      visivelAntes: this.banhista.objeto.visible,
+    };
+    this.voltaDoCriador = null;
+    this.banhista.vestir(this.meuVisual);
+    this.banhista.objeto.visible = true;
+    this.screens.mostrarJogador(true, this.meuVisual);
+  }
+
+  private fecharCriador(): void {
+    const c = this.criador;
+    if (!c) return;
+    this.banhista.objeto.visible = c.visivelAntes;
+    this.criador = null;
+    this.voltaDoCriador = { posicao: this.camera.position.clone(), giro: this.camera.quaternion.clone(), t: 0 };
+    this.screens.mostrarJogador(false);
+    this.screens.mostrarMenu(true);
+  }
+
+  /**
+   * Cada escolha vale na hora, e fica salva: no banhista que posa e no seu
+   * atleta da quadra, que no menu continua la', parado.
+   */
+  private mudarMeuVisual(v: Visual): void {
+    this.meuVisual = v;
+    guardarMeuVisual(this.armazem, v);
+    this.banhista.vestir(v);
+    this.player?.vestir(v);
+  }
+
+  /** Um quadro do criador. No RELOGIO, como a camera do menu: o mundo esta' parado. */
+  private cameraDoCriador(dt: number): void {
+    const c = this.criador!;
+    const court = this.arenaEmFoco.court;
+    const k = CRIADOR;
+    court.paraMundo(_ponto.set(court.halfWidth + k.boneco.lado, 0, k.boneco.fundo), _ponto);
+    court.paraMundo(_olhar.set(court.halfWidth + k.boneco.lado + k.camera.frente, k.camera.altura,
+      k.boneco.fundo + k.camera.lado), _olhar);
+
+    // De frente pra camera, mais o giro pedido — que o boneco alcanca rapido.
+    c.giroVisto += (c.giro - c.giroVisto) * Math.min(1, Math.min(dt, 0.1) * 9);
+    this.banhista.posar(_ponto, Math.atan2(_olhar.x - _ponto.x, _olhar.z - _ponto.z) + c.giroVisto, Math.min(dt, 0.1));
+
+    this.camera.position.copy(_olhar);
+    this.camera.lookAt(_cameraAlvo.set(_ponto.x, k.alturaDoOlhar, _ponto.z));
+    this.camera.rotateY(k.desvio);
+    if (c.t < 1) {
+      c.t = Math.min(1, c.t + Math.min(dt, 0.1) / k.voo);
+      const e = suave(c.t);
+      _destinoDoVoo.copy(this.camera.position);
+      _giroDoVoo.copy(this.camera.quaternion);
+      this.camera.position.lerpVectors(c.de.posicao, _destinoDoVoo, e);
+      this.camera.quaternion.slerpQuaternions(c.de.giro, _giroDoVoo, e);
+    }
+  }
+
   private abrirElenco(): void {
     this.screens.mostrarMenu(false);
     this.screens.mostrarElenco(true, this.progresso.carreira);
@@ -989,7 +1097,8 @@ export class Game {
         this.aplicarVoo(Math.min(cru, 0.5));
       }
     } else if (this.state === 'menu') {
-      this.cameraDoMenu(cru);
+      if (this.criador) this.cameraDoCriador(cru);
+      else this.cameraDoMenu(cru);
     }
     // O R do "jogar de novo" e' da tela de fim (`Screens`), que so' mostra o
     // botao no amistoso: no circuito, repetir a partida perdida apagaria a
@@ -1098,9 +1207,8 @@ export class Game {
    * pe'. E' o mesmo caminho que um jogador remoto vai usar quando houver rede —
    * entrar e sair sao operacoes da Arena, e nao do mundo em volta dela.
    *
-   * Voce veste a cor do LADO, nao a sua. Ler a quadra e' metade do jogo: azul
-   * de um lado, vermelho do outro, sempre. Um jogador que leva a propria cor
-   * pra qualquer lado quebra essa leitura toda vez que troca de quadra.
+   * Voce entra com o corpo que montou (`meuVisual`). A cor do LADO fica na
+   * capsula, que e' o que aparece enquanto as pecas nao chegam.
    */
   entrarNaQuadra(arena: Arena, lado: Side): void {
     if (this.player) return;
@@ -1115,6 +1223,7 @@ export class Game {
     );
     humano.camera = this.camera;
     humano.input = this.input;
+    humano.vestir(this.meuVisual);
     arena.ocupar(lado, humano);
     this.player = humano;
     // Hitter novo, contador novo: sem isto o primeiro toque na quadra nova
@@ -1371,6 +1480,18 @@ export class Game {
     this.camera.lookAt(_centroDoMenu.x, c.alturaDoOlhar, _centroDoMenu.z);
     this.camera.rotateY(c.desvio);
 
+    // Voltando do criador: da pose de la' ate' a volta, sem corte seco.
+    const v = this.voltaDoCriador;
+    if (v) {
+      v.t = Math.min(1, v.t + Math.min(dt, 0.1) / CRIADOR.voo);
+      const e = suave(v.t);
+      _destinoDoVoo.copy(this.camera.position);
+      _giroDoVoo.copy(this.camera.quaternion);
+      this.camera.position.lerpVectors(v.posicao, _destinoDoVoo, e);
+      this.camera.quaternion.slerpQuaternions(v.giro, _giroDoVoo, e);
+      if (v.t >= 1) this.voltaDoCriador = null;
+    }
+
     this.poseDoMenu ??= { posicao: new THREE.Vector3(), giro: new THREE.Quaternion() };
     this.poseDoMenu.posicao.copy(this.camera.position);
     this.poseDoMenu.giro.copy(this.camera.quaternion);
@@ -1436,7 +1557,7 @@ export class Game {
     // O modelo e' UM: as arenas so' tem clones, que compartilham geometria e
     // material. Quem descarta e' o molde, e uma vez so'.
     this.modeloDaQuadra?.dispose();
-    this.modeloDoAtleta?.dispose();
+    this.corpos?.dispose();
     descartarGeometriasDeAtleta();
     this.renderer.dispose();
   }

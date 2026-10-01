@@ -36,8 +36,14 @@ está ligado, junto com `noUnusedLocals` e `noUnusedParameters`.
 - Geometria e colisores da quadra: `world/buildCourt.ts` — os dois saem dos
   mesmos números, de propósito.
 - Como a bola se move: `world/Physics.ts`. Leia o aviso antes de mexer.
-- Os adversários do circuito, as notas e as cores deles: `match/personagens.ts`
-  (a lista `ELENCO`). O que cada nota vira em número: `match/habilidade.ts`.
+- Os adversários do circuito, as notas, a cor e o corpo deles:
+  `match/personagens.ts` (a lista `ELENCO`). O que cada nota vira em número:
+  `match/habilidade.ts`.
+- Montar personagem (peças, encaixe, sorteio da CPU, o seu salvo):
+  `players/corpos.ts`, lógica pura. As peças em si: `players/catalogoDeCorpos.ts`,
+  GERADO por `scripts/preparar-corpos.mjs` — não editar à mão. A montagem em
+  three: `players/montarCorpo.ts`. A tela: `ui/TelaJogador.ts`; as fotos das
+  cartas: `ui/retratos.ts`.
 - Como um toque é resolvido: `players/Hitter.ts`.
 - Regras: `match/Match.ts`. É lógica pura, tem teste, mexa com teste.
 - "Lógica pura" aqui quer dizer **sem nada de render** — sem `Mesh`,
@@ -1125,20 +1131,31 @@ Duas correções, e as duas são sobre distância:
 A cor do horizonte é **a mesma** da névoa. É nela que o chão se dissolve, e
 névoa que destoa do que está atrás recorta a borda do chão como adesivo.
 
-## O atleta é uma pele, e `Object3D.clone` NÃO serve para ele
+## O atleta é uma pele, montada peça por peça num esqueleto próprio
 
-`Athlete.usarModelo` e `Banhista.usarModelo` trocam a cápsula por um corpo de
-modelo dentro da **mesma raiz** — a raiz é o que o `Motor` posiciona e gira, e é
-por isso que o tombo do mergulho, o giro do corpo e o limite de área continuam
-funcionando sem saber que o desenho mudou.
+`Athlete.usarModelo(corpos)` e `Athlete.vestir(visual)` (e os mesmos no
+`Banhista`) trocam a cápsula por um corpo de modelo dentro da **mesma raiz** — a
+raiz é o que o `Motor` posiciona e gira, e é por isso que o tombo do mergulho, o
+giro do corpo e o limite de área continuam funcionando sem saber que o desenho
+mudou. Os dois só guardam o que pediram e chamam `remontar`, que não faz nada se
+a combinação (`chaveDoVisual`) é a mesma.
 
-**A cópia tem que ser `SkeletonUtils.clone`.** O `Object3D.clone` copia a árvore
-mas deixa as malhas apontando para o esqueleto **original**: dois atletas
-passariam a compartilhar um esqueleto e fariam exatamente a mesma pose, o tempo
-todo. O sintoma não parece um bug de clone — parece a IA copiando o jogador.
+**Cada corpo tem esqueleto próprio.** `Corpos.montar` copia a base da família
+(só ossos, sem malha) e RELIGA cada peça a ela, osso por osso pelo nome. Dois
+atletas com o mesmo esqueleto fariam exatamente a mesma pose, o tempo todo — o
+sintoma não parece bug de montagem, parece a IA copiando o jogador. (Era por
+isso que, com um modelo só, a cópia tinha que ser `SkeletonUtils.clone`.)
 
-Os materiais também são copiados por atleta, senão pintar um time pinta os dois.
-O material do time é `Worker_Vest`, o colete.
+**Cada peça leva a matriz inversa DELA**, e não a da base. A quantização do
+`preparar-corpos` guarda cada malha numa escala própria e quem desfaz isso é a
+inversa daquela peça (o gltf-transform cria uma skin por malha). Com a inversa
+de outra peça a malha sai do tamanho errado. O teste "de pé na areia, com a
+altura de gente" monta os 21 e é quem pega isso.
+
+Materiais são por corpo (a cor é por corpo), geometria é de todos. Trocar a
+roupa é COR de material, nunca material novo — material novo é shader novo pra
+compilar no meio da partida. `Corpos.descartar` solta só o que é do corpo
+(material e esqueleto); a geometria é do `Corpos`.
 
 `Arena` guarda qual é a pele porque `ocupar`/`liberar` **descartam** o atleta e
 criam outro: sem lembrar, entrar numa quadra devolveria uma cápsula no meio de
@@ -1636,12 +1653,11 @@ habilidade, corpo e roupa juntos. Quatro chamadas soltas era pedir pra esquecer
 uma, e o defeito seria invisível — o VELOCISTA com nome e cor certos correndo
 como qualquer um.
 
-A roupa é COR de material, nunca material novo (material novo é shader novo pra
-compilar no meio da partida). Os materiais já são por cópia desde
-`copiarModelo`, que agora guarda a cor original em `userData.corOriginal` pra
-`vestirModelo(null)` devolver. Quem é qual peça foi MEDIDO pelas caixas de cada
-material no modelo, não pelo nome: `Worker_Yellow` é o capacete e as faixas do
-colete ao mesmo tempo, `LightBrown` é a camisa, `Brown` a calça.
+O corpo de cada um é um `Visual` (as peças do pack e as cores), escrito com
+`homem(...)`/`mulher(...)`. A `cor` do personagem é outra coisa: é a da carta e
+da ficha, e quase sempre a da camisa. Os testes conferem que todo corpo do
+elenco fecha, que não há dois iguais, e que as jogadoras usam o esqueleto
+feminino.
 
 O save guarda o **id** do personagem na chave, e não a ficha. Ajustar uma nota
 vale até pro torneio salvo no meio. O outro lado disso: torneio com id que o
@@ -1787,7 +1803,69 @@ Um detalhe de ambiente: `npm install` de pacote novo apaga o que não está no
 `package.json`, e o Playwright e o sharp dos roteiros de conferência não estão.
 `npm install --no-save playwright sharp` devolve os dois sem sujar o projeto.
 
+## Montar personagem: o que o pack escondia
+
+O criador (MEU JOGADOR) e o elenco montam corpo com as peças dos 21 personagens
+do pack. Seis coisas que só apareceram medindo:
+
+**`Animation.dispose` não leva canal nem sampler**, e são eles que seguram os
+dados. O primeiro preparo tirava as 18 animações que o jogo não usa e o arquivo
+continuava com 650 kB: o `prune` não achava nada pra apagar. Canal e sampler
+saem na mão, antes da animação (`preparar-corpos.mjs`). As seis animações do
+jogo ficam só no arquivo BASE de cada família (`worker`); os outros 19 saem só
+com malha e esqueleto.
+
+**A perna da mulher é outra perna.** Coxa de 0,482 m (0,433 no homem), quadril
+a 1,00 (0,93), tornozelo a 0,073 (0,097) — mesma altura total. Os números
+fixos do homem em `poses.ts` agachavam a mulher com o pé 7 cm acima da areia.
+Agora `medirPerna` mede no próprio esqueleto.
+
+**O eixo do joelho na coxa muda de rig pra rig.** No homem é o Z local da coxa
+(-Z na esquerda, +Z na direita); na mulher é o +X dos dois lados. A canela é +X
+nos dois. A conta não precisa de tabela: o joelho deste rig é uma dobradiça
+perfeita (conferido no repouso e na caminhada, nos dois), então o +X da canela
+levado pro espaço da coxa É o eixo do joelho na coxa.
+
+**`apontar` herda o giro do PAI, e o ombro da mulher vem girado 87°.** O braço
+dela, no repouso, está exatamente onde o do homem está (0° de diferença em
+mundo); o que muda é o eixo local do ombro (87°) e do abdômen (8°). Como
+`apontar` resolve no espaço do pai, a mulher fazia o gesto certo com o braço
+torcido — posição certa, giro errado: a palma do saque saía de lado. O teste da
+palma pegou. A saída foi a `referencia` de `montarClipes`: a conta é feita
+como se o pai fosse o do homem, e o resultado volta pro esqueleto dela pela
+diferença de repouso. O homem não muda nada (sem referência, a conta é a de
+sempre), e as torções afinadas nele valem nela. Mudar a convenção pra "a partir
+do repouso" teria sido mais limpo e teria mexido 80° no braço do homem — e em
+toda pose afinada nele.
+
+**A regra do encaixe é de altura, e só a da canela separa alguma coisa.** A
+calça curta da futurista começa a 43 cm; o tênis casual vai até 18. O catálogo
+guarda a faixa de altura de cada peça no repouso, e `encaixa` confere de baixo
+pra cima com 2 cm de folga. Tronco/calça e cabeça/tronco fecham em todas as
+combinações do pack de hoje — continuam conferidos pra uma peça nova não abrir
+buraco no pescoço.
+
+**O retrato é um segundo contexto de WebGL, e o aviso de ReadPixels é dele.**
+`toDataURL` num canvas de WebGL lê os pixels de volta, e o Chrome avisa "GPU
+stall due to ReadPixels" — esperado, é uma vez por foto, e fotos são poucas e
+guardadas. Renderizar num render target do renderer do jogo evitaria o contexto
+extra, mas o render target sai em espaço linear e sem tone mapping, e a foto
+teria que ser convertida à mão.
+
+E o criador não tem prévia: o boneco é o banhista posado ao lado da quadra em
+foco (`Game.cameraDoCriador`), com a câmera do jogo de frente. `Banhista.posar`
+mexe só no desenho, nunca no `Motor` — fechado o criador, o próximo `update`
+devolve o corpo pra onde ele estava.
+
 ## O que NÃO foi verificado
+
+**O criador e os retratos numa GPU de verdade.** O criador foi percorrido por
+roteiro (trocar família, peças, cores, o aviso do conserto, Q/E, R, arrastar
+pra girar, Esc, salvar e recarregar) e em imagem. Quanto a tela de
+adversários demora pra preencher as oito fotos numa máquina lenta, e o custo do
+segundo contexto de WebGL, não foram medidos fora do SwiftShader. As 21×20
+combinações de cabeça e tronco não foram olhadas uma a uma: a regra de encaixe
+cobre o vão da canela, não um colarinho atravessando um queixo.
 
 **A interface num jogador de verdade, e numa GPU de verdade.** Conferida em
 imagem em 1920×1080, 1600×900, 1366×768, 1280×560 e 800×640, e o teclado foi
@@ -1798,8 +1876,8 @@ real — aqui tudo é software. Controle de videogame não é suportado.
 **O equilíbrio do elenco, jogando.** O que se mediu no navegador: a ficha entra
 inteira no bot (TITO ONDA com 6,86 m/s, 1,08 m de pulo, 0,14 s de reação, as
 cores dele e o nome no placar), ele corre de fato a 6,86 em quadra, e voltar ao
-amistoso devolve tudo — nome, corpo, dificuldade do menu, colete do time e
-bigode. O pulo de cada ficha foi medido no `Motor` em teste de Node, e não num
+amistoso devolve tudo — nome, corpo e dificuldade do menu (a roupa volta a
+ser a sorteada da CPU sem nome). O pulo de cada ficha foi medido no `Motor` em teste de Node, e não num
 rally, porque o bot só pula pra cortar e sem ninguém devolvendo a bola ele só
 saca. Se BIA REDE é mais difícil que KIKO MANCHETE para quem joga, só se sabe
 jogando.

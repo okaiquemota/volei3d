@@ -69,8 +69,8 @@ o rally funciona está no menu, em **COMO JOGAR**, que é texto pra ler uma vez.
 `H` esconde a legenda, e a preferência fica guardada.
 
 **A interface é de jogo, e não de formulário.** O menu é um mosaico de blocos à
-esquerda — CIRCUITO grande, AMISTOSO e ADVERSÁRIOS largos, AJUSTES e COMO JOGAR
-menores — sobre a praia de verdade, com a câmera dando uma volta lenta em torno
+esquerda — CIRCUITO grande, AMISTOSO largo, ADVERSÁRIOS e MEU JOGADOR (com o
+seu retrato), AJUSTES e COMO JOGAR menores — sobre a praia de verdade, com a câmera dando uma volta lenta em torno
 da quadra. Ao começar uma partida a câmera **voa** de lá até atrás de você em
 1,3 s. O placar em quadra é de transmissão de TV, com a bolinha de quem saca; o
 ponto atravessa a tela numa faixa na cor de quem fez; o fim de jogo é uma faixa
@@ -131,10 +131,11 @@ existe com um cursor solto pra apontar.
 
 ### O circuito
 
-O menu tem três botões. **CIRCUITO** é a carreira: três torneios em escada, e é
-o modo principal do jogo. **AMISTOSO** é a partida avulsa de sempre, contra a CPU
-na dificuldade que o menu diz. **ADVERSÁRIOS** mostra o elenco inteiro, com a
-ficha de cada um, e deixa desafiar qualquer um deles num amistoso.
+O menu tem quatro botões de jogo. **CIRCUITO** é a carreira: três torneios em
+escada, e é o modo principal do jogo. **AMISTOSO** é a partida avulsa de sempre,
+contra a CPU na dificuldade que o menu diz. **ADVERSÁRIOS** mostra o elenco
+inteiro, com a ficha de cada um, e deixa desafiar qualquer um deles num
+amistoso. **MEU JOGADOR** é o criador do seu atleta (ver *Monte o seu jogador*).
 
 | etapa | onde se joga | quem joga (geral) | por vitória | pelo título |
 |---|---|---|---|---|
@@ -154,8 +155,9 @@ sequência, saldo de pontos e o **retrospecto contra cada personagem**, e
 
 ### Os personagens
 
-São 24, oito por etapa, cada um com nome, frase, cores próprias no boneco e uma
-**ficha de oito notas de 1 a 10**:
+São 24, oito por etapa, cada um com nome, frase, **um corpo próprio** (montado
+com as mesmas peças do criador — ver *Monte o seu jogador*) e uma **ficha de oito
+notas de 1 a 10**:
 
 | nota | o que ela mexe em quadra |
 |---|---|
@@ -177,10 +179,13 @@ O **geral** é a média das oito e decide o cabeça de chave. O **estilo**
 tirado das notas, nunca escrito à mão — assim ele acompanha qualquer ajuste.
 
 **Criar ou afinar um personagem é editar uma lista**: `src/match/personagens.ts`,
-constante `ELENCO`. Uma linha de notas, cinco cores, uma frase. O circuito
+constante `ELENCO`. Uma linha de notas, uma frase, uma cor e um corpo —
+`homem('punk', PELE.parda, { camisa: COR.vermelho })`. O circuito
 sorteia dali, a ficha lê dali, a IA joga com o que estiver escrito, e o
 `npm test` avisa se uma nota saiu de 1 a 10, se um id repetiu ou se uma etapa
-ficou com menos de sete.
+ficou com menos de sete — e se o corpo de alguém não fecha (calça curta com
+tênis baixo), se dois têm o mesmo corpo, ou se uma jogadora ficou com corpo de
+homem.
 
 Algumas decisões que dão forma a isso:
 
@@ -205,8 +210,46 @@ Algumas decisões que dão forma a isso:
   zebra, mas a final não vira loteria.
 - **Os nomes são inventados, e o apelido é promessa.** NANDO SAQUE saca de
   viagem, KIKO MANCHETE defende tudo, GUTO VENTO corre 7,4 m/s. Nome de atleta de
-  verdade seria colocar gente real perdendo pra um boneco de capacete.
-- **A cor do colete nunca é azul**, porque azul é o seu time — tem teste.
+  verdade seria colocar gente real perdendo pra um boneco.
+- **A cor de cada um nunca é azul** — nem a da carta nem a da camisa —, porque
+  azul é o seu time. Tem teste.
+- **O corpo combina com a ficha.** JUCA DUNA, que "veio de chinelo", é o de
+  praia; o campeão mundial é o rei; quem lê a quadra inteira é o astronauta. As
+  jogadoras usam o esqueleto feminino, e quatro personagens misturam peças de
+  mais de um personagem do pack.
+
+### Monte o seu jogador
+
+**MEU JOGADOR**, no menu, monta o seu atleta peça por peça: corpo masculino ou
+feminino, **cabeça, tronco, pernas e pés** de qualquer um dos 21 personagens do
+pack, acessório (a mochila do aventureiro), e as cores de **pele, cabelo,
+camisa e calça**. É com esse corpo que você entra na quadra e anda pela praia,
+e ele fica salvo no navegador.
+
+O boneco que muda enquanto você escolhe não é uma prévia: é o próprio banhista,
+de pé na areia ao lado da quadra, com a câmera do jogo de frente para ele —
+mesma luz, mesma sombra, mesmo corpo que vai jogar. Setas mudam, **Q/E** (ou
+arrastar na metade vazia da tela) giram o boneco, **R** sorteia um.
+
+Peça de um personagem serve no outro porque o pack foi feito assim: os 21 têm
+o mesmo esqueleto, com os mesmos 62 ossos na mesma ordem. Mas nem toda
+combinação fecha — a calça que entra numa bota alta termina no meio da canela,
+e com um tênis baixo sobraria um vão sem malha nenhuma. Por isso cada peça tem
+no catálogo a faixa de altura que ela cobre, e a regra é de baixo para cima: a
+calça desce até o cano do sapato, o tronco até a calça, a cabeça até o tronco.
+Quando uma escolha abre a combinação, o criador **troca a outra peça** pela do
+mesmo personagem (que fecha por construção) e avisa qual — a peça que você
+escolheu nunca muda sozinha.
+
+A **CPU sem nome** sorteia o corpo dela com as mesmas regras: metade das vezes
+um personagem do pack inteiro, metade misturado. As quatro CPUs da praia nunca
+são o mesmo boneco repetido.
+
+**Os retratos** das cartas do elenco, da ficha, do VS e do seu perfil são o
+boneco 3D fotografado — as mesmas peças, na pose de espera. Um renderizador
+pequeno, fora da tela, tira cada foto uma vez e guarda pela combinação; a
+interface continua sendo só DOM, e a tela de adversários não precisa de oito
+cenas 3D.
 
 ### A rede
 
@@ -223,14 +266,23 @@ Por baixo são duas contas separadas: a da bola, fechada e determinística
 que só desenha. O pano não empurra a bola — é o que mantém a previsão da IA
 batendo com a bola de verdade.
 
-**Os atletas são um modelo.** *Ultimate Modular Men Pack*, de Quaternius (CC0),
-com as 24 animações que vêm nele. É uma **pele**, como a quadra: o `Motor`
-continua dizendo onde o corpo está e para onde ele olha, e o `Hitter` continua
-medindo alcance a partir dos pés — nenhuma regra sabe que o desenho mudou.
+**Os atletas são um modelo.** Os *Ultimate Modular Men* e *Women Packs*, de
+Quaternius (CC0): 21 personagens, cada um em quatro peças presas ao mesmo
+esqueleto, montados em tempo de jogo (`montarCorpo.ts`). É uma **pele**, como a
+quadra: o `Motor` continua dizendo onde o corpo está e para onde ele olha, e o
+`Hitter` continua medindo alcance a partir dos pés — nenhuma regra sabe de que
+peças o boneco é feito.
 
-A escala não precisou de encaixe nenhum: o modelo mede 1,86 m com os pés em
-`y = 0`, que é exatamente o `ATHLETE.height`. Sem Z-up, sem escala 0,01, sem
+A escala não precisou de encaixe nenhum: os personagens medem ~1,82 m com os pés
+em `y = 0`, perto do `ATHLETE.height` (1,86). Sem Z-up, sem escala 0,01, sem
 transform na raiz — as três armadilhas que a quadra de modelo teve.
+
+São **dois esqueletos**, o masculino e o feminino, com os mesmos ossos e outras
+proporções: a perna da mulher é mais comprida (coxa de 0,48 m contra 0,43), e
+alguns ossos vêm girados de outro jeito no rig (o ombro dela, 87° em volta do
+próprio eixo). As poses escritas à mão medem a perna no próprio esqueleto, e a
+mulher é posada com o homem de referência — o mesmo gesto, com o mesmo giro de
+braço, nos dois.
 
 A locomoção usa as **quatro direções** (`Run`, `Run_Back`, `Run_Left`,
 `Run_Right`), e isso não é enfeite: o atleta encara a bola enquanto anda relativo
@@ -487,7 +539,10 @@ src/
     controle.ts         a direção que o teclado pede, relativa à câmera
     AI.ts               prevê, persegue, arma e ataca
     buildAthlete.ts     o corpo low-poly
-    buildAtletaModelo.ts carrega o modelo e monta as animações
+    corpos.ts           montar personagem: peças, encaixe, sorteio, save
+    catalogoDeCorpos.ts GERADO: as peças de cada personagem do pack
+    montarCorpo.ts      monta um corpo com as peças, num esqueleto próprio
+    carregarCorpos.ts   carrega os 21 arquivos do pack
     animacoes.ts        qual clipe tocar, dado o estado do corpo
     Animador.ts         o AnimationMixer e as transições
     poses.ts            pulo, mergulho, pouso e os toques, escritos à mão
@@ -503,6 +558,8 @@ src/
     navegacao.ts        setas, Enter e Esc nos menus, pela posição na tela
     PerfMeter.ts        o painel do F3
     TelaCircuito.ts     desenha o circuito e a chave a partir do estado
+    TelaJogador.ts      MEU JOGADOR: as escolhas do criador
+    retratos.ts         a foto do boneco 3D, pras cartas, ficha e perfil
     TelaElenco.ts       as cartas, a ficha e a tela ADVERSÁRIOS
     style.css           tokens, componentes, HUD e telas
     fontes.css          Barlow e Barlow Condensed, empacotadas
@@ -861,6 +918,9 @@ esteja: visível para quem joga, não só para quem lê o repositório.
 
 Todo o resto — quadra, atletas, bola, areia, rede — é gerado por código.
 
-O corpo dos atletas é o *[Ultimate Modular Men Pack](https://quaternius.com/packs/ultimatemodularcharacters.html)*,
+O corpo dos atletas vem do *[Ultimate Modular Men Pack](https://quaternius.com/packs/ultimatemodularcharacters.html)*
+e do *Ultimate Modular Women Pack* (mesma loja, [quaternius.com](https://quaternius.com)),
 de **Quaternius**, sob **CC0** — domínio público, sem exigência de crédito. Está
-aqui porque é justo, não porque é obrigatório.
+aqui porque é justo, não porque é obrigatório. A preparação (animações só no
+arquivo base, armas fora, compressão, o catálogo de peças) está em
+`scripts/preparar-corpos.mjs`.

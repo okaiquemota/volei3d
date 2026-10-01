@@ -86,17 +86,32 @@ export interface Receita {
 // ------------------------------------------------------- pernas e agachamento
 
 /**
- * Medidas da perna, tiradas do proprio .glb com a sonda.
+ * Medidas da perna, tiradas do proprio esqueleto (`medirPerna`).
  *
  * Servem pra uma conta so', e importante: as pernas deste rig penduram no
  * `Body`, nao sustentam ele. Dobrar o joelho NAO abaixa o quadril — levanta o
  * pe'. Quem agacha e' o `Body` descendo, e ai o joelho tem que dobrar o tanto
  * exato pra sola continuar na areia. Uma coisa sem a outra da' boneco flutuando
  * ou pe' enterrado, e foi o primeiro defeito que apareceu ao medir.
+ *
+ * Medidas, e nao numeros fixos, porque sao dois esqueletos: o do homem tem
+ * coxa de 0,433 m e quadril a 0,93; o da mulher, coxa de 0,482 e quadril a 1,0
+ * — mesma altura, perna mais comprida. Com os numeros do homem, a mulher
+ * agachava com o pe' 7 cm acima da areia.
  */
-const OSSO_DA_PERNA = 0.433;   // coxa e canela tem o mesmo comprimento
-const QUADRIL = 0.930;         // altura da juncao da coxa, em repouso
-const TORNOZELO = 0.097;       // altura do tornozelo, em repouso
+export interface MedidaDaPerna {
+  /** Coxa e canela tem o mesmo comprimento. */
+  osso: number;
+  /** Altura da juncao da coxa, em repouso. */
+  quadril: number;
+  /** Altura do tornozelo (a ponta da canela), em repouso. */
+  tornozelo: number;
+  /**
+   * O eixo LOCAL de cada osso da perna que fica de lado, apontando pra +X do
+   * corpo — o eixo do joelho. Ver `orientarPerna`.
+   */
+  lateral: ReadonlyMap<string, THREE.Vector3>;
+}
 
 /**
  * As pernas que mantem o pe' no chao com o quadril `descer` metros mais baixo.
@@ -104,9 +119,9 @@ const TORNOZELO = 0.097;       // altura do tornozelo, em repouso
  * Coxa pra frente e canela pra tras, no MESMO angulo: assim o tornozelo desce
  * reto, sem sair de baixo do quadril. O angulo sai do cosseno do vao.
  */
-function pernasDe(descer: number): Pose {
-  const vao = QUADRIL - descer - TORNOZELO;
-  const cos = Math.min(1, Math.max(-1, vao / (2 * OSSO_DA_PERNA)));
+function pernasDe(descer: number, perna: MedidaDaPerna): Pose {
+  const vao = perna.quadril - descer - perna.tornozelo;
+  const cos = Math.min(1, Math.max(-1, vao / (2 * perna.osso)));
   const dobra = Math.tan(Math.acos(cos));
   return {
     UpperLegR: mix([B, 1], [F, dobra]), LowerLegR: mix([B, 1], [T, dobra]),
@@ -515,6 +530,22 @@ const _alvo = new THREE.Vector3();
 const _paiInv = new THREE.Quaternion();
 const _local = new THREE.Quaternion();
 const _torcao = new THREE.Quaternion();
+const _paiEquivalente = new THREE.Quaternion();
+const _desfazer = new THREE.Quaternion();
+
+/**
+ * Um osso do esqueleto de REFERENCIA (o do homem), visto do esqueleto que esta'
+ * sendo posado.
+ *
+ * `giro` leva o repouso deste esqueleto pro da referencia, em mundo: e' a
+ * diferenca de eixos entre os dois rigs. `eixo` e' pra onde a ponta do osso
+ * aponta no espaco do osso da referencia.
+ */
+interface OssoDeReferencia {
+  giro: THREE.Quaternion;
+  eixo: THREE.Vector3;
+}
+type Referencia = ReadonlyMap<string, OssoDeReferencia>;
 
 /**
  * O quaternion LOCAL que faz este osso apontar pra `direcao`, em espaco do corpo.
@@ -526,17 +557,60 @@ const _torcao = new THREE.Quaternion();
  * O giro em torno do proprio osso fica livre, e isso e' aceitavel: em braco e
  * perna ninguem ve' a torcao, e fixar ela exigiria escrever a pose em angulo
  * por eixo — que e' exatamente o que este arquivo existe pra evitar.
+ *
+ * Livre, mas herdado do PAI — e e' ai' que entra a `referencia`. O esqueleto
+ * da mulher tem os mesmos ossos do homem, no mesmo lugar, mas o ombro dela vem
+ * girado 87 graus em volta do proprio eixo (e o abdomen, 8). Posado com a
+ * mesma conta, o braco dela herdava os 87 graus: a palma do saque, que no
+ * homem fica pra cima, ficava de lado, e a pele do braco torcia. Com a
+ * referencia, a conta e' feita no esqueleto do homem — o mesmo pai, o mesmo
+ * eixo — e o resultado volta pro dela pela diferenca de repouso. As receitas
+ * continuam escritas uma vez so', e as torcoes afinadas no homem valem nela.
  */
-function apontar(osso: THREE.Bone, eixoLocal: THREE.Vector3, direcao: number[], out: THREE.Quaternion): void {
+function apontar(
+  osso: THREE.Bone, eixoLocal: THREE.Vector3, direcao: number[], out: THREE.Quaternion, referencia?: Referencia,
+): void {
   _alvo.set(direcao[0]!, direcao[1]!, direcao[2]!).normalize();
 
   const pai = osso.parent;
+  const doPai = pai ? referencia?.get(pai.name) : undefined;
+  const doOsso = referencia?.get(osso.name);
+  if (pai && doPai && doOsso) {
+    // O pai como o pai da referencia estaria; a conta la'; e de volta.
+    pai.getWorldQuaternion(_paiEquivalente).multiply(doPai.giro);
+    _alvo.applyQuaternion(_paiInv.copy(_paiEquivalente).invert());
+    out.setFromUnitVectors(doOsso.eixo, _alvo);
+    out.premultiply(doPai.giro).multiply(_desfazer.copy(doOsso.giro).invert());
+    return;
+  }
+
   if (pai) {
     pai.getWorldQuaternion(_paiInv).invert();
     _alvo.applyQuaternion(_paiInv);
   }
 
   out.setFromUnitVectors(eixoLocal, _alvo);
+}
+
+/**
+ * Mede a diferenca de repouso entre este esqueleto e o de referencia, osso a
+ * osso. Os dois em repouso e com a raiz no lugar.
+ */
+function medirReferencia(ossos: ReadonlyMap<string, THREE.Bone>, referencia: THREE.Object3D): Referencia {
+  referencia.updateMatrixWorld(true);
+  const deles = new Map<string, THREE.Bone>();
+  referencia.traverse((o) => { if ((o as THREE.Bone).isBone) deles.set(o.name, o as THREE.Bone); });
+  const medida = new Map<string, OssoDeReferencia>();
+  for (const [nome, osso] of ossos) {
+    const outro = deles.get(nome);
+    if (!outro) continue;
+    medida.set(nome, {
+      giro: osso.getWorldQuaternion(new THREE.Quaternion()).invert()
+        .multiply(outro.getWorldQuaternion(new THREE.Quaternion())),
+      eixo: eixoDoOsso(outro, new THREE.Vector3()),
+    });
+  }
+  return medida;
 }
 
 /**
@@ -567,15 +641,23 @@ function eixoDoOsso(osso: THREE.Bone, out: THREE.Vector3): THREE.Vector3 {
  *
  * Roda no molde recem-carregado e ANTES de qualquer copia: mexe nos ossos pra
  * medir e devolve tudo ao repouso no fim.
+ *
+ * `referencia` e' o esqueleto em que as receitas foram afinadas (o do homem),
+ * pra posar um esqueleto de outros eixos (o da mulher) do mesmo jeito. Ver
+ * `apontar`.
  */
-export function montarClipes(raiz: THREE.Object3D, receitas: readonly Receita[] = RECEITAS): THREE.AnimationClip[] {
+export function montarClipes(
+  raiz: THREE.Object3D, receitas: readonly Receita[] = RECEITAS, referencia?: THREE.Object3D,
+): THREE.AnimationClip[] {
   const ossos = new Map<string, THREE.Bone>();
   raiz.traverse((o) => { if ((o as THREE.Bone).isBone) ossos.set(o.name, o as THREE.Bone); });
 
   const corpoRepouso = ossos.get('Body')?.position.clone() ?? new THREE.Vector3();
   raiz.updateMatrixWorld(true);
-  const pes = medirPes(ossos);
+  const perna = medirPerna(ossos);
+  const pes = medirPes(ossos, perna);
   const reto = medirQuadrilReto(ossos);
+  const ref = referencia ? medirReferencia(ossos, referencia) : undefined;
 
   const repouso = new Map<string, THREE.Quaternion>();
   const eixos = new Map<string, THREE.Vector3>();
@@ -652,7 +734,7 @@ export function montarClipes(raiz: THREE.Object3D, receitas: readonly Receita[] 
       raiz.updateMatrixWorld(true);
 
       // As pernas por baixo, o que a receita escreveu por cima.
-      const pose: Pose = camada ? quadro.pose : { ...pernasDe(quadro.descer), ...quadro.pose };
+      const pose: Pose = camada ? quadro.pose : { ...pernasDe(quadro.descer, perna), ...quadro.pose };
 
       for (const nome of emOrdem) {
         const direcao = pose[nome];
@@ -660,8 +742,8 @@ export function montarClipes(raiz: THREE.Object3D, receitas: readonly Receita[] 
         if (!direcao && !giro) continue;   // nada neste quadro: fica no repouso
 
         const osso = ossos.get(nome)!;
-        if (direcao && ehPerna(nome)) orientarPerna(osso, nome, direcao, _local);
-        else if (direcao) apontar(osso, eixos.get(nome)!, direcao, _local);
+        if (direcao && ehPerna(nome)) orientarPerna(osso, perna.lateral.get(nome)!, direcao, _local);
+        else if (direcao) apontar(osso, eixos.get(nome)!, direcao, _local, ref);
         else _local.copy(osso.quaternion);
         if (giro) _local.multiply(_torcao.setFromAxisAngle(eixos.get(nome)!, giro));
         osso.quaternion.copy(_local);
@@ -737,43 +819,81 @@ export function montarClipes(raiz: THREE.Object3D, receitas: readonly Receita[] 
  * torcida, e o pe', preso na canela, ia junto — no pulo os dois pes apontavam
  * pro mesmo lado.
  *
- * A convencao foi MEDIDA na caminhada do pack, que esta' certa: a coxa tem o
- * +Z local de lado (pra -X na esquerda, +X na direita); a canela e o pe' tem o
- * +X local pra +X; o bico do pe' e' o +Y local, e o +Z sai da sola pro chao. Com o osso
- * apontado (+Y) e o lado fixo, a rotacao inteira esta' decidida — sem torcao
- * sobrando pra escolher errado.
+ * Com o osso apontado (+Y local) e o eixo do joelho fixo de lado, a rotacao
+ * inteira esta' decidida — sem torcao sobrando pra escolher errado. O eixo do
+ * joelho e' o +X local da canela, nos dois esqueletos (medido na caminhada do
+ * pack, que esta' certa). Na coxa ele MUDA: no homem e' o Z local (-Z na
+ * esquerda, +Z na direita), na mulher e' o +X. Por isso sai do proprio
+ * esqueleto (`medirPerna`), e nao de uma tabela.
  */
-const COXAS: Readonly<Record<string, number>> = { UpperLegL: -1, UpperLegR: 1 };
 function ehPerna(nome: string): boolean {
   return nome.startsWith('UpperLeg') || nome.startsWith('LowerLeg');
 }
+
+/** O eixo do joelho, no espaco da canela. */
+const JOELHO_NA_CANELA = new THREE.Vector3(1, 0, 0);
 
 const _bx = new THREE.Vector3();
 const _by = new THREE.Vector3();
 const _bz = new THREE.Vector3();
 const _base = new THREE.Matrix4();
 const _giroMundo = new THREE.Quaternion();
+const _giroOsso = new THREE.Quaternion();
 
 /** Tira de `v` a parte ao longo de `eixo` (unitario) e normaliza. */
 function ortogonal(v: THREE.Vector3, eixo: THREE.Vector3): THREE.Vector3 {
   return v.addScaledVector(eixo, -v.dot(eixo)).normalize();
 }
 
-/** O quaternion LOCAL da coxa ou da canela, apontada pra `direcao` e sem torcao. */
-function orientarPerna(osso: THREE.Bone, nome: string, direcao: number[], out: THREE.Quaternion): void {
+/**
+ * O quaternion LOCAL da coxa ou da canela, apontada pra `direcao` e sem torcao.
+ *
+ * Duas bases: a do mundo (o lado do corpo, a direcao, e o que sobra) e a do
+ * osso (o eixo do joelho, o +Y, e o que sobra). O giro leva uma na outra.
+ */
+function orientarPerna(osso: THREE.Bone, lateral: THREE.Vector3, direcao: number[], out: THREE.Quaternion): void {
   _by.set(direcao[0]!, direcao[1]!, direcao[2]!).normalize();
-  const lado = COXAS[nome];
-  if (lado !== undefined) {
-    ortogonal(_bz.set(lado, 0, 0), _by);
-    _bx.crossVectors(_by, _bz);
-  } else {
-    ortogonal(_bx.set(1, 0, 0), _by);
-    _bz.crossVectors(_bx, _by);
-  }
+  ortogonal(_bx.set(1, 0, 0), _by);
+  _bz.crossVectors(_bx, _by);
   _giroMundo.setFromRotationMatrix(_base.makeBasis(_bx, _by, _bz));
+
+  _bz.crossVectors(lateral, EIXO_PADRAO);
+  _giroOsso.setFromRotationMatrix(_base.makeBasis(lateral, EIXO_PADRAO, _bz));
+  _giroMundo.multiply(_giroOsso.invert());
+
   const pai = osso.parent;
   if (pai) out.copy(pai.getWorldQuaternion(_paiInv).invert()).multiply(_giroMundo);
   else out.copy(_giroMundo);
+}
+
+/**
+ * Mede a perna no repouso. Chamar com o esqueleto em repouso e atualizado.
+ *
+ * O eixo do joelho da coxa sai da canela: o joelho e' uma dobradica perfeita
+ * neste rig (conferido nos dois esqueletos, no repouso e na caminhada), entao
+ * o +X da canela, levado pro espaco da coxa, E' o eixo do joelho na coxa.
+ */
+export function medirPerna(ossos: ReadonlyMap<string, THREE.Bone>): MedidaDaPerna {
+  const lateral = new Map<string, THREE.Vector3>();
+  let osso = 0;
+  let quadril = 0;
+  let tornozelo = 0;
+  const giro = new THREE.Quaternion();
+  for (const lado of ['L', 'R']) {
+    const coxa = ossos.get(`UpperLeg${lado}`);
+    const canela = ossos.get(`LowerLeg${lado}`);
+    if (!coxa || !canela) throw new Error(`o modelo nao tem UpperLeg${lado}/LowerLeg${lado}`);
+    const juncao = coxa.getWorldPosition(new THREE.Vector3());
+    const comprimento = juncao.distanceTo(canela.getWorldPosition(new THREE.Vector3()));
+    osso += comprimento / 2;
+    quadril += juncao.y / 2;
+    tornozelo += canela.localToWorld(new THREE.Vector3(0, comprimento, 0)).y / 2;
+
+    const joelho = JOELHO_NA_CANELA.clone().applyQuaternion(canela.getWorldQuaternion(giro));
+    lateral.set(`UpperLeg${lado}`, ortogonal(joelho.applyQuaternion(coxa.getWorldQuaternion(giro).invert()), EIXO_PADRAO));
+    lateral.set(`LowerLeg${lado}`, JOELHO_NA_CANELA);
+  }
+  return { osso, quadril, tornozelo, lateral };
 }
 
 /**
@@ -810,6 +930,8 @@ function medirQuadrilReto(ossos: Map<string, THREE.Bone>): { corpo: THREE.Quater
 interface MedidaDoPe {
   pe: THREE.Bone;
   canela: THREE.Bone;
+  /** A ponta da canela, no espaco dela. */
+  ponta: THREE.Vector3;
   /**
    * Do tornozelo (ponta da canela) ate' a origem do pe', no espaco DO PE'.
    *
@@ -821,16 +943,18 @@ interface MedidaDoPe {
 }
 
 /** Mede os dois pes no repouso. Chamar com o esqueleto em repouso e atualizado. */
-function medirPes(ossos: Map<string, THREE.Bone>): MedidaDoPe[] {
+function medirPes(ossos: Map<string, THREE.Bone>, perna: MedidaDaPerna): MedidaDoPe[] {
   return PES.map(([nomeDoPe, nomeDaCanela]) => {
     const pe = ossos.get(nomeDoPe);
     const canela = ossos.get(nomeDaCanela);
     if (!pe || !canela) throw new Error(`o modelo nao tem ${nomeDoPe}/${nomeDaCanela}`);
-    const tornozelo = canela.localToWorld(new THREE.Vector3(0, OSSO_DA_PERNA, 0));
+    const ponta = new THREE.Vector3(0, perna.osso, 0);
+    const tornozelo = canela.localToWorld(ponta.clone());
     const giro = pe.getWorldQuaternion(new THREE.Quaternion());
     return {
       pe,
       canela,
+      ponta,
       doTornozelo: pe.getWorldPosition(new THREE.Vector3()).sub(tornozelo).applyQuaternion(giro.invert()),
     };
   });
@@ -875,7 +999,7 @@ const _inclinar = new THREE.Quaternion();
  * repouso, medida no espaco do pe': o sapato nao estica.
  */
 function pesDoQuadro(m: MedidaDoPe, noAr: boolean, pos: THREE.Vector3, giro: THREE.Quaternion): void {
-  m.canela.localToWorld(_tornozelo.set(0, OSSO_DA_PERNA, 0));
+  m.canela.localToWorld(_tornozelo.copy(m.ponta));
   _giroMundo.copy(PE_PLANO);
   if (noAr) {
     m.canela.getWorldPosition(_joelho);

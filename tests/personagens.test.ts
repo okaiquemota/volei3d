@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { COLORS } from '../src/config';
+import { chaveDoVisual, encaixa, lerVisual } from '../src/players/corpos';
 import { ETAPAS, VAGAS_DA_CPU } from '../src/match/Circuito';
 import {
   ATRIBUTOS, ELENCO, elencoDaEtapa, estiloDe, geral, personagemPorId,
@@ -66,12 +67,13 @@ test('a media sobe de etapa em etapa, e as faixas se sobrepoem', () => {
 });
 
 /**
- * O colete e' a cor do personagem, e azul e' o SEU time.
+ * A cor do personagem (a da carta, e a da camisa quando ele a pinta) nunca e'
+ * azul: azul e' o SEU time, e o seu colete de sempre.
  *
- * Um adversario de colete azul seria voce do outro lado da rede. Cor sem
- * saturacao (branco, cinza, preto) nao tem matiz pra confundir e passa.
+ * Um adversario de azul seria voce do outro lado da rede. Cor sem saturacao
+ * (branco, cinza, preto) nao tem matiz pra confundir e passa.
  */
-test('nenhum colete e azul como o seu time', () => {
+test('nenhuma cor de personagem e azul como o seu time', () => {
   const matiz = (hex: number): { h: number; s: number } => {
     const r = ((hex >> 16) & 255) / 255;
     const g = ((hex >> 8) & 255) / 255;
@@ -91,10 +93,13 @@ test('nenhum colete e azul como o seu time', () => {
 
   const seu = matiz(COLORS.home).h;
   for (const p of ELENCO) {
-    const { h, s } = matiz(p.visual.colete);
-    if (s < 0.25) continue;
-    const distancia = Math.min(Math.abs(h - seu), 360 - Math.abs(h - seu));
-    assert.ok(distancia > 45, `${p.nome}: colete a ${distancia.toFixed(0)} graus do azul do seu time`);
+    for (const [onde, cor] of [['cor', p.cor], ['camisa', p.visual.camisa]] as const) {
+      if (cor === null) continue;
+      const { h, s } = matiz(cor);
+      if (s < 0.25) continue;
+      const distancia = Math.min(Math.abs(h - seu), 360 - Math.abs(h - seu));
+      assert.ok(distancia > 45, `${p.nome}: ${onde} a ${distancia.toFixed(0)} graus do azul do seu time`);
+    }
   }
 });
 
@@ -117,4 +122,35 @@ test('o estilo sai das notas, e os apelidos cumprem', () => {
 test('o chefe do mundial e o mais forte do jogo', () => {
   const melhor = [...ELENCO].sort((a, b) => geral(b) - geral(a))[0]!;
   assert.equal(melhor.etapa, 'mundial');
+});
+
+/**
+ * O corpo de cada um FECHA: pecas que existem, da familia certa, calca que
+ * desce ate' o sapato. E' a mesma regra do criador, entao um personagem mal
+ * montado aqui seria um que o jogador nao conseguiria montar.
+ */
+test('todo personagem tem um corpo que fecha', () => {
+  for (const p of ELENCO) {
+    assert.ok(encaixa(p.visual), `${p.nome}: o corpo nao fecha`);
+    assert.deepEqual(lerVisual(JSON.parse(JSON.stringify(p.visual))), p.visual, `${p.nome}: o corpo nao sobrevive ao save`);
+  }
+});
+
+/** Nome de mulher, corpo de mulher. A lista e' a do elenco de hoje. */
+test('as jogadoras usam o esqueleto feminino', () => {
+  const mulheres = new Set(['lia-concha', 'duda-sol', 'gabi-siri', 'bia-rede', 'dani-caju', 'mari-coral',
+    'nina-peixinho', 'bruna-boia', 'leca-areia', 'lu-bloqueio']);
+  for (const p of ELENCO) {
+    assert.equal(p.visual.familia, mulheres.has(p.id) ? 'feminino' : 'masculino', p.nome);
+  }
+});
+
+/** Dois personagens com o MESMO corpo seriam o mesmo boneco com outra ficha. */
+test('nao ha dois personagens com o mesmo corpo', () => {
+  const vistos = new Map<string, string>();
+  for (const p of ELENCO) {
+    const chave = chaveDoVisual(p.visual);
+    assert.ok(!vistos.has(chave), `${p.nome} tem o mesmo corpo de ${vistos.get(chave)}`);
+    vistos.set(chave, p.nome);
+  }
 });

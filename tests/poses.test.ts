@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 
-import { CAMADAS, montarClipes, RECEITAS } from '../src/players/poses';
+import { CAMADAS, medirPerna, montarClipes, RECEITAS } from '../src/players/poses';
+import { FAMILIAS, type Familia } from '../src/players/corpos';
 import { BOLA_NA_MAO } from '../src/players/buildAthlete';
 import { COURT, MERGULHO } from '../src/config';
 
@@ -21,15 +23,50 @@ import { COURT, MERGULHO } from '../src/config';
  * boneco fica errado de um jeito que so' aparece olhando com atencao — pe'
  * enterrado na areia, tronco de lado, mao no lugar do cotovelo. Os numeros
  * abaixo sao os que a sonda mediu no modelo de verdade.
+ *
+ * E tudo vale pros DOIS esqueletos, o do homem e o da mulher: as receitas sao
+ * as mesmas, e o esqueleto da mulher tem outra perna (mais comprida) e outra
+ * convencao de eixo na coxa. Cada teste roda nos dois.
  */
 
-const carregar = async (): Promise<THREE.Object3D> => {
-  const buf = fs.readFileSync(new URL('../src/assets/atleta.glb', import.meta.url));
+/** O arquivo base de cada familia: e' nele que as clipes sao montadas no jogo. */
+const lerBase = async (familia: Familia): Promise<{ scene: THREE.Object3D; animations: THREE.AnimationClip[] }> => {
+  const buf = fs.readFileSync(new URL(`../src/assets/corpos/${familia}-worker.glb`, import.meta.url));
   const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
-  const gltf = await new Promise<{ scene: THREE.Object3D }>((ok, err) =>
-    new GLTFLoader().parse(ab, '', ok as never, err));
+  const loader = new GLTFLoader();
+  loader.setMeshoptDecoder(MeshoptDecoder);
+  const gltf = await new Promise<{ scene: THREE.Object3D; animations: THREE.AnimationClip[] }>((ok, err) =>
+    loader.parse(ab, '', ok as never, err));
   gltf.scene.updateMatrixWorld(true);
-  return gltf.scene;
+  return gltf;
+};
+const carregar = async (familia: Familia): Promise<THREE.Object3D> => (await lerBase(familia)).scene;
+/** As receitas foram afinadas no homem: a mulher e' posada com ele de referencia, como no jogo. */
+const referencia = async (familia: Familia): Promise<THREE.Object3D | undefined> =>
+  (familia === 'masculino' ? undefined : carregar('masculino'));
+
+/** Os ossos pelo nome. */
+const ossosDe = (raiz: THREE.Object3D): Map<string, THREE.Bone> => {
+  const ossos = new Map<string, THREE.Bone>();
+  raiz.traverse((o) => { if ((o as THREE.Bone).isBone) ossos.set(o.name, o as THREE.Bone); });
+  return ossos;
+};
+
+/**
+ * As medidas que a sonda tirou de cada esqueleto, e o eixo do joelho na coxa
+ * — o eixo LOCAL que fica de lado (pra +X do corpo) quando a perna dobra de
+ * frente. Medido na caminhada do pack, que esta' certa: no homem e' o Z da
+ * coxa (-Z na esquerda, +Z na direita); na mulher, o +X dos dois lados.
+ */
+const SONDA: Readonly<Record<Familia, { osso: number; quadril: number; tornozelo: number; coxa: Record<'L' | 'R', THREE.Vector3> }>> = {
+  masculino: {
+    osso: 0.433, quadril: 0.928, tornozelo: 0.097,
+    coxa: { L: new THREE.Vector3(0, 0, -1), R: new THREE.Vector3(0, 0, 1) },
+  },
+  feminino: {
+    osso: 0.482, quadril: 1.0, tornozelo: 0.073,
+    coxa: { L: new THREE.Vector3(1, 0, 0), R: new THREE.Vector3(1, 0, 0) },
+  },
 };
 
 /** Poe o corpo na pose do clipe no instante `t` e devolve como ler os ossos. */
@@ -55,20 +92,63 @@ function posar(raiz: THREE.Object3D, clipe: THREE.AnimationClip, t: number, deit
 
   const soltar = (): void => { mixer.stopAllAction(); mixer.uncacheRoot(raiz); raiz.quaternion.set(0, 0, 0, 1); };
   const onde = (nome: string): THREE.Vector3 => ossos.get(nome)!.getWorldPosition(new THREE.Vector3());
-  /** O tornozelo e' a PONTA da canela: o joelho e' folha, o pe' nao esta' na perna. */
-  const tornozelo = (lado: 'R' | 'L'): THREE.Vector3 =>
-    ossos.get(`LowerLeg${lado}`)!.localToWorld(new THREE.Vector3(0, 0.433, 0));
+  /**
+   * O tornozelo e' a PONTA da canela: o joelho e' folha, o pe' nao esta' na
+   * perna. A canela tem o comprimento da coxa, que nao muda com a pose.
+   */
+  const tornozelo = (lado: 'R' | 'L'): THREE.Vector3 => {
+    const coxa = onde(`UpperLeg${lado}`).distanceTo(onde(`LowerLeg${lado}`));
+    return ossos.get(`LowerLeg${lado}`)!.localToWorld(new THREE.Vector3(0, coxa, 0));
+  };
 
   return { onde, tornozelo, soltar };
 }
 
-const clipes = async (): Promise<Map<string, THREE.AnimationClip>> => {
-  const raiz = await carregar();
-  return new Map(montarClipes(raiz, RECEITAS).map((c) => [c.name, c]));
+for (const familia of FAMILIAS) {
+/** A perna medida no esqueleto bate com a sonda — e nao com a do outro esqueleto. */
+test(`${familia}: a perna e medida no proprio esqueleto`, async () => {
+  const raiz = await carregar(familia);
+  const perna = medirPerna(ossosDe(raiz));
+  const sonda = SONDA[familia];
+  assert.ok(Math.abs(perna.osso - sonda.osso) < 0.003, `coxa de ${perna.osso.toFixed(3)}`);
+  assert.ok(Math.abs(perna.quadril - sonda.quadril) < 0.005, `quadril a ${perna.quadril.toFixed(3)}`);
+  assert.ok(Math.abs(perna.tornozelo - sonda.tornozelo) < 0.005, `tornozelo a ${perna.tornozelo.toFixed(3)}`);
+  for (const lado of ['L', 'R'] as const) {
+    const medido = perna.lateral.get(`UpperLeg${lado}`)!;
+    assert.ok(medido.dot(sonda.coxa[lado]) > 0.999, `eixo do joelho na coxa ${lado}: ${medido.toArray().map((v) => v.toFixed(2))}`);
+  }
+});
+
+/**
+ * A SONDA confere com a caminhada do pack: andando, o eixo do joelho de cada
+ * coxa fica de lado, pra +X. E' daqui que a convencao saiu, e e' isto que
+ * avisa se um pack novo trouxer outra.
+ */
+test(`${familia}: na caminhada do pack, o eixo do joelho fica de lado`, async () => {
+  const gltf = await lerBase(familia);
+  const raiz = gltf.scene;
+  const walk = gltf.animations.find((c) => c.name === 'Walk')!;
+  const mixer = new THREE.AnimationMixer(raiz);
+  mixer.clipAction(walk).play();
+  for (let i = 0; i < 8; i++) {
+    mixer.setTime((walk.duration * i) / 8);
+    raiz.updateMatrixWorld(true);
+    for (const lado of ['L', 'R'] as const) {
+      const eixo = SONDA[familia].coxa[lado].clone()
+        .applyQuaternion(raiz.getObjectByName(`UpperLeg${lado}`)!.getWorldQuaternion(new THREE.Quaternion()));
+      assert.ok(eixo.x > 0.97, `Walk ${i}/8: coxa ${lado} com o joelho pra ${eixo.toArray().map((v) => v.toFixed(2))}`);
+    }
+  }
+  mixer.stopAllAction();
+});
+
+const clipes = async (familia: Familia): Promise<Map<string, THREE.AnimationClip>> => {
+  const raiz = await carregar(familia);
+  return new Map(montarClipes(raiz, RECEITAS, await referencia(familia)).map((c) => [c.name, c]));
 };
 
-test('toda receita vira clipe, e com o nome dela', async () => {
-  const feitos = await clipes();
+test(`${familia}: toda receita vira clipe, e com o nome dela`, async () => {
+  const feitos = await clipes(familia);
   for (const r of RECEITAS) {
     const c = feitos.get(r.nome);
     assert.ok(c, `faltou o clipe "${r.nome}"`);
@@ -85,9 +165,9 @@ test('toda receita vira clipe, e com o nome dela', async () => {
  * jogar com o pe' enterrado ou flutuando — e a camera de jogo e' longe o
  * bastante pra isso passar despercebido por muito tempo.
  */
-test('em todo quadro de pe, a sola continua na areia', async () => {
-  const raiz = await carregar();
-  const feitos = new Map(montarClipes(raiz, RECEITAS).map((c) => [c.name, c]));
+test(`${familia}: em todo quadro de pe, a sola continua na areia`, async () => {
+  const raiz = await carregar(familia);
+  const feitos = new Map(montarClipes(raiz, RECEITAS, await referencia(familia)).map((c) => [c.name, c]));
 
   // Quadro "de pe" e' o que NAO escreve perna a mao. Quem escreve — pulo,
   // mergulho, o ataque no ar — esta' recolhendo perna de proposito, e nao ha'
@@ -100,9 +180,10 @@ test('em todo quadro de pe, a sola continua na areia', async () => {
       const { tornozelo, soltar } = posar(raiz, feitos.get(receita.nome)!, quadro.t);
       for (const lado of ['R', 'L'] as const) {
         const y = tornozelo(lado).y;
-        // 0,097 e' a altura do tornozelo em repouso, medida no modelo.
-        assert.ok(Math.abs(y - 0.097) < 0.02,
-          `${receita.nome} em t=${quadro.t}: tornozelo ${lado} em ${y.toFixed(3)}, esperado ~0.097`);
+        // A altura do tornozelo em repouso, medida no modelo.
+        const esperado = SONDA[familia].tornozelo;
+        assert.ok(Math.abs(y - esperado) < 0.02,
+          `${receita.nome} em t=${quadro.t}: tornozelo ${lado} em ${y.toFixed(3)}, esperado ~${esperado}`);
       }
       soltar();
       conferidos++;
@@ -122,9 +203,9 @@ test('em todo quadro de pe, a sola continua na areia', async () => {
  * -27,7. Mexer em um sem o outro torce o tronco todo, e o sintoma e' uma mao
  * mais funda que a outra numa pose que deveria ser simetrica.
  */
-test('a manchete e simetrica: as duas maos na mesma profundidade', async () => {
-  const feitos = await clipes();
-  const raiz = await carregar();
+test(`${familia}: a manchete e simetrica: as duas maos na mesma profundidade`, async () => {
+  const feitos = await clipes(familia);
+  const raiz = await carregar(familia);
   const clipe = feitos.get('Manchete')!;
 
   const { onde, soltar } = posar(raiz, clipe, 0);
@@ -146,9 +227,9 @@ test('a manchete e simetrica: as duas maos na mesma profundidade', async () => {
  * Escrever a pose com `F` de frente — que foi a primeira tentativa — enfiava os
  * bracos na areia, e o teste que pega isso e' este.
  */
-test('no mergulho as maos vao a frente do corpo, e acima da areia', async () => {
-  const feitos = await clipes();
-  const raiz = await carregar();
+test(`${familia}: no mergulho as maos vao a frente do corpo, e acima da areia`, async () => {
+  const feitos = await clipes(familia);
+  const raiz = await carregar(familia);
 
   const { onde, soltar } = posar(raiz, feitos.get('Mergulho')!, 0, true);
   const mao = onde('WristR');
@@ -163,9 +244,9 @@ test('no mergulho as maos vao a frente do corpo, e acima da areia', async () => 
 });
 
 /** O contato da cortada tem que sair acima da rede, senao o gesto mente. */
-test('no ataque a mao bate no alto, e a rede tem 2,24 m', async () => {
-  const feitos = await clipes();
-  const raiz = await carregar();
+test(`${familia}: no ataque a mao bate no alto, e a rede tem 2,24 m`, async () => {
+  const feitos = await clipes(familia);
+  const raiz = await carregar(familia);
 
   const { onde, soltar } = posar(raiz, feitos.get('Ataque')!, 0);
   const mao = onde('WristR');
@@ -177,9 +258,9 @@ test('no ataque a mao bate no alto, e a rede tem 2,24 m', async () => {
 });
 
 /** Cotovelo dobrado no levantamento, esticado na manchete: e o que separa os dois. */
-test('levantamento dobra o cotovelo, manchete nao', async () => {
-  const feitos = await clipes();
-  const raiz = await carregar();
+test(`${familia}: levantamento dobra o cotovelo, manchete nao`, async () => {
+  const feitos = await clipes(familia);
+  const raiz = await carregar(familia);
 
   const estica = (nome: string): number => {
     const { onde, soltar } = posar(raiz, feitos.get(nome)!, 0);
@@ -213,9 +294,9 @@ const silhueta = (raiz: THREE.Object3D, clipe: THREE.AnimationClip, t: number) =
   return r;
 };
 
-test('um braco so no ataque e no saque; os dois no pulo e no levantamento', async () => {
-  const feitos = await clipes();
-  const raiz = await carregar();
+test(`${familia}: um braco so no ataque e no saque; os dois no pulo e no levantamento`, async () => {
+  const feitos = await clipes(familia);
+  const raiz = await carregar(familia);
 
   // Um braco bate e o outro desce. E' o que da' a leitura de ataque.
   const ataque = silhueta(raiz, feitos.get('Ataque')!, 0);
@@ -237,9 +318,9 @@ test('um braco so no ataque e no saque; os dois no pulo e no levantamento', asyn
   }
 });
 
-test('a mao do levantamento para na testa; a do pulo passa da cabeca', async () => {
-  const feitos = await clipes();
-  const raiz = await carregar();
+test(`${familia}: a mao do levantamento para na testa; a do pulo passa da cabeca`, async () => {
+  const feitos = await clipes(familia);
+  const raiz = await carregar(familia);
 
   const levanta = silhueta(raiz, feitos.get('Levantamento')!, 0);
   const pula = silhueta(raiz, feitos.get('Pulo')!, 0.6);
@@ -253,9 +334,9 @@ test('a mao do levantamento para na testa; a do pulo passa da cabeca', async () 
     `pulo e levantamento a ${(pula.maoAlta - levanta.maoAlta).toFixed(2)} m um do outro: pouco pra distinguir`);
 });
 
-test('a manchete e o unico gesto com as maos abaixo do peito', async () => {
-  const feitos = await clipes();
-  const raiz = await carregar();
+test(`${familia}: a manchete e o unico gesto com as maos abaixo do peito`, async () => {
+  const feitos = await clipes(familia);
+  const raiz = await carregar(familia);
 
   const manchete = silhueta(raiz, feitos.get('Manchete')!, 0);
   assert.ok(manchete.maoAlta < 1.05, `plataforma alta demais: ${manchete.maoAlta.toFixed(2)}`);
@@ -280,16 +361,15 @@ test('a manchete e o unico gesto com as maos abaixo do peito', async () => {
  * A medida: a distancia do tornozelo (ponta da canela) ate' a origem do pe'
  * tem que ser a do repouso. Se mudar, a pele entre os dois esta' esticando.
  */
-test('o pe acompanha a canela em todo quadro, e o sapato nao estica', async () => {
-  const raiz = await carregar();
-  const ossos = new Map<string, THREE.Object3D>();
-  raiz.traverse((o) => { if ((o as THREE.Bone).isBone) ossos.set(o.name, o); });
+test(`${familia}: o pe acompanha a canela em todo quadro, e o sapato nao estica`, async () => {
+  const raiz = await carregar(familia);
+  const ossos = ossosDe(raiz);
   const repouso = (lado: 'R' | 'L'): number =>
-    ossos.get(`LowerLeg${lado}`)!.localToWorld(new THREE.Vector3(0, 0.433, 0))
+    ossos.get(`LowerLeg${lado}`)!.localToWorld(new THREE.Vector3(0, SONDA[familia].osso, 0))
       .distanceTo(ossos.get(`Foot${lado}`)!.getWorldPosition(new THREE.Vector3()));
   const vao = { R: repouso('R'), L: repouso('L') };
 
-  const feitos = new Map(montarClipes(raiz, RECEITAS).map((c) => [c.name, c]));
+  const feitos = new Map(montarClipes(raiz, RECEITAS, await referencia(familia)).map((c) => [c.name, c]));
   let conferidos = 0;
   for (const receita of RECEITAS) {
     for (const quadro of receita.quadros) {
@@ -307,13 +387,13 @@ test('o pe acompanha a canela em todo quadro, e o sapato nao estica', async () =
 });
 
 /** No chao, a sola fica plana, DE FRENTE e na altura do repouso. */
-test('nos quadros de pe, a sola fica plana, de frente e na altura do repouso', async () => {
-  const raiz = await carregar();
+test(`${familia}: nos quadros de pe, a sola fica plana, de frente e na altura do repouso`, async () => {
+  const raiz = await carregar(familia);
   const y0 = new Map<string, number>();
   raiz.traverse((o) => {
     if (o.name === 'FootL' || o.name === 'FootR') y0.set(o.name, o.getWorldPosition(new THREE.Vector3()).y);
   });
-  const feitos = new Map(montarClipes(raiz, RECEITAS).map((c) => [c.name, c]));
+  const feitos = new Map(montarClipes(raiz, RECEITAS, await referencia(familia)).map((c) => [c.name, c]));
   for (const receita of RECEITAS) {
     if (receita.camada) continue;
     for (const quadro of receita.quadros) {
@@ -342,12 +422,12 @@ test('nos quadros de pe, a sola fica plana, de frente e na altura do repouso', a
  * lugar, o tornozelo tambem. O que estava errado era o GIRO dos ossos em volta
  * deles mesmos: a perna esquerda herdava os ~50 graus pra fora do repouso, a
  * rotula dobrava de lado e, no pulo, os dois pes apontavam pro mesmo lado.
- * Medido nos eixos que a caminhada do pack usa: coxa com o +Z de lado,
- * canela e pe' com o +X de lado.
+ * Medido nos eixos que a caminhada do pack usa: a coxa com o eixo do joelho
+ * de lado (`SONDA`), canela e pe' com o +X de lado.
  */
-test('a perna dobra de frente e o pe nunca vira de lado', async () => {
-  const raiz = await carregar();
-  const feitos = new Map(montarClipes(raiz, RECEITAS).map((c) => [c.name, c]));
+test(`${familia}: a perna dobra de frente e o pe nunca vira de lado`, async () => {
+  const raiz = await carregar(familia);
+  const feitos = new Map(montarClipes(raiz, RECEITAS, await referencia(familia)).map((c) => [c.name, c]));
   const eixo = (nome: string, local: THREE.Vector3): THREE.Vector3 =>
     local.clone().applyQuaternion(raiz.getObjectByName(nome)!.getWorldQuaternion(new THREE.Quaternion()));
   const X = new THREE.Vector3(1, 0, 0);
@@ -358,8 +438,8 @@ test('a perna dobra de frente e o pe nunca vira de lado', async () => {
     for (const quadro of receita.quadros) {
       const { soltar } = posar(raiz, feitos.get(receita.nome)!, quadro.t);
       const onde = `${receita.nome} t=${quadro.t}`;
-      assert.ok(eixo('UpperLegL', Z).x < -0.97, `${onde}: coxa esquerda torcida`);
-      assert.ok(eixo('UpperLegR', Z).x > 0.97, `${onde}: coxa direita torcida`);
+      assert.ok(eixo('UpperLegL', SONDA[familia].coxa.L).x > 0.97, `${onde}: coxa esquerda torcida`);
+      assert.ok(eixo('UpperLegR', SONDA[familia].coxa.R).x > 0.97, `${onde}: coxa direita torcida`);
       for (const lado of ['L', 'R']) {
         assert.ok(eixo(`LowerLeg${lado}`, X).x > 0.97, `${onde}: canela ${lado} torcida`);
         assert.ok(eixo(`Foot${lado}`, X).x > 0.97, `${onde}: pe ${lado} virado de lado`);
@@ -382,9 +462,9 @@ test('a perna dobra de frente e o pe nunca vira de lado', async () => {
  * Aqui o boneco nao sai do chao — quem levanta o corpo no jogo e' o Motor — e
  * por isso a prova e' o GIRO do pe', e nao a altura dele.
  */
-test('no pulo e na cortada o pe vai esticado, de bico pra baixo', async () => {
-  const raiz = await carregar();
-  const feitos = new Map(montarClipes(raiz, RECEITAS).map((c) => [c.name, c]));
+test(`${familia}: no pulo e na cortada o pe vai esticado, de bico pra baixo`, async () => {
+  const raiz = await carregar(familia);
+  const feitos = new Map(montarClipes(raiz, RECEITAS, await referencia(familia)).map((c) => [c.name, c]));
   for (const nome of ['Pulo', 'Cortada', 'Mergulho']) {
     const receita = RECEITAS.find((r) => r.nome === nome)!;
     assert.ok(receita.quadros.every((q) => q.pose['UpperLegR']), `${nome} tem quadro sem perna escrita`);
@@ -403,8 +483,8 @@ test('no pulo e na cortada o pe vai esticado, de bico pra baixo', async () => {
  * Uma trilha dessas que escapasse brigaria com o `Walk` de baixo, e o
  * sacador andando pela linha de fundo sairia com as pernas meio paradas.
  */
-test('a camada nao leva perna, quadril nem pe', async () => {
-  const feitos = await clipes();
+test(`${familia}: a camada nao leva perna, quadril nem pe`, async () => {
+  const feitos = await clipes(familia);
   assert.ok(CAMADAS.size > 0, 'nenhuma camada');
   for (const nome of CAMADAS) {
     const trilhas = feitos.get(nome)!.tracks.map((t) => t.name.split('.')[0]!);
@@ -424,14 +504,11 @@ test('a camada nao leva perna, quadril nem pe', async () => {
  * como no jogo, e ao longo do ciclo inteiro dele. `BOLA_NA_MAO` e' o ponto
  * de quem nao tem modelo, e tem que bater com a pose sozinha.
  */
-test('a bola do saque fica na palma esquerda, com a palma pra cima', async () => {
-  const buf = fs.readFileSync(new URL('../src/assets/atleta.glb', import.meta.url));
-  const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
-  const gltf = await new Promise<{ scene: THREE.Object3D; animations: THREE.AnimationClip[] }>((ok, err) =>
-    new GLTFLoader().parse(ab, '', ok as never, err));
+test(`${familia}: a bola do saque fica na palma esquerda, com a palma pra cima`, async () => {
+  const gltf = await lerBase(familia);
   const raiz = gltf.scene;
   raiz.updateMatrixWorld(true);
-  const espera = montarClipes(raiz, RECEITAS).find((c) => c.name === 'EsperaDoSaque')!;
+  const espera = montarClipes(raiz, RECEITAS, await referencia(familia)).find((c) => c.name === 'EsperaDoSaque')!;
   const idle = gltf.animations.find((c) => c.name === 'Idle')!;
 
   const palma = (): { centro: THREE.Vector3; normal: THREE.Vector3 } => {
@@ -471,4 +548,40 @@ test('a bola do saque fica na palma esquerda, com a palma pra cima', async () =>
   }
   jogo.stopAllAction();
   jogo.uncacheRoot(raiz);
+});
+}
+
+/**
+ * A mulher e' posada como o homem: em todo quadro de todo clipe, tronco,
+ * braco, mao e cabeca ficam com o MESMO giro em mundo nos dois esqueletos.
+ *
+ * E' a prova da `referencia` de `montarClipes`. Sem ela, o ombro dela (87
+ * graus girado em volta do proprio eixo, no repouso) passava o giro pro braco
+ * inteiro: posicao certa, torcao errada — a palma do saque de lado e a pele do
+ * braco retorcida. A posicao das maos nao pega isso; o giro pega.
+ */
+test('o esqueleto da mulher faz os gestos com os mesmos giros do homem', async () => {
+  const homem = await carregar('masculino');
+  const mulher = await carregar('feminino');
+  const dele = new Map(montarClipes(homem, RECEITAS).map((c) => [c.name, c]));
+  const dela = new Map(montarClipes(mulher, RECEITAS, homem).map((c) => [c.name, c]));
+  const OSSOS = ['Chest', 'Neck', 'Head', 'UpperArmL', 'LowerArmL', 'WristL', 'UpperArmR', 'LowerArmR', 'WristR'];
+  let conferidos = 0;
+  for (const receita of RECEITAS) {
+    if (receita.camada) continue;
+    for (const quadro of receita.quadros) {
+      const a = posar(homem, dele.get(receita.nome)!, quadro.t);
+      const b = posar(mulher, dela.get(receita.nome)!, quadro.t);
+      for (const nome of OSSOS) {
+        const qa = homem.getObjectByName(nome)!.getWorldQuaternion(new THREE.Quaternion());
+        const qb = mulher.getObjectByName(nome)!.getWorldQuaternion(new THREE.Quaternion());
+        const graus = (2 * Math.acos(Math.min(1, Math.abs(qa.dot(qb)))) * 180) / Math.PI;
+        assert.ok(graus < 6, `${receita.nome} t=${quadro.t}: ${nome} da mulher ${graus.toFixed(0)} graus fora do homem`);
+      }
+      a.soltar();
+      b.soltar();
+      conferidos++;
+    }
+  }
+  assert.ok(conferidos >= 15, `so ${conferidos} quadros`);
 });

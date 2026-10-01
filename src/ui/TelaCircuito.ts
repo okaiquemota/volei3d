@@ -4,7 +4,9 @@ import {
 } from '../match/Circuito';
 import { personagemPorId } from '../match/personagens';
 import { chip, el, icone } from './dom';
-import { APARENCIA_DE_VOCE, desenharBoneco, desenharFicha } from './TelaElenco';
+import { desenharFicha } from './TelaElenco';
+import { desenharRetrato } from './retratos';
+import type { Visual } from '../players/corpos';
 
 /**
  * Desenha as telas do circuito a partir do estado. So' desenha: nao decide
@@ -149,6 +151,7 @@ export function desenharChave(
   titulo: HTMLElement,
   subtitulo: HTMLElement,
   torneio: Torneio,
+  meuVisual: Visual,
   carreira?: Carreira,
 ): void {
   const def = DEFINICAO[torneio.etapa];
@@ -199,9 +202,9 @@ export function desenharChave(
   const p = personagemPorId(ele.id);
   const versus = el('div', 'versus');
   const voce = el('div', 'versus-lado');
-  voce.append(desenharBoneco(APARENCIA_DE_VOCE), el('span', 'versus-nome voce', 'VOCE'));
+  voce.append(desenharRetrato(meuVisual), el('span', 'versus-nome voce', 'VOCE'));
   const outro = el('div', 'versus-lado');
-  if (p) outro.append(desenharBoneco(p.visual));
+  if (p) outro.append(desenharRetrato(p.visual));
   outro.append(el('span', 'versus-nome', ele.nome));
   versus.append(voce, el('span', 'versus-vs', 'VS'), outro);
 

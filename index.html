@@ -182,12 +182,19 @@
           <span class="tile-titulo">ADVERSARIOS</span>
           <span class="tile-desc">24 personagens, oito notas cada. Desafie qualquer um.</span>
         </button>
-        <button class="tile tile-menor" type="button" data-tela="ajustes" style="--i:3">
+        <!-- O seu retrato mora no bloco: ele muda junto com o que se monta. -->
+        <button id="btn-jogador" class="tile tile-verde tile-jogador" type="button" style="--i:3">
+          <span id="tile-jogador-retrato" class="tile-retrato"></span>
+          <span class="tile-topo">CRIADOR</span>
+          <span class="tile-titulo">MEU JOGADOR</span>
+          <span class="tile-desc">Cabeca, tronco, pernas, pes e cores.</span>
+        </button>
+        <button class="tile tile-menor" type="button" data-tela="ajustes" style="--i:4">
           <svg class="tile-arte"><use href="#i-ajustes" /></svg>
           <span class="tile-titulo">AJUSTES</span>
           <span id="tile-ajustes-desc" class="tile-desc"></span>
         </button>
-        <button class="tile tile-menor" type="button" data-tela="comojogar" style="--i:4">
+        <button class="tile tile-menor" type="button" data-tela="comojogar" style="--i:5">
           <svg class="tile-arte"><use href="#i-teclado" /></svg>
           <span class="tile-titulo">COMO JOGAR</span>
           <span class="tile-desc">Toques, barras, mergulho e controles</span>
@@ -223,6 +230,29 @@
         <div class="prompts">
           <button class="prompt" type="button" data-voltar><kbd class="larga">ESC</kbd>VOLTAR</button>
           <span class="prompt"><kbd>&larr;</kbd><kbd>&rarr;</kbd>MUDAR</span>
+        </div>
+      </footer>
+    </section>
+
+    <!-- --------------------------------------------------- meu jogador -->
+    <!-- So' o painel: o boneco e' o banhista de verdade, na areia, com a camera
+         do jogo de frente pra ele. O lado direito fica vazio de proposito. -->
+    <section id="jogador" class="tela tela-painel tela-criador hidden">
+      <header class="cabecalho">
+        <span class="migalha">MENU</span>
+        <h2 class="cabecalho-titulo">MEU JOGADOR</h2>
+        <p class="cabecalho-sub">Peca por peca, de 21 personagens. E' com este corpo que voce entra na quadra.</p>
+      </header>
+      <div class="painel criador">
+        <div id="criador-opcoes" class="opcoes"></div>
+        <p id="criador-aviso" class="criador-aviso" aria-live="polite"></p>
+      </div>
+      <footer class="rodape">
+        <div class="prompts">
+          <button id="btn-jogador-voltar" class="prompt" type="button" data-voltar><kbd class="larga">ESC</kbd>PRONTO</button>
+          <span class="prompt"><kbd>&larr;</kbd><kbd>&rarr;</kbd>MUDAR</span>
+          <span class="prompt"><kbd>Q</kbd><kbd>E</kbd>GIRAR</span>
+          <button id="btn-jogador-sortear" class="prompt" type="button"><kbd>R</kbd>SORTEAR</button>
         </div>
       </footer>
     </section>
