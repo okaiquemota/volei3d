@@ -381,7 +381,7 @@ export class Screens {
     const titulos = ETAPAS.reduce((n, e) => n + c.titulos[e], 0);
 
     const retrato = el('div', 'perfil-retrato');
-    retrato.append(desenharRetrato(this.meuVisual(), 'busto'));
+    retrato.append(desenharRetrato(this.meuVisual(), 'rosto'));
     const numeros = el('div', 'perfil-numeros');
     for (const [rotulo, valor] of [['RANKING', c.ranking], ['TITULOS', titulos], ['V-D', `${c.vitorias}-${c.derrotas}`]] as const) {
       const n = el('span', '', rotulo);

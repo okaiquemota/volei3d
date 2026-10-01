@@ -1852,10 +1852,21 @@ guardadas. Renderizar num render target do renderer do jogo evitaria o contexto
 extra, mas o render target sai em espaço linear e sem tone mapping, e a foto
 teria que ser convertida à mão.
 
-E o criador não tem prévia: o boneco é o banhista posado ao lado da quadra em
+E o criador não tem prévia: o boneco é o banhista posado no fundo da quadra em
 foco (`Game.cameraDoCriador`), com a câmera do jogo de frente. `Banhista.posar`
 mexe só no desenho, nunca no `Motor` — fechado o criador, o próximo `update`
 devolve o corpo pra onde ele estava.
+
+**Fora da quadra a câmera cai atrás das placas.** A primeira versão punha o
+boneco 3 m além da lateral e a câmera 4 m além dele: na praia, bonito; no
+ESTÁDIO, a câmera ficava a 11 m da linha — depois das placas (8,5 m) e no meio
+da arquibancada. Uma placa cortava o boneco pela cintura e um torcedor tapava
+o canto da tela. Conferido só na praia, passou. Agora tudo fica dentro da
+quadra (boneco a 4,4 m da rede, câmera antes da linha de fundo, dentro da zona
+livre), e os dois atletas e a bola daquela quadra somem enquanto o criador
+está aberto — o boneco é você, e o seu atleta parado ali seria você duas
+vezes. **Cenário novo é mais um lugar onde a câmera do criador tem que caber:
+confira os três.**
 
 ## O que NÃO foi verificado
 

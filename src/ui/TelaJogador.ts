@@ -9,7 +9,7 @@ import { EVENTO_DE_PASSO, type Passo } from './navegacao';
  * MEU JOGADOR: o criador de personagem.
  *
  * So' a lista de escolhas. O boneco que muda a cada escolha nao mora aqui —
- * e' o proprio banhista, de pe' na areia ao lado da quadra, com a camera do
+ * e' o proprio banhista, de pe' no fundo da quadra em foco, com a camera do
  * jogo de frente pra ele (`Game.abrirCriador`). E' o corpo de verdade, na luz
  * de verdade: o que se ve' aqui e' exatamente o que entra na quadra.
  *

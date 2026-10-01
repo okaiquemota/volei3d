@@ -41,14 +41,20 @@ const _cameraAlvo = new THREE.Vector3();
 
 /**
  * O criador de personagem: onde o boneco posa e de onde a camera olha, em
- * metros da quadra em foco. Ao lado da quadra, fora da areia de jogo, com a
- * camera de fora pra dentro — o fundo e' a rede e a quadra.
+ * metros da quadra em foco.
+ *
+ * DENTRO da quadra, e nao do lado dela: fora, a camera caia atras das placas
+ * do estadio (8,5 m da linha) e no meio da torcida — uma placa cortava o
+ * boneco pela cintura. Aqui o boneco fica no fundo da quadra, a camera entre
+ * ele e a linha de fundo (dentro da zona livre, antes das placas), e o fundo
+ * da foto e' a rede. Os atletas da quadra somem enquanto o criador esta'
+ * aberto: o boneco e' voce, e o seu atleta parado ali seria voce duas vezes.
  */
 const CRIADOR = {
-  /** O boneco: alem da lateral, na altura do meio da quadra. */
-  boneco: { lado: 3, fundo: 3 },
-  /** A camera: um passo a' frente dele e na altura do peito. */
-  camera: { frente: 4.1, lado: 1.0, altura: 1.2 },
+  /** O boneco: um pouco fora do centro, a meio caminho entre a rede e o fundo. */
+  boneco: { x: 1.2, z: 4.4 },
+  /** A camera: atras dele, pro lado do fundo, na altura do peito. */
+  camera: { frente: 4.1, lado: 0.9, altura: 1.2 },
   alturaDoOlhar: 0.95,
   /** Vira o olhar pra esquerda: joga o boneco pra direita, longe do painel. */
   desvio: 0.3,
@@ -256,6 +262,8 @@ export class Game {
    */
   private criador: {
     giro: number; giroVisto: number; de: { posicao: THREE.Vector3; giro: THREE.Quaternion }; t: number; visivelAntes: boolean;
+    /** O que o criador escondeu da quadra em foco, pra devolver ao fechar. */
+    escondidos: THREE.Object3D[];
   } | null = null;
   /** A camera voltando do criador pra volta do menu. */
   private voltaDoCriador: { posicao: THREE.Vector3; giro: THREE.Quaternion; t: number } | null = null;
@@ -822,7 +830,7 @@ export class Game {
 
   // ---------------------------------------------------------- o criador
 
-  /** MEU JOGADOR: o banhista posa ao lado da quadra, e a camera vai ate' ele. */
+  /** MEU JOGADOR: o banhista posa no fundo da quadra em foco, e a camera vai ate' ele. */
   private abrirCriador(): void {
     this.screens.mostrarMenu(false);
     this.criador = {
@@ -831,7 +839,15 @@ export class Game {
       de: { posicao: this.camera.position.clone(), giro: this.camera.quaternion.clone() },
       t: 0,
       visivelAntes: this.banhista.objeto.visible,
+      escondidos: [],
     };
+    // A quadra vira estudio: sem os dois atletas e sem a bola parados no meio.
+    const arena = this.arenaEmFoco;
+    for (const o of [arena.home.objeto, arena.away.objeto, arena.ball.mesh]) {
+      if (!o.visible) continue;
+      o.visible = false;
+      this.criador.escondidos.push(o);
+    }
     this.voltaDoCriador = null;
     this.banhista.vestir(this.meuVisual);
     this.banhista.objeto.visible = true;
@@ -842,6 +858,7 @@ export class Game {
     const c = this.criador;
     if (!c) return;
     this.banhista.objeto.visible = c.visivelAntes;
+    for (const o of c.escondidos) o.visible = true;
     this.criador = null;
     this.voltaDoCriador = { posicao: this.camera.position.clone(), giro: this.camera.quaternion.clone(), t: 0 };
     this.screens.mostrarJogador(false);
@@ -864,9 +881,8 @@ export class Game {
     const c = this.criador!;
     const court = this.arenaEmFoco.court;
     const k = CRIADOR;
-    court.paraMundo(_ponto.set(court.halfWidth + k.boneco.lado, 0, k.boneco.fundo), _ponto);
-    court.paraMundo(_olhar.set(court.halfWidth + k.boneco.lado + k.camera.frente, k.camera.altura,
-      k.boneco.fundo + k.camera.lado), _olhar);
+    court.paraMundo(_ponto.set(k.boneco.x, 0, k.boneco.z), _ponto);
+    court.paraMundo(_olhar.set(k.boneco.x + k.camera.lado, k.camera.altura, k.boneco.z + k.camera.frente), _olhar);
 
     // De frente pra camera, mais o giro pedido — que o boneco alcanca rapido.
     c.giroVisto += (c.giro - c.giroVisto) * Math.min(1, Math.min(dt, 0.1) * 9);

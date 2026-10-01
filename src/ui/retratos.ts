@@ -19,14 +19,19 @@ import { Corpos } from '../players/montarCorpo';
  * que estao esperando sao preenchidos — sem a tela ter que se redesenhar.
  */
 
-/** Corpo inteiro (VS), da cintura pra cima (carta do elenco), ou so' o rosto (ficha, perfil). */
-export type Quadro = 'corpo' | 'carta' | 'busto';
+/**
+ * Corpo inteiro (VS), da cintura pra cima (carta do elenco), cabeca e ombros
+ * (ficha), ou so' a cabeca (o circulo do perfil, que e' pequeno demais pra
+ * qualquer coisa alem do rosto).
+ */
+export type Quadro = 'corpo' | 'carta' | 'busto' | 'rosto';
 
 /** Em pixels da foto. A carta mostra o corpo a uns 130 px; o dobro deixa nitido. */
 const TAMANHO: Readonly<Record<Quadro, readonly [number, number]>> = {
   corpo: [300, 480],
   carta: [320, 320],
   busto: [256, 256],
+  rosto: [192, 192],
 };
 
 /**
@@ -37,6 +42,7 @@ const ENQUADRAMENTO: Readonly<Record<Quadro, { alvo: number; distancia: number }
   corpo: { alvo: 0.95, distancia: 6.6 },
   carta: { alvo: 1.3, distancia: 4.0 },
   busto: { alvo: 1.58, distancia: 2.3 },
+  rosto: { alvo: 1.68, distancia: 1.45 },
 };
 
 /** Quanto do tempo de um quadro as fotos podem tomar. O resto fica pro jogo. */

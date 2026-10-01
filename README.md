@@ -227,8 +227,9 @@ camisa e calça**. É com esse corpo que você entra na quadra e anda pela praia
 e ele fica salvo no navegador.
 
 O boneco que muda enquanto você escolhe não é uma prévia: é o próprio banhista,
-de pé na areia ao lado da quadra, com a câmera do jogo de frente para ele —
-mesma luz, mesma sombra, mesmo corpo que vai jogar. Setas mudam, **Q/E** (ou
+de pé no fundo da quadra, com a rede atrás e a câmera do jogo de frente para
+ele — mesma luz, mesma sombra, mesmo corpo que vai jogar. Os atletas daquela
+quadra saem de cena enquanto você monta. Setas mudam, **Q/E** (ou
 arrastar na metade vazia da tela) giram o boneco, **R** sorteia um.
 
 Peça de um personagem serve no outro porque o pack foi feito assim: os 21 têm
