@@ -54,6 +54,12 @@ export abstract class Athlete implements Tocador {
   private corpos: Corpos | null = null;
   /** De que combinacao e' o corpo montado agora: vestir de novo o mesmo nao remonta. */
   private montado = '';
+  /**
+   * As pecas ainda estao chegando. Enquanto isso o atleta NAO aparece: a
+   * capsula e' o corpo de quem ficou sem modelo (o arquivo falhou), e mostrar
+   * ela no carregamento parecia o boneco antigo voltando.
+   */
+  private esperandoCorpo = true;
 
   /**
    * Quem este atleta parece, ou null pro corpo de sempre dele (`visualPadrao`).
@@ -95,6 +101,7 @@ export abstract class Athlete implements Tocador {
     protected rally: EstadoDoRally,
   ) {
     this.visual = construirAtleta(cor, COURT.serveBallHeight);
+    this.visual.capsulas.visible = false;
     /**
      * A area de corrida muda durante o saque.
      *
@@ -157,6 +164,7 @@ export abstract class Athlete implements Tocador {
    */
   usarModelo(corpos: Corpos | null): void {
     this.corpos = corpos;
+    this.esperandoCorpo = false;
     this.montado = '';
     this.remontar();
   }
@@ -202,7 +210,7 @@ export abstract class Athlete implements Tocador {
       this.palma = base && ponta ? [base, ponta] : null;
     }
 
-    this.visual.capsulas.visible = this.corpos === null;
+    this.visual.capsulas.visible = this.corpos === null && !this.esperandoCorpo;
   }
 
   /** Leva a posicao do motor pro objeto da cena. Chamar no fim do update. */

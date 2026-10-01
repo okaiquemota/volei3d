@@ -240,8 +240,9 @@ export class Arena {
    * lembrar qual e' a pele, entrar numa quadra devolveria uma capsula no meio
    * de dois bonecos.
    */
-  private modeloDoAtleta: Corpos | null = null;
+  private modeloDoAtleta: Corpos | null | undefined = undefined;
 
+  /** `null` e' "nao ha' modelo" (a carga falhou): os atletas viram capsula. */
   usarModeloDeAtleta(modelo: Corpos | null): void {
     this.modeloDoAtleta = modelo;
     this.home.usarModelo(modelo);
@@ -258,7 +259,8 @@ export class Arena {
       this.rally,
     );
     this.raiz.add(bot.objeto);
-    bot.usarModelo(this.modeloDoAtleta);
+    // Ainda carregando: o bot fica sem corpo ate' `usarModeloDeAtleta`.
+    if (this.modeloDoAtleta !== undefined) bot.usarModelo(this.modeloDoAtleta);
     return bot;
   }
 
@@ -293,7 +295,7 @@ export class Arena {
 
     // O atleta que entra herda a pele da arena. O bot recem-criado ja' vem
     // vestido pelo `criarBot`; o humano chega de fora e nao sabe de nada.
-    quem.usarModelo(this.modeloDoAtleta);
+    if (this.modeloDoAtleta !== undefined) quem.usarModelo(this.modeloDoAtleta);
 
     if (lado === 'home') this.home = quem;
     else this.away = quem;

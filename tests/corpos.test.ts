@@ -11,6 +11,9 @@ import {
   type Familia, type Visual,
 } from '../src/players/corpos';
 import { Corpos, malhasDoVisual, type ArquivoDeCorpo } from '../src/players/montarCorpo';
+import { Animador, estadoDoMotor } from '../src/players/Animador';
+import type { EstadoDoCorpo } from '../src/players/animacoes';
+import { Motor } from '../src/players/Motor';
 
 /**
  * O que estes testes protegem:
@@ -260,5 +263,75 @@ test('as duas familias tem as clipes do pack e as escritas a mao', async () => {
     for (const n of ['Idle', 'Walk', 'Run', 'Pulo', 'Manchete', 'Cortada', 'EsperaDoSaque']) {
       assert.ok(nomes.includes(n), `${familia} sem ${n}`);
     }
+  }
+});
+
+/**
+ * Apertando varias teclas juntas, de qualquer jeito: o sapato nao estica e
+ * nenhum clipe salta de peso.
+ *
+ * As duas coisas que o jogador viu como "bug nos pes". O mixer mistura o giro
+ * da canela e a posicao do pe' por caminhos diferentes, e o sapato esticava
+ * 35 cm no meio de uma mistura (`PesNaCanela` prende os dois). E trocar de
+ * clipe antes da mistura anterior acabar fazia peso saltar — o `fadeOut` do
+ * three recomeca do 1 —, e o pe' pulava meio metro de um quadro pro outro.
+ * O roteiro e' de teclas sorteadas, com pulos, por 20 s, nos dois esqueletos.
+ */
+test('apertando varias teclas, o sapato nao estica e nenhum clipe salta de peso', async () => {
+  const c = await corpos();
+  for (const familia of FAMILIAS) {
+    const corpo = c.montar(visualDaFonte(familia, 'worker'));
+    const anim = new Animador(corpo, c.animacoes(familia));
+    const osso = (n: string): THREE.Object3D => corpo.getObjectByName(n)!;
+    corpo.updateMatrixWorld(true);
+    const coxa = osso('UpperLegL').getWorldPosition(new THREE.Vector3()).distanceTo(osso('LowerLegL').getWorldPosition(new THREE.Vector3()));
+    const vao = (l: string): number => osso(`LowerLeg${l}`).localToWorld(new THREE.Vector3(0, coxa, 0))
+      .distanceTo(osso(`Foot${l}`).getWorldPosition(new THREE.Vector3()));
+    const repouso = { L: vao('L'), R: vao('R') };
+
+    const motor = new Motor((p, out) => out.copy(p));
+    const estado = { gesto: null, marcaDoGesto: 0, segurandoBola: false } as unknown as EstadoDoCorpo;
+    const sorte = semente(11);
+    const teclas = [[0, 1], [1, 1], [1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0], [-1, 1]];
+    const dir = new THREE.Vector3(0, 0, 1);
+    let ate = 0;
+    let antes = new Map<string, number>();
+    let trocas = 0;
+    let ultimo = '';
+    for (let i = 0; i < 60 * 20; i++) {
+      const t = i / 60;
+      if (t >= ate) {
+        const [x, z] = teclas[Math.floor(sorte() * teclas.length)]!;
+        dir.set(x!, 0, z!).normalize();
+        ate = t + 0.1 + sorte() * 0.2;
+        if (sorte() < 0.15) motor.pular();
+      }
+      motor.moverPara(dir);
+      motor.encarar(new THREE.Vector3(0, 0, 1));
+      motor.update(1 / 60);
+      anim.update(estadoDoMotor(motor, estado), 1 / 60);
+      corpo.updateMatrixWorld(true);
+
+      for (const l of ['L', 'R'] as const) {
+        const d = Math.abs(vao(l) - repouso[l]);
+        assert.ok(d < 0.005, `${familia} t=${t.toFixed(2)}: sapato ${l} esticado ${(d * 100).toFixed(1)} cm`);
+      }
+      const pesos = anim.pesosDoCorpo();
+      const soma = [...pesos.values()].reduce((a, b) => a + b, 0);
+      assert.ok(Math.abs(soma - 1) < 1e-6, `${familia} t=${t.toFixed(2)}: pesos somam ${soma.toFixed(3)}`);
+      // No primeiro quadro o primeiro clipe entra sozinho, e sozinho e' peso 1.
+      for (const [nome, peso] of i === 0 ? [] : pesos) {
+        const salto = Math.abs(peso - (antes.get(nome) ?? 0));
+        // A mistura mais rapida (o gesto, 0,06 s) anda 0,28 por quadro.
+        assert.ok(salto < 0.3, `${familia} t=${t.toFixed(2)}: ${nome} saltou ${salto.toFixed(2)} de peso`);
+      }
+      const nome = [...pesos].sort((a, b) => b[1] - a[1])[0]![0];
+      if (nome !== ultimo) { trocas++; ultimo = nome; }
+      antes = pesos;
+    }
+    // E o roteiro mexeu de verdade: trocou de clipe dezenas de vezes.
+    assert.ok(trocas > 40, `${familia}: so ${trocas} trocas`);
+    anim.dispose();
+    Corpos.descartar(corpo);
   }
 });

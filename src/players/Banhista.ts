@@ -56,6 +56,8 @@ export class Banhista {
   /** Voce: o corpo que o criador montou. */
   private aparencia: Visual = VISUAL_PADRAO;
   private montado = '';
+  /** Como no `Athlete`: sem corpo nenhum enquanto as pecas chegam. */
+  private esperandoCorpo = true;
 
   /**
    * As quadras que ele nao pode atravessar.
@@ -76,6 +78,7 @@ export class Banhista {
   constructor(cor: number, quadras: readonly Court[] = []) {
     this.cor = cor;
     this.visual = construirAtleta(cor, COURT.serveBallHeight);
+    this.visual.capsulas.visible = false;
 
     this.motor = new Motor((posicao, out) => {
       out.set(
@@ -100,6 +103,7 @@ export class Banhista {
    */
   usarModelo(corpos: Corpos | null): void {
     this.corpos = corpos;
+    this.esperandoCorpo = false;
     this.montado = '';
     this.remontar();
   }
@@ -129,7 +133,7 @@ export class Banhista {
       this.animador = new Animador(this.corpo, this.corpos.animacoes(this.aparencia.familia));
     }
 
-    this.visual.capsulas.visible = this.corpos === null;
+    this.visual.capsulas.visible = this.corpos === null && !this.esperandoCorpo;
   }
 
   get objeto(): THREE.Object3D { return this.visual.root; }

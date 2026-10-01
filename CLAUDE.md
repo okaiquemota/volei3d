@@ -1868,6 +1868,53 @@ está aberto — o boneco é você, e o seu atleta parado ali seria você duas
 vezes. **Cenário novo é mais um lugar onde a câmera do criador tem que caber:
 confira os três.**
 
+## "Bug nos pés quando aperto muitas teclas": eram três defeitos
+
+O jogador via o pé torcer e pular apertando várias teclas juntas. Nenhum teste de
+pose pegava, porque cada clipe sozinho estava certo. O defeito era a MISTURA
+entre eles, e eram três, um em cima do outro:
+
+- **A diagonal mora na fronteira.** Duas teclas, com o corpo encarando a rede,
+  dão um andar a ~45° da frente — exatamente a fronteira entre `Run` e
+  `Run_Right`. O clipe trocava a cada poucos quadros. Agora há FOLGA: quem já
+  está num setor só sai com 15° de sobra (e a corrida só vira caminhada 0,5 m/s
+  abaixo do limite). `clipeDoCorpo(estado, anterior)`.
+- **O mixer separa o pé da canela.** Ele mistura o giro da canela (esférico) e a
+  posição do pé (reta) por caminhos diferentes, e no meio de uma mistura os dois
+  se afastam: medido, 37 cm de `Run_Left` pra `Run_Right`. `PesNaCanela`
+  (`poses.ts`) prende o pé na ponta da canela depois do mixer, em todo quadro —
+  o mesmo vínculo que `pesDoQuadro` já punha nos clipes daqui.
+- **O `fadeOut` do three recomeça do peso 1**, e o `reset` de um clipe que
+  estava saindo o joga pra 0. Trocando de clipe antes da mistura anterior
+  acabar, peso saltava e o pé andava meio metro num quadro. O `Animador` agora
+  guarda os pesos do corpo ele mesmo: os outros descem juntos, o atual fica com
+  o que eles soltaram, a soma é 1 por construção. (Normalizar depois não serve:
+  amplifica o passo justo quando a soma está longe de 1.)
+
+E de um ciclo de andar pro outro, o passo continua em vez de recomeçar — pela
+PISADA, e não pela fase crua: os ciclos do pack não começam no mesmo ponto do
+passo (o pé esquerdo pisa a 0,59 do `Run` e a 0,12 do `Run_Left`). `medirPassos`
+acha a pisada de cada ciclo uma vez por família.
+
+O teste que segura os três é um roteiro de teclas sorteadas com pulos, 20 s nos
+dois esqueletos: sapato nunca estica, pesos somam 1, nenhum peso salta mais que
+o passo da mistura mais rápida.
+
+## Carregando, ninguém aparece; o sol fica atrás da câmera do criador
+
+**A cápsula no carregamento parecia o boneco antigo voltando.** Os 21 arquivos
+levam uns segundos pra chegar, e até lá todo atleta era a cápsula azul — o
+jogador perguntou por que ainda havia resquício do modelo velho. Agora, até as
+peças chegarem, ninguém tem corpo nenhum; a cápsula só aparece se a carga
+FALHAR (`Arena` guarda `undefined` pra "ainda carregando" e `null` pra "não há
+modelo").
+
+**O criador olhava contra o sol em uma das quadras.** Com a câmera num lado fixo
+da quadra, a orientação da quadra decidia a luz, e numa delas o boneco virava
+silhueta. A direção da foto agora sai do sol (`paraOSol`): a câmera fica do
+lado dele, um pouco de lado pra luz desenhar o rosto, na meia quadra pra onde
+ele aponta — o caminho da câmera ao boneco nunca cruza a rede.
+
 ## O que NÃO foi verificado
 
 **O criador e os retratos numa GPU de verdade.** O criador foi percorrido por

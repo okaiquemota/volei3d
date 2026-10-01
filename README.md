@@ -228,7 +228,8 @@ e ele fica salvo no navegador.
 
 O boneco que muda enquanto você escolhe não é uma prévia: é o próprio banhista,
 de pé no fundo da quadra, com a rede atrás e a câmera do jogo de frente para
-ele — mesma luz, mesma sombra, mesmo corpo que vai jogar. Os atletas daquela
+ele, com o sol às costas dela — mesma luz, mesma sombra, mesmo corpo que vai
+jogar. Os atletas daquela
 quadra saem de cena enquanto você monta. Setas mudam, **Q/E** (ou
 arrastar na metade vazia da tela) giram o boneco, **R** sorteia um.
 

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CATALOGO, FAMILIAS, PECAS, parteDe, type Familia, type Peca, type Visual } from './corpos';
+import { medirPassos } from './Animador';
 import { montarClipes, RECEITAS } from './poses';
 
 /**
@@ -88,11 +89,9 @@ export class Corpos {
       // As receitas foram afinadas no homem; a mulher e' posada com ele de
       // referencia (ver `apontar`, em poses.ts). O homem vem primeiro em FAMILIAS.
       const referencia = familia === 'masculino' ? undefined : prontas.masculino?.esqueleto;
-      prontas[familia] = {
-        esqueleto,
-        animacoes: [...base.animations, ...montarClipes(esqueleto, RECEITAS, referencia)],
-        partes,
-      };
+      const animacoes = [...base.animations, ...montarClipes(esqueleto, RECEITAS, referencia)];
+      medirPassos(esqueleto, animacoes);
+      prontas[familia] = { esqueleto, animacoes, partes };
     }
 
     corpos.medirPele();

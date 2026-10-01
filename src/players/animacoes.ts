@@ -83,12 +83,40 @@ const QUARTO = Math.PI / 4;
 const TRES_QUARTOS = (Math.PI * 3) / 4;
 
 /**
+ * A FOLGA das fronteiras, pra quem ja' esta' de um lado delas.
+ *
+ * Duas teclas juntas dao uma diagonal, e a diagonal com o corpo encarando a
+ * rede cai a ~45 graus da frente — EM CIMA da fronteira entre `Run` e
+ * `Run_Right`. Sem folga o clipe trocava a cada poucos quadros, e cada troca e'
+ * uma mistura de 0,18 s com as pernas em outro ponto do passo: o pe' ia e
+ * voltava sem nunca pisar. Com folga, o clipe so' troca quando o andar sai de
+ * verdade do setor dele.
+ */
+const FOLGA_DO_LADO = 0.26;      // ~15 graus
+const FOLGA_DA_CORRIDA = 0.5;    // m/s abaixo de CORRENDO pra voltar a andar
+const FOLGA_DO_PARADO = 0.15;    // m/s abaixo de PARADO pra parar
+
+/** O angulo do meio de cada setor de corrida. */
+const CENTRO_DA_CORRIDA: Readonly<Record<string, number>> = {
+  Run: 0, Run_Right: Math.PI / 2, Run_Back: Math.PI, Run_Left: -Math.PI / 2,
+};
+
+/** Distancia entre dois angulos, de 0 a pi. */
+function entre(a: number, b: number): number {
+  const d = Math.abs(a - b) % (Math.PI * 2);
+  return d > Math.PI ? Math.PI * 2 - d : d;
+}
+
+/**
  * O nome do clipe pra este estado.
  *
  * Os nomes sao os do pack. Se um deles nao existir no modelo carregado, quem
  * toca cai no `Idle` — ver `Animador`.
+ *
+ * `anterior` e' o clipe que esta' tocando: e' com ele que as fronteiras de
+ * andar ganham folga (ver `FOLGA_DO_LADO`). Sem ele, a escolha e' a seca.
  */
-export function clipeDoCorpo(estado: EstadoDoCorpo): string {
+export function clipeDoCorpo(estado: EstadoDoCorpo, anterior = ''): string {
   /**
    * Mergulho na frente de tudo, ate' do gesto.
    *
@@ -114,15 +142,20 @@ export function clipeDoCorpo(estado: EstadoDoCorpo): string {
    */
   if (estado.pousando && estado.velocidade < CORRENDO) return 'Aterrissagem';
 
-  if (estado.velocidade < PARADO) return 'Idle';
+  const andando = anterior === 'Walk' || Object.hasOwn(CENTRO_DA_CORRIDA, anterior);
+  if (estado.velocidade < PARADO - (andando ? FOLGA_DO_PARADO : 0)) return 'Idle';
 
   const a = estado.anguloDoAndar;
-  const correndo = estado.velocidade >= CORRENDO;
+  const correndo = estado.velocidade >= CORRENDO - (Object.hasOwn(CENTRO_DA_CORRIDA, anterior) ? FOLGA_DA_CORRIDA : 0);
 
   // De costas e de lado so' existem correndo: o pack nao tem caminhada lateral,
   // e um `Walk` frontal com o corpo indo pro lado e' o defeito que esta funcao
   // existe pra evitar.
   if (!correndo) return 'Walk';
+
+  // Ainda dentro do setor de quem ja' estava tocando, com a folga: fica.
+  const centro = CENTRO_DA_CORRIDA[anterior];
+  if (centro !== undefined && entre(a, centro) <= QUARTO + FOLGA_DO_LADO) return anterior;
 
   const volta = Math.abs(a);
   if (volta <= QUARTO) return 'Run';

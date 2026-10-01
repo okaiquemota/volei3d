@@ -1015,6 +1015,47 @@ function pesDoQuadro(m: MedidaDoPe, noAr: boolean, pos: THREE.Vector3, giro: THR
   _mundo.decompose(pos, giro, _escala);
 }
 
+/**
+ * O pe' PRESO a' canela, quadro a quadro, depois do mixer.
+ *
+ * Cada clipe sozinho ja' guarda o pe' a' distancia certa da canela — os do pack
+ * de fabrica, os daqui por `pesDoQuadro`. A MISTURA entre dois clipes, nao: o
+ * mixer mistura o giro da canela (esferico) e a posicao do pe' (reta) por
+ * caminhos diferentes, e no meio do caminho os dois se separam. Medido: da
+ * corrida pra esquerda pra corrida pra direita, o sapato esticava 37 cm; da
+ * corrida pro pulo, 12. Como o jogo troca de clipe toda vez que o atleta muda
+ * de direcao, quem aperta varias teclas juntas vivia no meio de uma mistura.
+ *
+ * Aqui o pe' volta pra ponta da canela com o giro que a mistura deu — o
+ * mesmo vinculo de `pesDoQuadro`, valendo pra tudo. Nos clipes sozinhos mexe
+ * no maximo uns 2 cm (o quanto o proprio pack folga); nas misturas, e' o que
+ * impede o sapato de virar prancha.
+ */
+export class PesNaCanela {
+  private readonly pes: MedidaDoPe[];
+
+  /** Medir com o corpo em repouso e atualizado, antes do primeiro clipe. */
+  constructor(raiz: THREE.Object3D) {
+    const ossos = new Map<string, THREE.Bone>();
+    raiz.traverse((o) => { if ((o as THREE.Bone).isBone) ossos.set(o.name, o as THREE.Bone); });
+    raiz.updateMatrixWorld(true);
+    this.pes = medirPes(ossos, medirPerna(ossos));
+  }
+
+  aplicar(): void {
+    for (const m of this.pes) {
+      m.canela.updateWorldMatrix(true, false);
+      m.pe.updateWorldMatrix(true, false);
+      m.canela.localToWorld(_tornozelo.copy(m.ponta));
+      m.pe.getWorldQuaternion(_peGiro);
+      _peMundo.copy(m.doTornozelo).applyQuaternion(_peGiro).add(_tornozelo);
+      const pai = m.pe.parent;
+      if (pai) pai.worldToLocal(_peMundo);
+      m.pe.position.copy(_peMundo);
+    }
+  }
+}
+
 function profundidade(osso: THREE.Object3D): number {
   let n = 0;
   for (let o: THREE.Object3D | null = osso; o; o = o.parent) n++;

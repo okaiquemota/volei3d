@@ -188,3 +188,34 @@ test('quem espera pra sacar segura a bola parado e andando, e larga pra bater', 
   assert.equal(camadaDoCorpo(corpo({ segurandoBola: true, gesto: 'saque' })), null, 'bateu segurando');
   assert.equal(camadaDoCorpo(corpo({ segurandoBola: true, noChao: false })), null, 'pulou segurando');
 });
+
+/**
+ * A FOLGA das fronteiras. Duas teclas dao uma diagonal a ~45 graus da frente,
+ * que e' em cima da fronteira entre `Run` e `Run_Right`: sem folga o clipe
+ * trocava a cada poucos quadros e o pe' nunca pisava. Quem ja' esta' num setor
+ * so' sai dele com o andar bem fora; quem chega de fora escolhe pela fronteira
+ * seca, como sempre.
+ */
+test('quem ja corre de um jeito so troca com folga', () => {
+  const rapido = (angulo: number, anterior: string) =>
+    clipeDoCorpo(corpo({ velocidade: 6.5, anguloDoAndar: angulo }), anterior);
+  const graus = (g: number) => (g * Math.PI) / 180;
+
+  assert.equal(rapido(graus(50), ''), 'Run_Right', 'sem anterior, a fronteira e a seca');
+  assert.equal(rapido(graus(50), 'Run'), 'Run', 'a diagonal nao derruba quem corre de frente');
+  assert.equal(rapido(graus(40), 'Run_Right'), 'Run_Right', 'nem quem corre de lado');
+  assert.equal(rapido(graus(65), 'Run'), 'Run_Right', 'bem fora do setor, troca');
+  assert.equal(rapido(graus(-50), 'Run'), 'Run');
+  assert.equal(rapido(graus(170), 'Run_Back'), 'Run_Back');
+  assert.equal(rapido(graus(125), 'Run_Back'), 'Run_Back');
+  assert.equal(rapido(graus(100), 'Run_Back'), 'Run_Right');
+
+  // A velocidade tambem: freando, a corrida vira caminhada so' bem abaixo.
+  const andar = (v: number, anterior: string) => clipeDoCorpo(corpo({ velocidade: v }), anterior);
+  assert.equal(andar(3.0, 'Run'), 'Run');
+  assert.equal(andar(2.6, 'Run'), 'Walk');
+  assert.equal(andar(3.1, 'Walk'), 'Walk');
+  assert.equal(andar(0.42, 'Walk'), 'Walk');
+  assert.equal(andar(0.3, 'Walk'), 'Idle');
+  assert.equal(andar(0.42, 'Idle'), 'Idle');
+});

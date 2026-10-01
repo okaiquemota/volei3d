@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CLIPE_DO_TOQUE, camadaDoCorpo, clipeDoCorpo, type EstadoDoCorpo } from './animacoes';
-import { DE_UMA_VEZ } from './poses';
+import { DE_UMA_VEZ, PesNaCanela } from './poses';
 import type { Motor } from './Motor';
 
 const _andar = new THREE.Vector3();
@@ -62,16 +62,76 @@ const CRUZAMENTO_DO_POUSO = 0.08;
  */
 const PESO_DA_CAMADA = 10;
 
+/** Os ciclos de andar: trocar entre eles continua o passo, e nao recomeca. */
+const CICLOS: ReadonlySet<string> = new Set(['Walk', 'Run', 'Run_Back', 'Run_Left', 'Run_Right']);
+
+/**
+ * Em que ponto de cada ciclo o pe' esquerdo pisa, de 0 a 1. Por clipe, e
+ * medido uma vez por familia (`medirPassos`).
+ *
+ * Os ciclos do pack NAO comecam no mesmo ponto do passo: o esquerdo pisa a
+ * 0,59 do `Run` e a 0,12 do `Run_Left`. Continuar o passo pela fase crua
+ * trocaria o pe' de apoio no meio da mistura; pela pisada, o pe' que estava
+ * no chao continua no chao.
+ */
+const PISADA = new WeakMap<THREE.AnimationClip, number>();
+
+/**
+ * Mede a pisada de cada ciclo, no esqueleto em repouso, e devolve o repouso.
+ * Roda uma vez por familia, onde as clipes nascem (`Corpos.deArquivos`).
+ */
+export function medirPassos(raiz: THREE.Object3D, clipes: readonly THREE.AnimationClip[]): void {
+  const pe = raiz.getObjectByName('FootL');
+  if (!pe) return;
+  const mixer = new THREE.AnimationMixer(raiz);
+  const p = new THREE.Vector3();
+  for (const clipe of clipes) {
+    if (!CICLOS.has(clipe.name)) continue;
+    const acao = mixer.clipAction(clipe).play();
+    let menor = Infinity;
+    let pisada = 0;
+    for (let i = 0; i < 60; i++) {
+      mixer.setTime((clipe.duration * i) / 60);
+      raiz.updateMatrixWorld(true);
+      const y = pe.getWorldPosition(p).y;
+      if (y < menor) { menor = y; pisada = i / 60; }
+    }
+    PISADA.set(clipe, pisada);
+    acao.stop();
+  }
+  mixer.stopAllAction();
+  mixer.uncacheRoot(raiz);
+  raiz.updateMatrixWorld(true);
+}
+
 export class Animador {
   private readonly mixer: THREE.AnimationMixer;
   private readonly acoes = new Map<string, THREE.AnimationAction>();
   private atual: THREE.AnimationAction | null = null;
   private nomeAtual = '';
+  /**
+   * O peso de cada clipe do corpo que ainda esta' na mistura, de 0 a 1.
+   *
+   * Mantido aqui, e nao pelo `fadeIn`/`fadeOut` do three, por causa de quem
+   * aperta varias teclas juntas: o clipe troca de novo antes da mistura
+   * anterior acabar. O `fadeOut` do three comeca SEMPRE do peso 1 — um clipe
+   * que estava entrando a 30% saltava pra 100% so' pra comecar a sair — e o
+   * `reset` de um clipe que estava saindo o jogava pra 0. Medido: o pe' pulava
+   * 49 cm de um quadro pro outro. Aqui cada peso anda do ponto em que esta', e
+   * os pesos somam sempre 1 (somando menos, o mixer completa com a pose de
+   * repouso, que e' torta).
+   */
+  private readonly pesos = new Map<THREE.AnimationAction, number>();
+  /** Quanto o peso anda por segundo, na mistura de agora. */
+  private ritmo = 1 / CRUZAMENTO;
   private marcaTocada = -1;
   private camada: THREE.AnimationAction | null = null;
   private nomeDaCamada: string | null = null;
+  private readonly pes: PesNaCanela;
 
   constructor(private readonly raiz: THREE.Object3D, clipes: readonly THREE.AnimationClip[]) {
+    // Antes do mixer: os pes sao medidos no repouso.
+    this.pes = new PesNaCanela(raiz);
     this.mixer = new THREE.AnimationMixer(raiz);
     for (const clipe of clipes) {
       const acao = this.mixer.clipAction(clipe);
@@ -112,9 +172,12 @@ export class Animador {
     const reiniciar = estado.gesto !== null && estado.marcaDoGesto !== this.marcaTocada;
     if (estado.gesto !== null) this.marcaTocada = estado.marcaDoGesto;
 
-    this.trocar(clipeDoCorpo(estado), reiniciar);
+    this.trocar(clipeDoCorpo(estado, this.nomeAtual), reiniciar);
     this.trocarCamada(camadaDoCorpo(estado));
+    this.misturar(dt);
     this.mixer.update(dt);
+    // Depois do mixer, sempre: e' a mistura que separa o pe' da canela.
+    this.pes.aplicar();
   }
 
   /**
@@ -148,8 +211,8 @@ export class Animador {
 
     if (proxima === this.atual) {
       // Mesmo clipe de novo: so' rebobina, sem mistura. Misturar um clipe com
-      // ele mesmo nao faz nada, e o `fadeOut` abaixo zeraria o peso dele.
-      if (reiniciar) proxima.reset().setEffectiveWeight(1).play();
+      // ele mesmo nao faz nada.
+      if (reiniciar) proxima.reset().play();
       this.nomeAtual = nome;
       return;
     }
@@ -157,12 +220,70 @@ export class Animador {
     const mistura = GESTOS.has(nome) ? CRUZAMENTO_DO_GESTO
       : nome === 'Aterrissagem' ? CRUZAMENTO_DO_POUSO
       : CRUZAMENTO;
+    this.ritmo = 1 / mistura;
 
-    proxima.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).fadeIn(mistura).play();
-    this.atual?.fadeOut(mistura);
+    /**
+     * O clipe que volta pra mistura antes de ter saido dela CONTINUA de onde
+     * estava, com o peso que tinha — um ciclo de andar nao recomeca no meio
+     * do passo. Os de uma vez (pulo, gesto) recomecam: cada um e' um evento.
+     */
+    const vinhaSaindo = this.pesos.has(proxima);
+    if (!vinhaSaindo || DE_UMA_VEZ.has(proxima.getClip().name)) {
+      proxima.reset().play();
+      /**
+       * De um ciclo de andar pra outro, o passo CONTINUA: o clipe novo entra
+       * no mesmo ponto da pisada em que o velho estava. Recomecar do zero a
+       * cada troca de direcao fazia as pernas pularem pra outra fase do passo.
+       */
+      if (this.atual && CICLOS.has(nome) && CICLOS.has(this.nomeAtual)) {
+        const velho = this.atual.getClip();
+        const novo = proxima.getClip();
+        const fase = this.atual.time / velho.duration - (PISADA.get(velho) ?? 0) + (PISADA.get(novo) ?? 0);
+        proxima.time = (((fase % 1) + 1) % 1) * novo.duration;
+      }
+    }
+    if (!vinhaSaindo) this.pesos.set(proxima, 0);
 
     this.atual = proxima;
     this.nomeAtual = nome;
+  }
+
+  /**
+   * Um passo da mistura: os outros clipes descem juntos, cada um na proporcao
+   * do peso que tem, e o atual fica com o que eles soltaram. A soma e' 1 por
+   * construcao — normalizar depois amplificava o passo justamente quando a
+   * soma estava longe de 1 — e nenhum peso anda mais que `ritmo` por segundo.
+   * O que chega a zero sai do mixer.
+   */
+  private misturar(dt: number): void {
+    const atual = this.atual;
+    if (!atual) return;
+    let outros = 0;
+    for (const [acao, peso] of this.pesos) if (acao !== atual) outros += peso;
+    const restam = Math.max(0, outros - dt * this.ritmo);
+    const escala = outros > 0 ? restam / outros : 0;
+    for (const [acao, peso] of this.pesos) {
+      if (acao === atual) continue;
+      const novo = peso * escala;
+      if (novo <= 1e-4) {
+        acao.stop();
+        this.pesos.delete(acao);
+        continue;
+      }
+      this.pesos.set(acao, novo);
+      acao.setEffectiveWeight(novo);
+    }
+    let soma = 0;
+    for (const [acao, peso] of this.pesos) if (acao !== atual) soma += peso;
+    this.pesos.set(atual, 1 - soma);
+    atual.setEffectiveWeight(1 - soma);
+  }
+
+  /** O peso de cada clipe do corpo na mistura de agora. Pro teste. */
+  pesosDoCorpo(): Map<string, number> {
+    const pesos = new Map<string, number>();
+    for (const acao of this.pesos.keys()) pesos.set(acao.getClip().name, acao.getEffectiveWeight());
+    return pesos;
   }
 
   dispose(): void {

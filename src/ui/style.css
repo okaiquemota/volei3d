@@ -773,6 +773,8 @@ body.tela-aberta #veu { opacity: 1; }
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
 }
 .perfil-retrato .retrato { width: 100%; height: 100%; }
+/* Esperando a foto: uma cabeca, e nao um circulo azul vazio. */
+.perfil-retrato .retrato:not(.pronto)::before { inset: 20% 27% 12%; border-radius: 50% 50% 44% 44%; background: rgba(255, 255, 255, 0.24); }
 .perfil-nome { font: 900 italic 1.6rem/1 var(--titulo); letter-spacing: 0.03em; }
 .perfil-numeros { display: flex; gap: 1.1rem; font: 700 0.78rem/1 var(--titulo); letter-spacing: 0.14em; color: var(--tinta-3); }
 .perfil-numeros b { margin-left: 0.35em; font: 800 italic 1.05rem/1 var(--titulo); letter-spacing: 0.02em; color: var(--tinta); }

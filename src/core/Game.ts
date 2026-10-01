@@ -38,6 +38,9 @@ const _centroDoMenu = new THREE.Vector3();
 const _destinoDoVoo = new THREE.Vector3();
 const _giroDoVoo = new THREE.Quaternion();
 const _cameraAlvo = new THREE.Vector3();
+const _paraOSolLocal = new THREE.Vector3();
+const _centroDaQuadra = new THREE.Vector3();
+const _EIXO_Y = new THREE.Vector3(0, 1, 0);
 
 /**
  * O criador de personagem: onde o boneco posa e de onde a camera olha, em
@@ -45,21 +48,28 @@ const _cameraAlvo = new THREE.Vector3();
  *
  * DENTRO da quadra, e nao do lado dela: fora, a camera caia atras das placas
  * do estadio (8,5 m da linha) e no meio da torcida — uma placa cortava o
- * boneco pela cintura. Aqui o boneco fica no fundo da quadra, a camera na
- * linha de fundo (dentro da zona livre, longe das placas), e o fundo
- * da foto e' a rede. Os atletas da quadra somem enquanto o criador esta'
- * aberto: o boneco e' voce, e o seu atleta parado ali seria voce duas vezes.
+ * boneco pela cintura. E com o SOL atras da camera: com a camera num lado fixo
+ * da quadra, numa das orientacoes ela olhava contra o sol e o boneco virava
+ * silhueta. Agora a direcao da foto sai do sol (`cameraDoCriador`). Os atletas
+ * da quadra somem enquanto o criador esta' aberto: o boneco e' voce, e o seu
+ * atleta parado ali seria voce duas vezes.
  */
 const CRIADOR = {
-  /** O boneco: um pouco fora do centro, a meio caminho entre a rede e o fundo. */
-  boneco: { x: 1.2, z: 4.4 },
+  /** O meio da foto, em metros da rede: o fundo de uma das meias quadras. */
+  fundo: 6,
+  /** Da camera ao boneco, no chao. */
+  distancia: 3.7,
   /**
-   * A camera: atras dele, pro lado do fundo, na altura dos OLHOS e olhando um
-   * pouco pra baixo. Na altura do peito ela via o rosto de baixo pra cima, e o
-   * rosto e' justamente a peca que mais se escolhe.
+   * Na altura dos OLHOS e olhando um pouco pra baixo. Na altura do peito ela
+   * via o rosto de baixo pra cima, e o rosto e' a peca que mais se escolhe.
    */
-  camera: { frente: 3.7, lado: 0.8, altura: 1.6 },
+  altura: 1.6,
   alturaDoOlhar: 1.05,
+  /**
+   * Quanto a camera sai da linha do sol, em radianos. Com o sol bem atras
+   * dela a luz e' chapada; um pouco de lado, ela desenha o volume do rosto.
+   */
+  tresQuartos: 0.45,
   /** Vira o olhar pra esquerda: joga o boneco pra direita, longe do painel. */
   desvio: 0.3,
   /** Quanto a camera leva pra chegar, e pra voltar ao menu. Relogio, nao jogo. */
@@ -271,6 +281,8 @@ export class Game {
   } | null = null;
   /** A camera voltando do criador pra volta do menu. */
   private voltaDoCriador: { posicao: THREE.Vector3; giro: THREE.Quaternion; t: number } | null = null;
+  /** De onde vem a luz do sol (unitario, apontando pro sol). O criador fotografa a favor dela. */
+  private readonly paraOSol = new THREE.Vector3(0, 1, 0);
   private lastTime = 0;
   private lastFrameDt = 0;
   private resolution = 1;
@@ -410,6 +422,7 @@ export class Game {
       .applyEuler(new THREE.Euler(THREE.MathUtils.degToRad(52), THREE.MathUtils.degToRad(-35), 0))
       .negate();
     sol.position.copy(direcao).multiplyScalar(30);
+    this.paraOSol.copy(direcao);
     sol.castShadow = true;
 
     /**
@@ -539,6 +552,9 @@ export class Game {
       usarCorposNosRetratos(this.corpos);
     } catch (erro) {
       console.warn('nao deu pra carregar o corpo dos atletas; seguindo de capsula', erro);
+      // So' agora a capsula aparece: ate' aqui ninguem tinha corpo nenhum.
+      for (const arena of this.arenas) arena.usarModeloDeAtleta(null);
+      this.banhista.usarModelo(null);
     }
   }
 
@@ -885,8 +901,20 @@ export class Game {
     const c = this.criador!;
     const court = this.arenaEmFoco.court;
     const k = CRIADOR;
-    court.paraMundo(_ponto.set(k.boneco.x, 0, k.boneco.z), _ponto);
-    court.paraMundo(_olhar.set(k.boneco.x + k.camera.lado, k.camera.altura, k.boneco.z + k.camera.frente), _olhar);
+
+    /**
+     * O sol no espaco da quadra, so' no chao. A camera vai pro lado dele (o
+     * sol fica atras dela, a luz cai no rosto), e na meia quadra pra onde ele
+     * aponta: a foto olha pra rede, e o caminho da camera ao boneco nunca
+     * atravessa a rede nem sai da zona livre.
+     */
+    court.paraMundo(_centroDaQuadra.set(0, 0, 0), _centroDaQuadra);
+    court.paraLocal(_paraOSolLocal.copy(_centroDaQuadra).add(this.paraOSol), _paraOSolLocal);
+    _paraOSolLocal.setY(0).normalize().applyAxisAngle(_EIXO_Y, k.tresQuartos);
+    const meia = _paraOSolLocal.z >= 0 ? 1 : -1;
+    const metade = k.distancia / 2;
+    court.paraMundo(_ponto.set(-_paraOSolLocal.x * metade, 0, meia * k.fundo - _paraOSolLocal.z * metade), _ponto);
+    court.paraMundo(_olhar.set(_paraOSolLocal.x * metade, k.altura, meia * k.fundo + _paraOSolLocal.z * metade), _olhar);
 
     // De frente pra camera, mais o giro pedido — que o boneco alcanca rapido.
     c.giroVisto += (c.giro - c.giroVisto) * Math.min(1, Math.min(dt, 0.1) * 9);
