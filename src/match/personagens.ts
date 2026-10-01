@@ -302,6 +302,14 @@ export const ELENCO: readonly Personagem[] = [
     notas: n(10, 9, 9, 9, 10, 9, 9, 10),
     cor: COR.dourado, visual: homem('king', PELE.parda),
   },
+  // A galera: gente de verdade, pela Ficha da Galera, com as notas que deu pra si.
+  {
+    id: 'khastway', nome: 'KHASTWAY', etapa: 'mundial',
+    // A ficha veio sem frase: esta sai das notas dele, ate' ele mandar uma.
+    frase: 'Nota 8 em tudo e 9 na forca.',
+    notas: n(9, 8, 8, 8, 8, 8, 8, 8),
+    cor: COR.preto, visual: homem('swat', PELE.clara, { camisa: COR.preto, cabelo: CABELO.PRETO }),
+  },
 ];
 
 const POR_ID = new Map(ELENCO.map((p) => [p.id, p]));
