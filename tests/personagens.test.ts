@@ -141,7 +141,7 @@ test('todo personagem tem um corpo que fecha', () => {
 /** Nome de mulher, corpo de mulher. A lista e' a do elenco de hoje. */
 test('as jogadoras usam o esqueleto feminino', () => {
   const mulheres = new Set(['lia-concha', 'duda-sol', 'gabi-siri', 'bia-rede', 'dani-caju', 'mari-coral',
-    'nina-peixinho', 'bruna-boia', 'leca-areia', 'lu-bloqueio', 'stefany-hallal']);
+    'nina-peixinho', 'bruna-boia', 'leca-areia', 'lu-bloqueio', 'stefany-hallal', 'rosamaria']);
   for (const p of ELENCO) {
     assert.equal(p.visual.familia, mulheres.has(p.id) ? 'feminino' : 'masculino', p.nome);
   }

@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { Motor } from '../src/players/Motor';
 import { ATHLETE } from '../src/config';
 import { CORPO_PADRAO, fichaDe } from '../src/match/habilidade';
-import { personagemPorId } from '../src/match/personagens';
+import type { Notas } from '../src/match/personagens';
 
 /**
  * O que estes testes protegem:
@@ -53,27 +53,35 @@ test('sem personagem, o corpo e o de sempre', () => {
   assert.ok(Math.abs(pular(novoMotor()) - ATHLETE.jumpHeight) < FOLGA_DO_PASSO);
 });
 
+/**
+ * Notas montadas aqui, e nao tiradas do elenco: o elenco muda (a galera entra
+ * no lugar dos inventados), e o que se prova e' o caminho ficha -> Motor.
+ */
+const fichaCom = (muda: Partial<Notas>): Notas => ({
+  forca: 5, saque: 5, velocidade: 5, pulo: 5, reflexo: 5, defesa: 5, precisao: 5, leitura: 5, ...muda,
+});
+
 test('o corpo da ficha e o corpo que corre e pula na quadra', () => {
-  const guto = fichaDe(personagemPorId('guto-vento')!.notas).corpo;   // velocidade 10
-  const tatu = fichaDe(personagemPorId('tatu')!.notas).corpo;         // pulo 1
+  const rapida = fichaDe(fichaCom({ velocidade: 10 })).corpo;
+  const baixa = fichaDe(fichaCom({ pulo: 1 })).corpo;
 
   const rapido = novoMotor();
-  rapido.definirCorpo(guto);
-  assert.ok(Math.abs(correr(rapido, 1) - guto.velocidade) < 1e-9, 'o velocista corre como qualquer um');
-  assert.ok(guto.velocidade > CORPO_PADRAO.velocidade);
+  rapido.definirCorpo(rapida);
+  assert.ok(Math.abs(correr(rapido, 1) - rapida.velocidade) < 1e-9, 'o velocista corre como qualquer um');
+  assert.ok(rapida.velocidade > CORPO_PADRAO.velocidade);
 
   const baixo = novoMotor();
-  baixo.definirCorpo(tatu);
+  baixo.definirCorpo(baixa);
   const altura = pular(baixo);
   const normal = pular(novoMotor());
-  assert.ok(Math.abs(altura - tatu.pulo) < FOLGA_DO_PASSO, `pulou ${altura.toFixed(2)}, a ficha diz ${tatu.pulo}`);
+  assert.ok(Math.abs(altura - baixa.pulo) < FOLGA_DO_PASSO, `pulou ${altura.toFixed(2)}, a ficha diz ${baixa.pulo}`);
   assert.ok(altura < normal - 0.15, `pulo 1 subiu ${altura.toFixed(2)}, o normal ${normal.toFixed(2)}`);
 });
 
 /** Voltar a' CPU sem nome tem que devolver o corpo inteiro, e nao so' o nome. */
 test('voltar ao corpo padrao desfaz a ficha', () => {
   const m = novoMotor();
-  m.definirCorpo(fichaDe(personagemPorId('guto-vento')!.notas).corpo);
+  m.definirCorpo(fichaDe(fichaCom({ velocidade: 10 })).corpo);
   m.definirCorpo(CORPO_PADRAO);
   assert.ok(Math.abs(correr(m, 1) - ATHLETE.moveSpeed) < 1e-9);
 });

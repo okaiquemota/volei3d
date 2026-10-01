@@ -257,6 +257,12 @@ export const ELENCO: readonly Personagem[] = [
     notas: n(4, 6, 5, 4, 8, 7, 5, 4),
     cor: COR.roxo, visual: homem('suit', PELE.clara, { camisa: COR.roxo, cabelo: CABELO.PRETO }),
   },
+  {
+    id: 'sunless', nome: 'SUNLESS', etapa: 'estadual',
+    frase: 'Cansado.',
+    notas: n(5, 8, 5, 6, 6, 6, 4, 8),
+    cor: COR.cinza, visual: homem('suit', PELE.clara, { camisa: COR.cinza, cabelo: CABELO.CASTANHO }),
+  },
 
   // ------------------------------------------------------------------ MUNDIAL
   {
@@ -282,12 +288,6 @@ export const ELENCO: readonly Personagem[] = [
     frase: 'Sobe como onda grande. Quando ele desce, a bola ja caiu.',
     notas: n(9, 7, 7, 10, 7, 5, 6, 6),
     cor: COR.coral, visual: homem('swat', PELE.parda, { cabeca: 'casual_hoodie', tronco: 'adventurer', camisa: COR.coral }),
-  },
-  {
-    id: 'guto-vento', nome: 'GUTO VENTO', etapa: 'mundial',
-    frase: 'Ninguem viu ele correr. So viram ele chegar.',
-    notas: n(6, 6, 10, 8, 9, 7, 6, 7),
-    cor: COR.limao, visual: homem('casual_hoodie', PELE.morena, { cabeca: 'beach', pernas: 'casual_2', camisa: COR.limao }),
   },
   {
     id: 'leca-areia', nome: 'LECA AREIA', etapa: 'mundial',
@@ -320,6 +320,13 @@ export const ELENCO: readonly Personagem[] = [
     frase: 'Atacante Supremo.',
     notas: n(10, 10, 10, 10, 9, 9, 10, 10),
     cor: COR.preto, visual: homem('suit', PELE.clara, { camisa: COR.preto, cabelo: CABELO.PRETO }),
+  },
+  // Entrou no lugar de GUTO VENTO (7,4), o inventado de geral mais perto do dela.
+  {
+    id: 'rosamaria', nome: 'ROSAMARIA', etapa: 'mundial',
+    frase: 'Sou bonita e jogo volei.',
+    notas: n(8, 7, 8, 7, 8, 7, 7, 8),
+    cor: COR.amarelo, visual: mulher('soldier', PELE.clara, { camisa: COR.amarelo, cabelo: CABELO.LOIRO }),
   },
 ];
 
