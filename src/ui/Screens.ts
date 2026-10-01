@@ -25,11 +25,13 @@ export type Cenario = 'areia' | 'quadra' | 'estadio';
 export interface Ajustes {
   dificuldade: Dificuldade;
   cenario: Cenario;
-  /** Escala de resolucao, de 0.5 a 1. */
-  resolucao: number;
+  /** Escala de resolucao, de 0.5 a 1 — ou `auto`, que o jogo ajusta sozinho. */
+  resolucao: number | 'auto';
 }
 
-const PADRAO: Ajustes = { dificuldade: 'normal', cenario: 'areia', resolucao: 1 };
+const PADRAO: Ajustes = { dificuldade: 'normal', cenario: 'areia', resolucao: 'auto' };
+
+const rotuloDaResolucao = (v: number | 'auto'): string => (v === 'auto' ? 'AUTO' : `${Math.round(v * 100)}%`);
 
 /** O que o menu mostra da carreira: o perfil e o bloco do circuito. */
 export interface Progresso {
@@ -86,9 +88,11 @@ const OPCOES: readonly Opcao[] = [
   {
     chave: 'resolucao',
     nome: 'RESOLUCAO',
-    valores: [0.5, 0.6, 0.7, 0.8, 0.9, 1],
-    rotulo: (v) => `${Math.round((v as number) * 100)}%`,
-    ajuda: () => 'Menos resolucao, mais quadros por segundo. Vale na hora — o F3 mostra a diferenca.',
+    valores: [0.5, 0.6, 0.7, 0.8, 0.9, 1, 'auto'],
+    rotulo: (v) => rotuloDaResolucao(v as number | 'auto'),
+    ajuda: (v) => (v === 'auto'
+      ? 'O jogo escolhe sozinho, entre 50% e 100%: baixa quando o quadro pesa e sobe quando sobra. O F3 mostra a escala do momento.'
+      : 'Menos resolucao, mais quadros por segundo. Vale na hora — o F3 mostra a diferenca.'),
   },
 ];
 
@@ -269,6 +273,9 @@ export class Screens {
     try {
       const cru = localStorage.getItem(STORAGE_KEY);
       if (cru) Object.assign(this.ajustes, JSON.parse(cru) as Partial<Ajustes>);
+      // Um numero que nao e' escala (save mexido a mao) nao pode virar tela de 0 pixel.
+      const r = this.ajustes.resolucao;
+      if (r !== 'auto' && !(typeof r === 'number' && r >= 0.5 && r <= 1)) this.ajustes.resolucao = PADRAO.resolucao;
     } catch {
       // localStorage pode estar bloqueado (aba anonima, cookies desligados).
       // Nao ter os ajustes salvos nao e' motivo pra nao abrir o jogo.
@@ -371,7 +378,7 @@ export class Screens {
     this.descDoAmistoso.textContent =
       `Contra a CPU · ${NOME_DA_DIFICULDADE[dificuldade]} · ${NOME_DO_CENARIO[cenario]}`;
     this.descDosAjustes.textContent =
-      `${NOME_DA_DIFICULDADE[dificuldade]} · ${NOME_DO_CENARIO[cenario]} · ${Math.round(resolucao * 100)}%`;
+      `${NOME_DA_DIFICULDADE[dificuldade]} · ${NOME_DO_CENARIO[cenario]} · ${rotuloDaResolucao(resolucao)}`;
     this.retratoDoBloco.replaceChildren(desenharRetrato(this.meuVisual(), 'carta'));
 
     const p = this.progresso?.();

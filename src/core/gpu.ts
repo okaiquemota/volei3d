@@ -13,7 +13,9 @@
  * assim — resolucao menor e sem suavizacao de serrilhado, que em software sao
  * os dois maiores custos.
  *
- * Detecta uma vez so': cada chamada criaria um contexto WebGL descartavel.
+ * Detecta uma vez so': cada chamada criaria um contexto WebGL descartavel. E
+ * e' a mesma deteccao que diz se ha' WebGL, no `main`: criar um contexto so'
+ * pra perguntar isso custava outro, que ainda ficava vivo ate' o lixo passar.
  */
 import * as THREE from 'three';
 
@@ -22,6 +24,8 @@ interface RendererInfo {
   nome: string;
   /** Verdadeiro quando quem desenha e' a CPU. */
   software: boolean;
+  /** Ha' WebGL de todo? Sem ele, o jogo nem tenta abrir. */
+  webgl: boolean;
 }
 
 let cache: RendererInfo | null = null;
@@ -32,18 +36,19 @@ export function detectRenderer(): RendererInfo {
     const canvas = document.createElement('canvas');
     const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
     if (!gl) {
-      cache = { nome: 'sem WebGL', software: true };
+      cache = { nome: 'sem WebGL', software: true, webgl: false };
     } else {
       const ext = gl.getExtension('WEBGL_debug_renderer_info');
       const cru = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
       cache = {
         nome: cru.replace(/^ANGLE \(|\)$/g, '').slice(0, 46),
         software: /swiftshader|llvmpipe|software|basic render|basic display|microsoft basic/i.test(cru),
+        webgl: true,
       };
       gl.getExtension('WEBGL_lose_context')?.loseContext();
     }
   } catch {
-    cache = { nome: 'desconhecida', software: false };
+    cache = { nome: 'desconhecida', software: false, webgl: false };
   }
   return cache;
 }

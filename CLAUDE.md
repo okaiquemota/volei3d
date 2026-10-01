@@ -62,6 +62,8 @@ está ligado, junto com `noUnusedLocals` e `noUnusedParameters`.
   não tem nenhum dos dois. Entrar numa quadra cria um `Human`; sair descarta ele
   e devolve o bot (`Arena.ocupar` / `Arena.liberar`).
 - Quem olha pra qual quadra: `core/Game.ts` (`assistir`, `arenaEmFoco`).
+- A resolução AUTO (quando desce, quando sobe): `core/ResolucaoAutomatica.ts`,
+  lógica pura. O `Game` só entrega o intervalo e o trabalho de cada quadro.
 
 ## A regra que sustenta o projeto inteiro
 
@@ -1141,21 +1143,24 @@ mudou. Os dois só guardam o que pediram e chamam `remontar`, que não faz nada 
 a combinação (`chaveDoVisual`) é a mesma.
 
 **Cada corpo tem esqueleto próprio.** `Corpos.montar` copia a base da família
-(só ossos, sem malha) e RELIGA cada peça a ela, osso por osso pelo nome. Dois
-atletas com o mesmo esqueleto fariam exatamente a mesma pose, o tempo todo — o
-sintoma não parece bug de montagem, parece a IA copiando o jogador. (Era por
-isso que, com um modelo só, a cópia tinha que ser `SkeletonUtils.clone`.)
+(só ossos, sem malha). Dois atletas com o mesmo esqueleto fariam exatamente a
+mesma pose, o tempo todo — o sintoma não parece bug de montagem, parece a IA
+copiando o jogador. (Era por isso que, com um modelo só, a cópia tinha que ser
+`SkeletonUtils.clone`.)
 
-**Cada peça leva a matriz inversa DELA**, e não a da base. A quantização do
-`preparar-corpos` guarda cada malha numa escala própria e quem desfaz isso é a
-inversa daquela peça (o gltf-transform cria uma skin por malha). Com a inversa
-de outra peça a malha sai do tamanho errado. O teste "de pé na areia, com a
-altura de gente" monta os 21 e é quem pega isso.
+**O corpo montado é UMA malha, com um esqueleto e um material.** As peças vêm
+do arquivo como uma malha por material — uma dúzia por corpo, cada uma com o
+esqueleto da sua peça — e cada malha era desenhada duas vezes por quadro (a
+imagem e a sombra). Na praia eram 82 malhas de pele, 28 esqueletos (28 texturas
+de osso enviadas por quadro) e mais de 150 dos 167 desenhos. Juntas: 7 malhas,
+7 esqueletos, 37 desenhos. Ver "Juntar as peças" abaixo — a conta do espaço
+dos vértices é o que tem cuidado ali.
 
-Materiais são por corpo (a cor é por corpo), geometria é de todos. Trocar a
-roupa é COR de material, nunca material novo — material novo é shader novo pra
-compilar no meio da partida. `Corpos.descartar` solta só o que é do corpo
-(material e esqueleto); a geometria é do `Corpos`.
+A cor de cada material vira **cor de vértice** (16 bits por canal, linear: em 8
+bits o cabelo preto e a pele escura perdem tom). O material é UM, de todos os
+corpos — um programa de shader só. Trocar a roupa é montar de novo
+(`remontar`), nunca material novo. `Corpos.descartar` solta só o que é do corpo
+(geometria e esqueleto); o material e as peças convertidas são do `Corpos`.
 
 `Arena` guarda qual é a pele porque `ocupar`/`liberar` **descartam** o atleta e
 criam outro: sem lembrar, entrar numa quadra devolveria uma cápsula no meio de
@@ -1451,6 +1456,15 @@ configurações da mesma cena, no mesmo ambiente, vale. A bancada:
    NÃO espera no Chrome: com ele o VSM "custava" 2 ms, o mesmo que sem sombra.
    Só a leitura de volta obriga a GPU a acabar o que tem na fila.
 4. Mediana de quatro quadros, depois de um de aquecimento (o primeiro compila).
+
+**Mudança que não devia mexer na imagem se confere com a imagem.** Dois
+builds (o de antes num diretório à parte), o mesmo `Math.random` com semente,
+todo mundo vestido, o laço parado, a mesma sequência de `update` — e o canvas
+lido com `toDataURL` logo depois do `render`, no mesmo instante (a interface por
+cima tem transição de CSS, e uma captura da página pega o véu no meio dela).
+Diferença de pixel a pixel, e onde ela cai. Não pare o
+`requestAnimationFrame` inteiro pra isso: o jogo veste uma arena por quadro, e
+sem quadro ninguém se veste.
 
 Trocar o tipo de sombra no meio da bancada pede `shadow.map.dispose()`,
 `shadow.map = null` e `material.needsUpdate = true` em tudo — senão o mapa
@@ -1864,7 +1878,7 @@ combinações do pack de hoje — continuam conferidos pra uma peça nova não a
 buraco no pescoço.
 
 **O retrato é um segundo contexto de WebGL, e o aviso de ReadPixels é dele.**
-`toDataURL` num canvas de WebGL lê os pixels de volta, e o Chrome avisa "GPU
+`toBlob` num canvas de WebGL lê os pixels de volta, e o Chrome avisa "GPU
 stall due to ReadPixels" — esperado, é uma vez por foto, e fotos são poucas e
 guardadas. Renderizar num render target do renderer do jogo evitaria o contexto
 extra, mas o render target sai em espaço linear e sem tone mapping, e a foto
@@ -1936,7 +1950,110 @@ silhueta. A direção da foto agora sai do sol (`paraOSol`): a câmera fica do
 lado dele, um pouco de lado pra luz desenhar o rosto, na meia quadra pra onde
 ele aponta — o caminho da câmera ao boneco nunca cruza a rede.
 
+## Juntar as peças: a quantização de cada uma, desfeita num espaço só
+
+Cada peça vem com a malha comprimida numa escala própria (Int16, a quantização
+do `preparar-corpos`), e a matriz inversa de cada osso ajustada pra desfazer
+essa escala — por isso cada peça tinha o esqueleto dela, e com a inversa de
+outra peça a malha saía do tamanho errado. Pra dividir um esqueleto, os
+vértices de toda peça vão pro mesmo espaço: o do osso `Root` em repouso, que é
+a raiz do corpo (`paraComum = repouso(Root) · inversa(Root) · bindMatrix`). A
+inversa de cada osso, nesse espaço, é `inversa · bindMatrix · paraComum⁻¹`.
+
+**O que deixa isso dar certo é medido, não suposto.** Assim normalizadas, as
+inversas das 250 peças de cada família concordam osso a osso até 10⁻⁴ (todas
+foram ligadas na mesma pose). Três tentativas que NÃO servem, e por quê:
+
+- Comparar com a inversa do repouso da base: a pose de ligação NÃO é o repouso
+  — dedos, braços e o quadril (27° de giro) diferem. Dava dezenas de "grupos"
+  por peça.
+- Achar a escala pelo osso `Hips`: a matriz dele traz o giro de 27° junto. O
+  `Root` é escala pura e translação, por isso é a referência.
+- Supor que toda peça concorda: hoje concorda, mas uma peça nova ligada noutra
+  pose ganha entradas próprias no esqueleto (o mesmo osso, outra inversa —
+  `Skeleton` aceita osso repetido), em vez de sair torta.
+
+O teste que segura: o corpo junto deforma IGUAL às peças soltas (a montagem
+antiga, refeita no teste), vértice e normal, em seis clipes e quatro corpos.
+Pior caso medido: 0,1 µm no vértice e 0,002° na normal (o teste aceita até
+0,1 mm e 0,6°, a folga da tolerância de 10⁻⁴). Na tela, comparando o quadro dos
+dois builds no mesmo instante de jogo, a diferença são pixels soltos na borda do
+atleta distante (o arredondamento mudou de caminho) e nas costuras entre peças,
+onde a ordem de desenho mudou: 3 pixels na praia, 1 no criador.
+
+**O pack inteiro usa o mesmo material** (aspereza 0,5, sem metal, dos dois
+lados, sem textura), e só a cor muda — um teste confere, porque é isso que
+deixa trocar material por cor de vértice sem mudar a imagem. Um arquivo novo
+com textura quebra o teste antes de quebrar o corpo.
+
+**A esfera de corte é fixa** (`ESFERA_DO_CORPO`: centro a 1 m dos pés, raio
+1,5). O three calcula a de uma malha com pele UMA vez, na pose em que ela
+estiver, e nunca mais — um braço esticado depois sai dela e o atleta pisca na
+borda da tela. Por isso o corpo era `frustumCulled = false` e ia pra GPU mesmo
+do outro lado da praia. Medido nos 21 corpos em todas as clipes: nada passa de
+1,15 m do centro. O tombo do mergulho gira a raiz, e a esfera gira junto.
+
+**Converter lê o vetor direto, em Float32Array.** O acessor do three por
+componente (`getComponent`, `fromBufferAttribute`) e um `ler` só pra Int16,
+Int8 e Uint8 juntos eram lentos; `Float32Array.from` num vetor tipado é pior
+ainda (passa pelo iterador). `new Float32Array(v)` copia nativo. A conversão é
+uma vez por peça, na primeira vez que um corpo a usa — não na carga.
+
+## A resolução AUTO, e o que ela olha
+
+`core/ResolucaoAutomatica.ts`, lógica pura com teste. É o padrão de quem nunca
+mexeu no ajuste; quem escolheu um número fica com ele.
+
+- Decide por janela de meio segundo (e pelo menos cinco quadros), pela
+  **mediana** do intervalo: um engasgo sozinho não mexe em nada.
+- Só desce quando o gargalo é PIXEL: intervalo longo com o processador ocupado
+  menos de 75% dele. Com o processador cheio, menos pixel não ajuda — e o AUTO
+  ia descer até 50% à toa.
+- Desce rápido (até 20% por vez, pela raiz da razão de tempo: pixel é área) e
+  sobe devagar (10% depois de 3 s de folga, uma subida de cada vez).
+- A subida que pesa nos 4 s seguintes volta pra onde estava, e a menor escala
+  que pesou vira TETO: abaixo dele sobe-se à vontade, nele só depois de uma
+  espera que dobra a cada vez que ele pesa de novo (3, 6, 12... até 64 s). Sem
+  isso, na fronteira, a imagem piscava de nitidez a cada poucos segundos.
+- A janela logo depois de uma DESCIDA não conta (quadros da escala velha ainda
+  a caminho); a depois de uma subida conta, porque o que estiver pesando nela é
+  a escala nova.
+- Intervalo acima de 1 s é aba escondida ou depurador, e zera a janela. Abaixo
+  disso conta, mesmo a 4 qps: sem placa de vídeo, o quadro passa de 200 ms e
+  mesmo assim é o jogo.
+
+O F3 mostra a escala do momento (`res 70% auto`).
+
+## Arrancar sem tranco: o que saiu do caminho do quadro
+
+Quatro custos que caíam no meio do menu, de uma vez, quando os corpos chegavam:
+
+- **O shader do corpo** compilava no primeiro quadro em que um corpo aparecia.
+  Agora `Game.compilarCorpo` usa `compileAsync` antes de vestir alguém — só
+  onde há `KHR_parallel_shader_compile`; sem a extensão, compilar antes seria a
+  mesma trava mais cedo (e o three ainda avisa no console). O SwiftShader daqui
+  não tem a extensão: o caminho foi conferido fingindo ela no navegador de
+  teste, e o número de programas não mudou (o compilado antes é o usado).
+- **Vestir a praia inteira** (seis corpos e as animações deles) era uma tarefa
+  só. Agora é uma arena por quadro.
+- **O retratista** é outro contexto de WebGL, e compilava o corpo de novo
+  dentro da primeira foto. Também `compileAsync` antes.
+- **O PNG das fotos** era codificado no quadro do jogo (`toDataURL`). Agora é
+  `toBlob`: a cópia da imagem é na hora, a codificação fora do quadro.
+
+E um contexto de WebGL a menos no arranque: o `main` criava um só pra perguntar
+se havia WebGL; agora a mesma detecção do `gpu.ts` responde.
+
 ## O que NÃO foi verificado
+
+**A otimização numa GPU de verdade.** O que se mediu aqui é contagem (167 → 37
+desenhos na praia, 82 → 7 malhas de pele, 28 → 7 esqueletos) e imagem (igual).
+O ganho em milissegundos de CPU por desenho a menos, a compilação em paralelo
+do `compileAsync` e a resolução AUTO numa placa de verdade não foram medidos:
+aqui tudo é SwiftShader, sem a extensão de compilação paralela (o caminho foi
+conferido fingindo ela). O AUTO foi testado contra uma placa de mentira (tempo
+proporcional à área, no compasso de 60 Hz) e, no navegador, só descendo — no
+SwiftShader nunca sobra quadro pra ele subir.
 
 **O criador e os retratos numa GPU de verdade.** O criador foi percorrido por
 roteiro (trocar família, peças, cores, o aviso do conserto, Q/E, R, arrastar

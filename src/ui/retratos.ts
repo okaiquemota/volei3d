@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { chaveDoVisual, type Visual } from '../players/corpos';
+import { VISUAL_PADRAO, chaveDoVisual, type Visual } from '../players/corpos';
 import { Corpos } from '../players/montarCorpo';
 
 /**
@@ -59,9 +59,13 @@ class Retratista {
   private renderer: THREE.WebGLRenderer | null = null;
   private readonly cena = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(18, 1, 0.1, 30);
-  private readonly prontos = new Map<string, string>();
+  /** A foto de cada combinacao, pela chave. Promessa: a imagem e' codificada fora do quadro. */
+  private readonly prontos = new Map<string, Promise<string>>();
   private pendentes: Pedido[] = [];
   private agendado = false;
+  /** O shader do corpo ja' foi compilado neste contexto? Ver `aquecer`. */
+  private aquecido = false;
+  private aquecendo = false;
 
   constructor() {
     // Luz de estudio: o ceu quente do jogo por cima, uma principal de lado e
@@ -92,8 +96,7 @@ class Retratista {
 
     const pronto = this.prontos.get(`${quadro}|${chaveDoVisual(v)}`);
     if (pronto) {
-      img.src = pronto;
-      caixa.classList.add('pronto');
+      void pronto.then((url) => mostrar(img, url));
     } else {
       // Uma copia: quem pediu pode mudar o visual depois (o criador muda).
       this.pendentes.push({ img, v: { ...v }, quadro });
@@ -111,20 +114,57 @@ class Retratista {
   /** Algumas fotos por quadro: a tela de adversarios pede oito de uma vez. */
   private processar(): void {
     this.agendado = false;
+    if (!this.aquecido) {
+      void this.aquecer();
+      return;
+    }
     const inicio = performance.now();
     while (this.pendentes.length > 0 && performance.now() - inicio < ORCAMENTO_MS) {
       const p = this.pendentes.shift()!;
       // Retrato que ja' saiu da tela nao precisa de foto.
       if (!p.img.isConnected) continue;
-      const url = this.fotografar(p.v, p.quadro);
-      if (!url) continue;
-      p.img.src = url;
-      p.img.parentElement?.classList.add('pronto');
+      const foto = this.fotografar(p.v, p.quadro);
+      if (foto) void foto.then((url) => mostrar(p.img, url));
     }
     this.agendar();
   }
 
-  private fotografar(v: Visual, quadro: Quadro): string | null {
+  /**
+   * Compila o shader do corpo neste contexto antes da primeira foto.
+   *
+   * O retratista e' outro contexto de WebGL, com programas proprios: o
+   * tranco de compilar o corpo, que o jogo ja' pagou, aqui se pagava de novo,
+   * dentro da primeira foto — o maior travamento do arranque. Com
+   * `compileAsync` a compilacao corre em paralelo e a foto espera por ela.
+   */
+  private async aquecer(): Promise<void> {
+    const corpos = this.corpos;
+    if (this.aquecendo || !corpos) return;
+    const renderer = this.renderer ?? this.criarRenderer();
+    if (!renderer) return;
+    if (!renderer.extensions.has('KHR_parallel_shader_compile')) {
+      // Sem compilar em paralelo, compilar antes nao poupa nada: a foto compila.
+      this.aquecido = true;
+      this.agendar();
+      return;
+    }
+    this.aquecendo = true;
+    const amostra = corpos.montar(VISUAL_PADRAO);
+    this.cena.add(amostra);
+    try {
+      await renderer.compileAsync(this.cena, this.camera);
+    } catch {
+      // Sem compilar antes, a primeira foto compila: mais lenta, mas sai.
+    } finally {
+      this.cena.remove(amostra);
+      Corpos.descartar(amostra);
+      this.aquecido = true;
+      this.aquecendo = false;
+      this.agendar();
+    }
+  }
+
+  private fotografar(v: Visual, quadro: Quadro): Promise<string> | null {
     const chave = `${quadro}|${chaveDoVisual(v)}`;
     const pronto = this.prontos.get(chave);
     if (pronto) return pronto;
@@ -153,14 +193,22 @@ class Retratista {
     }
     this.cena.add(corpo);
     renderer.render(this.cena, this.camera);
-    const url = renderer.domElement.toDataURL('image/png');
+    /**
+     * `toBlob`, e nao `toDataURL`: os dois copiam a imagem na hora (a proxima
+     * foto pode redesenhar a tela a vontade), mas o PNG do `toDataURL` e'
+     * codificado ali mesmo, no quadro do jogo, e o do `toBlob` fora dele.
+     */
+    const tela = renderer.domElement;
+    const foto = new Promise<string>((pronta) => {
+      tela.toBlob((png) => pronta(png ? URL.createObjectURL(png) : tela.toDataURL('image/png')), 'image/png');
+    });
     this.cena.remove(corpo);
     mixer.stopAllAction();
     mixer.uncacheRoot(corpo);
     Corpos.descartar(corpo);
 
-    this.prontos.set(chave, url);
-    return url;
+    this.prontos.set(chave, foto);
+    return foto;
   }
 
   private criarRenderer(): THREE.WebGLRenderer | null {
@@ -181,6 +229,11 @@ class Retratista {
       return null;
     }
   }
+}
+
+function mostrar(img: HTMLImageElement, url: string): void {
+  img.src = url;
+  img.parentElement?.classList.add('pronto');
 }
 
 const RETRATISTA = new Retratista();

@@ -8,9 +8,9 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import {
   CATALOGO, FAMILIAS, PECAS, VISUAL_PADRAO, acessoriosDe, ajustar, carregarMeuVisual, chaveDoVisual,
   encaixa, guardarMeuVisual, lerVisual, opcoesDe, parteDe, trocarFamilia, visualDaFonte, visualSorteado,
-  type Familia, type Visual,
+  type Familia, type Peca, type Visual,
 } from '../src/players/corpos';
-import { Corpos, malhasDoVisual, type ArquivoDeCorpo } from '../src/players/montarCorpo';
+import { Corpos, ESFERA_DO_CORPO, MALHA_DO_CORPO, malhasDoVisual, type ArquivoDeCorpo } from '../src/players/montarCorpo';
 import { Animador, estadoDoMotor } from '../src/players/Animador';
 import type { EstadoDoCorpo } from '../src/players/animacoes';
 import { Motor } from '../src/players/Motor';
@@ -140,17 +140,26 @@ const lerArquivo = async (arquivo: string): Promise<ArquivoDeCorpo> => {
 };
 
 let pronto: Promise<Corpos> | null = null;
+/** Os arquivos como o loader entrega: a montagem antiga sai deles (ver `montarPorPeca`). */
+const lidos = {} as Record<Familia, Record<string, ArquivoDeCorpo>>;
 const corpos = (): Promise<Corpos> => {
   pronto ??= (async () => {
-    const arquivos = {} as Record<Familia, Record<string, ArquivoDeCorpo>>;
     for (const familia of FAMILIAS) {
-      arquivos[familia] = {};
-      for (const [id, fonte] of Object.entries(CATALOGO[familia].fontes)) arquivos[familia][id] = await lerArquivo(fonte.arquivo);
+      lidos[familia] = {};
+      for (const [id, fonte] of Object.entries(CATALOGO[familia].fontes)) lidos[familia][id] = await lerArquivo(fonte.arquivo);
     }
-    return Corpos.deArquivos(arquivos);
+    return Corpos.deArquivos(lidos);
   })();
   return pronto;
 };
+
+/** A unica malha de um corpo montado. */
+function malhaDo(corpo: THREE.Object3D): THREE.SkinnedMesh {
+  const malhas: THREE.SkinnedMesh[] = [];
+  corpo.traverse((o) => { if ((o as THREE.SkinnedMesh).isSkinnedMesh) malhas.push(o as THREE.SkinnedMesh); });
+  assert.equal(malhas.length, 1, `o corpo tem ${malhas.length} malhas`);
+  return malhas[0]!;
+}
 
 /** A caixa da PELE, com os ossos aplicados — e nao a da geometria crua. */
 function caixaDaPele(corpo: THREE.Object3D): THREE.Box3 {
@@ -199,61 +208,237 @@ test('todo corpo montado fica de pe na areia, com a altura de gente', async () =
   }
 });
 
-test('as pecas certas, presas ao esqueleto do proprio corpo', async () => {
+test('as pecas certas, numa malha so, presa ao esqueleto do proprio corpo', async () => {
   const c = await corpos();
   const v: Visual = { ...visualDaFonte('masculino', 'swat'), cabeca: 'punk', tronco: 'adventurer', acessorio: 'adventurer' };
   const a = c.montar(v);
   const b = c.montar(v);
 
-  const nomes: string[] = [];
-  a.traverse((o) => { if (o.parent?.name === 'CharacterArmature' && !(o as THREE.Bone).isBone) nomes.push(o.name); });
-  assert.deepEqual(nomes.sort(), malhasDoVisual(v).sort());
+  const malha = malhaDo(a);
+  assert.equal(malha.name, MALHA_DO_CORPO);
+  assert.deepEqual([...malha.userData.pecas].sort(), malhasDoVisual(v).sort());
+  // Uma malha so' nao quer dizer um shader por corpo: o material e' de todos.
+  assert.equal(malha.material, malhaDo(b).material, 'cada corpo com o seu material');
 
   // Cada osso da pele e' do proprio corpo — e nenhum e' do outro.
   const deA = ossosDe(a);
   const deB = ossosDe(b);
-  a.traverse((o) => {
-    const m = o as THREE.SkinnedMesh;
-    if (!m.isSkinnedMesh) return;
-    for (const osso of m.skeleton.bones) {
-      assert.ok(deA.has(osso), `${m.name}: osso ${osso.name} de fora do corpo`);
-      assert.ok(!deB.has(osso), `${m.name}: osso ${osso.name} dividido com outro corpo`);
-    }
-  });
+  for (const osso of malha.skeleton.bones) {
+    assert.ok(deA.has(osso), `osso ${osso.name} de fora do corpo`);
+    assert.ok(!deB.has(osso), `osso ${osso.name} dividido com outro corpo`);
+  }
 
   // E mexer o osso de um nao mexe a pele do outro: a cabeca anda com o corpo.
   const antes = caixaDaPele(b).max.y;
   a.getObjectByName('Head')!.position.y += 0.5;
   assert.ok(caixaDaPele(a).max.y > antes + 0.4, 'a cabeca nao seguiu o osso');
   assert.ok(Math.abs(caixaDaPele(b).max.y - antes) < 1e-6, 'o outro corpo mexeu junto');
+  Corpos.descartar(a);
+  Corpos.descartar(b);
+});
+
+/**
+ * A montagem como ela era: cada peca do arquivo, copiada, religada aos ossos
+ * do corpo com as inversas DELA. E' a referencia do teste de baixo.
+ */
+function montarPorPeca(corpo: THREE.Object3D, v: Visual): THREE.SkinnedMesh[] {
+  const ossos = new Map<string, THREE.Bone>();
+  corpo.traverse((o) => { if ((o as THREE.Bone).isBone) ossos.set(o.name, o as THREE.Bone); });
+  const pecas: Array<[Peca | 'acessorio', string]> = PECAS.map((p) => [p, v[p]]);
+  if (v.acessorio) pecas.push(['acessorio', v.acessorio]);
+  const malhas: THREE.SkinnedMesh[] = [];
+  for (const [peca, id] of pecas) {
+    const parte = parteDe(v.familia, id, peca)!;
+    const original = lidos[v.familia][id]!.scene.getObjectByName(parte.malha)!;
+    const copia = original.clone(true);
+    copia.traverse((o) => {
+      const m = o as THREE.SkinnedMesh;
+      if (!m.isSkinnedMesh) return;
+      m.bind(new THREE.Skeleton(m.skeleton.bones.map((b) => ossos.get(b.name)!), m.skeleton.boneInverses), m.bindMatrix);
+      malhas.push(m);
+    });
+    corpo.add(copia);
+  }
+  return malhas;
+}
+
+/** O vertice `i` e a normal dele, com a pele aplicada, no mundo. */
+function peleDe(m: THREE.SkinnedMesh, i: number, p: THREE.Vector3, n: THREE.Vector3): void {
+  const pos = m.geometry.getAttribute('position');
+  const nor = m.geometry.getAttribute('normal');
+  p.fromBufferAttribute(pos, i);
+  m.applyBoneTransform(i, p);
+  p.applyMatrix4(m.matrixWorld);
+  // A normal pelo mesmo caminho do shader: a soma das matrizes dos ossos.
+  const soma = new THREE.Matrix4().set(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+  const si = m.geometry.getAttribute('skinIndex');
+  const sw = m.geometry.getAttribute('skinWeight');
+  const parcela = new THREE.Matrix4();
+  for (let c = 0; c < 4; c++) {
+    const w = sw.getComponent(i, c);
+    if (w === 0) continue;
+    const k = si.getComponent(i, c);
+    parcela.multiplyMatrices(m.skeleton.bones[k]!.matrixWorld, m.skeleton.boneInverses[k]!).multiply(m.bindMatrix);
+    for (let e = 0; e < 16; e++) soma.elements[e] += parcela.elements[e]! * w;
+  }
+  n.fromBufferAttribute(nor, i).applyMatrix3(new THREE.Matrix3().setFromMatrix4(soma)).normalize();
+}
+
+/**
+ * Juntar as pecas numa malha nao mexe em NADA da imagem: em toda pose, cada
+ * vertice e cada normal do corpo junto caem onde caiam com as pecas soltas.
+ *
+ * E' o que garante que a troca do espaco dos vertices (a quantizacao de cada
+ * peca desfeita, as inversas da familia no lugar das da peca) esta' certa —
+ * conferido em pose de verdade, e nao so' no repouso, onde quase tudo passa.
+ */
+test('o corpo junto deforma igual as pecas soltas, em toda pose', async () => {
+  const c = await corpos();
+  const visuais: Visual[] = [
+    { ...visualDaFonte('masculino', 'swat'), cabeca: 'punk', tronco: 'adventurer', acessorio: 'adventurer' },
+    { ...visualDaFonte('feminino', 'witch'), cabeca: 'casual', tronco: 'soldier' },
+    visualDaFonte('masculino', 'suit'),
+    visualDaFonte('feminino', 'scifi'),
+  ];
+  const p = new THREE.Vector3();
+  const n = new THREE.Vector3();
+  const q = new THREE.Vector3();
+  const m2 = new THREE.Vector3();
+  for (const v of visuais) {
+    const corpo = c.montar(v);
+    const junta = malhaDo(corpo);
+    const soltas = montarPorPeca(corpo, v);
+    const mixer = new THREE.AnimationMixer(corpo);
+    for (const nome of ['Idle', 'Run', 'Pulo', 'Manchete', 'Cortada', 'Mergulho']) {
+      const clipe = c.animacoes(v.familia).find((a) => a.name === nome);
+      if (!clipe) continue;
+      mixer.stopAllAction();
+      mixer.clipAction(clipe).play();
+      mixer.setTime(clipe.duration * 0.37);
+      corpo.updateMatrixWorld(true);
+      junta.skeleton.update();
+      for (const s of soltas) s.skeleton.update();
+
+      let base = 0;
+      let pior = 0;
+      let piorNormal = 0;
+      for (const s of soltas) {
+        const total = s.geometry.getAttribute('position').count;
+        for (let j = 0; j < total; j += 2) {
+          peleDe(junta, base + j, p, n);
+          peleDe(s, j, q, m2);
+          pior = Math.max(pior, p.distanceTo(q));
+          piorNormal = Math.max(piorNormal, n.angleTo(m2));
+        }
+        base += total;
+      }
+      assert.equal(base, junta.geometry.getAttribute('position').count, `${chaveDoVisual(v)}: as pecas nao batem com a malha`);
+      assert.ok(pior < 1e-4, `${chaveDoVisual(v)} ${nome}: vertice ${(pior * 1000).toFixed(2)} mm fora`);
+      assert.ok(piorNormal < 0.01, `${chaveDoVisual(v)} ${nome}: normal ${THREE.MathUtils.radToDeg(piorNormal).toFixed(2)} graus torta`);
+    }
+    mixer.stopAllAction();
+    mixer.uncacheRoot(corpo);
+    Corpos.descartar(corpo);
+  }
+});
+
+/**
+ * A esfera de corte e' fixa (`ESFERA_DO_CORPO`): cobre o corpo em toda clipe,
+ * das duas familias, com o acessorio — senao o atleta some na borda da tela
+ * no meio de um mergulho.
+ */
+test('a esfera de corte cobre o corpo em toda clipe', async () => {
+  const c = await corpos();
+  const p = new THREE.Vector3();
+  const centro = ESFERA_DO_CORPO.center;
+  let maior = 0;
+  let onde = '';
+  for (const v of [{ ...visualDaFonte('masculino', 'adventurer') }, visualDaFonte('feminino', 'witch')]) {
+    const corpo = c.montar(v);
+    const malha = malhaDo(corpo);
+    const pos = malha.geometry.getAttribute('position');
+    const mixer = new THREE.AnimationMixer(corpo);
+    for (const clipe of c.animacoes(v.familia)) {
+      mixer.stopAllAction();
+      mixer.clipAction(clipe).play();
+      for (let t = 0; t <= 1; t += 0.125) {
+        mixer.setTime(clipe.duration * t);
+        corpo.updateMatrixWorld(true);
+        malha.skeleton.update();
+        for (let i = 0; i < pos.count; i += 5) {
+          p.fromBufferAttribute(pos, i);
+          malha.applyBoneTransform(i, p);
+          const d = p.distanceTo(centro);
+          if (d > maior) { maior = d; onde = `${v.familia} ${clipe.name} t=${t}`; }
+        }
+      }
+    }
+    mixer.uncacheRoot(corpo);
+    Corpos.descartar(corpo);
+  }
+  assert.ok(maior < ESFERA_DO_CORPO.radius, `${onde}: o corpo vai a ${maior.toFixed(2)} m do centro`);
+  // E nao e' folgada a toa: uma esfera grande demais nao corta nada.
+  assert.ok(maior > ESFERA_DO_CORPO.radius - 0.5, `a esfera sobra ${(ESFERA_DO_CORPO.radius - maior).toFixed(2)} m`);
 });
 
 test('a cor pinta o que deve, e so naquele corpo', async () => {
   const c = await corpos();
   const vermelho = 0xc8312b;
   const pele = 0x4a2c1c;
-  const v: Visual = { ...visualDaFonte('masculino', 'casual_hoodie'), pele, camisa: vermelho, cabelo: 0xd9b25c };
+  const loiro = 0xd9b25c;
+  const v: Visual = { ...visualDaFonte('masculino', 'casual_hoodie'), pele, camisa: vermelho, cabelo: loiro };
   const pintado = c.montar(v);
   const original = c.montar(visualDaFonte('masculino', 'casual_hoodie'));
 
-  const cores = (corpo: THREE.Object3D): Map<string, string> => {
-    const m = new Map<string, string>();
-    corpo.traverse((o) => {
-      const malha = o as THREE.Mesh;
-      if (!malha.isMesh) return;
-      for (const mat of [malha.material].flat() as THREE.MeshStandardMaterial[]) m.set(`${o.parent?.name}/${mat.name}`, mat.color.getHexString());
-    });
-    return m;
+  /** A cor de cada material, lida no primeiro vertice da fatia dele. */
+  const cores = (corpo: THREE.Object3D): Array<[string, string]> => {
+    const m = malhaDo(corpo);
+    const cor = m.geometry.getAttribute('color');
+    return (m.userData.fatias as Array<{ peca: string; material: string; inicio: number }>)
+      .map((f) => [`${f.peca}/${f.material}`, new THREE.Color(cor.getX(f.inicio), cor.getY(f.inicio), cor.getZ(f.inicio)).getHexString()]);
   };
   const a = cores(pintado);
   const b = cores(original);
   const principal = parteDe('masculino', 'casual_hoodie', 'tronco')!.principal!;
-  const tronco = parteDe('masculino', 'casual_hoodie', 'tronco')!.malha;
-  const doTronco = [...a].find(([k]) => k.endsWith(`/${principal}`) && k.includes(tronco)) ?? [...a].find(([k]) => k.endsWith(`/${principal}`));
-  assert.equal(doTronco?.[1], new THREE.Color(vermelho).getHexString(), 'a camisa nao pintou');
-  for (const [k, cor] of a) if (k.endsWith('/Skin')) assert.equal(cor, new THREE.Color(pele).getHexString(), `${k} sem a pele`);
+  const hex = (h: number): string => new THREE.Color(h).getHexString();
+  assert.ok(a.some(([k]) => k === `tronco/${principal}`), 'sem a camisa');
+  for (const [k, cor] of a) {
+    if (k === `tronco/${principal}`) assert.equal(cor, hex(vermelho), 'a camisa nao pintou');
+    if (k.endsWith('/Skin')) assert.equal(cor, hex(pele), `${k} sem a pele`);
+    if (/\/(Hair|Moustache)/.test(k)) assert.equal(cor, hex(loiro), `${k} sem o cabelo`);
+  }
+  // O que nao foi escolhido fica como o pack desenhou, nos dois corpos.
+  const doPack = new Map(b);
+  for (const [k, cor] of a) {
+    if (k.endsWith('/Skin') || k.endsWith('/Skin_Darker') || /\/(Hair|Moustache|Eyebrows)/.test(k) || k === `tronco/${principal}`) continue;
+    assert.equal(cor, doPack.get(k), `${k} mudou de cor sem ninguem pedir`);
+  }
   // O original continua como veio: a cor e' por corpo.
-  for (const [k, cor] of b) if (k.endsWith(`/${principal}`)) assert.notEqual(cor, new THREE.Color(vermelho).getHexString(), `${k} pintou no corpo errado`);
+  for (const [k, cor] of b) if (k === `tronco/${principal}`) assert.notEqual(cor, hex(vermelho), `${k} pintou no corpo errado`);
+  Corpos.descartar(pintado);
+  Corpos.descartar(original);
+});
+
+/**
+ * O que deixa juntar as pecas sem mudar a imagem: o pack inteiro usa o mesmo
+ * material, e so' a cor muda. Se um arquivo novo trouxer outro (com textura,
+ * outra aspereza), juntar apagaria a diferenca — este teste avisa antes.
+ */
+test('o pack inteiro usa o mesmo material, so muda a cor', async () => {
+  await corpos();
+  const vistos = new Set<string>();
+  for (const familia of FAMILIAS) {
+    for (const arquivo of Object.values(lidos[familia])) {
+      arquivo.scene.traverse((o) => {
+        const m = o as THREE.SkinnedMesh;
+        if (!m.isSkinnedMesh) return;
+        const j = (m.material as THREE.Material).toJSON() as unknown as Record<string, unknown>;
+        for (const k of ['uuid', 'name', 'color', 'vertexColors', 'metadata', 'userData']) delete j[k];
+        vistos.add(JSON.stringify(j));
+      });
+    }
+  }
+  assert.equal(vistos.size, 1, [...vistos].join('\n'));
 });
 
 test('as duas familias tem as clipes do pack e as escritas a mao', async () => {

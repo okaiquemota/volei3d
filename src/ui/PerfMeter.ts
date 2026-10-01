@@ -37,7 +37,7 @@ export class PerfMeter {
    * cada frame, o proprio medidor viraria parte do problema.
    */
   sample(dt: number, info: { render: { calls: number; triangles: number } },
-         largura: number, altura: number): void {
+         largura: number, altura: number, resolucao: string): void {
     if (!this.visivel) return;
     this.frames++;
     this.acc += dt;
@@ -49,7 +49,7 @@ export class PerfMeter {
     this.el.textContent =
       `${fps.toFixed(0)} fps   pior ${(this.pior * 1000).toFixed(0)} ms\n` +
       `${info.render.calls} desenhos   ${info.render.triangles} triangulos\n` +
-      `${largura}x${altura}   ${px.toFixed(1)} M pixels   tela ${window.devicePixelRatio}x\n` +
+      `${largura}x${altura}   ${px.toFixed(1)} M pixels   tela ${window.devicePixelRatio}x   res ${resolucao}\n` +
       `${this.gpu.nome}` +
       (this.gpu.software
         ? '\nSEM ACELERACAO POR HARDWARE — ligue nas opcoes do navegador'

@@ -272,7 +272,8 @@ batendo com a bola de verdade.
 
 **Os atletas são um modelo.** Os *Ultimate Modular Men* e *Women Packs*, de
 Quaternius (CC0): 21 personagens, cada um em quatro peças presas ao mesmo
-esqueleto, montados em tempo de jogo (`montarCorpo.ts`). É uma **pele**, como a
+esqueleto, montados em tempo de jogo (`montarCorpo.ts`) numa malha só por
+corpo. É uma **pele**, como a
 quadra: o `Motor` continua dizendo onde o corpo está e para onde ele olha, e o
 `Hitter` continua medindo alcance a partir dos pés — nenhuma regra sabe de que
 peças o boneco é feito.
@@ -517,6 +518,7 @@ src/
     CameraRig.ts        câmera em 3ª pessoa, presa à quadra e não ao corpo
     ballistics.ts       solvers de arco e previsão de queda — lógica pura
     gpu.ts              detecta renderização por software e adapta
+    ResolucaoAutomatica.ts a resolução AUTO: quando descer e quando subir
     math.ts             clamp, lerp, damp, AABB, aleatórios
   world/
     Arena.ts            uma partida, numa quadra, num lugar do mundo
@@ -545,7 +547,7 @@ src/
     buildAthlete.ts     o corpo low-poly
     corpos.ts           montar personagem: peças, encaixe, sorteio, save
     catalogoDeCorpos.ts GERADO: as peças de cada personagem do pack
-    montarCorpo.ts      monta um corpo com as peças, num esqueleto próprio
+    montarCorpo.ts      monta um corpo com as peças: uma malha, um esqueleto
     carregarCorpos.ts   carrega os 21 arquivos do pack
     animacoes.ts        qual clipe tocar, dado o estado do corpo
     Animador.ts         o AnimationMixer e as transições
@@ -866,15 +868,33 @@ disco no runner.
 
 ## Desempenho
 
-A cena é leve: uns 180 desenhos por quadro na praia (três quadras, com a passada
-de sombra), uns 85 no ginásio e 115 no estádio. Se o fps estiver ruim, **a
-primeira pergunta não é sobre o jogo: é quem está desenhando.** O `F3` mostra o
+A cena é leve: 37 desenhos por quadro na praia (três quadras, com a passada de
+sombra), 37 no ginásio e 64 no estádio. Se o fps estiver ruim, **a primeira
+pergunta não é sobre o jogo: é quem está desenhando.** O `F3` mostra o
 renderizador e acende em vermelho quando o navegador caiu para software
 (SwiftShader, llvmpipe, WARP). Nesse estado cada pixel sai da CPU e nenhuma
 otimização de shader muda a ordem de grandeza.
 
-O menu tem um controle de resolução (50% a 100%). O custo do quadro cresce com a
-**área**: 70% de resolução são 49% dos pixels.
+**A resolução é AUTO por padrão**: o jogo baixa a resolução quando o quadro pesa
+e sobe quando sobra, entre 50% e 100%. Só desce quando o peso é de pixel — com o
+processador ocupado, menos pixel não ajudaria — e sobe devagar, com uma espera
+que dobra a cada tentativa que não se sustenta, pra imagem não ficar piscando de
+nitidez. Quem prefere um número fixo escolhe nos AJUSTES (50% a 100%), e o `F3`
+mostra a escala do momento. O custo do quadro cresce com a **área**: 70% de
+resolução são 49% dos pixels.
+
+**Cada atleta é um desenho só.** As peças do pack vêm como uma malha por
+material — uma dúzia por corpo, cada uma com o esqueleto da sua peça —, e a
+praia desenhava 82 malhas de pele, duas vezes por quadro (a imagem e a sombra):
+eram mais de 150 dos 167 desenhos. Agora cada corpo é uma malha, um esqueleto e
+um material, e a cor de cada peça vai no vértice; o corpo que sai da tela sai
+do desenho. A imagem é a mesma — conferido pixel a pixel contra a versão
+anterior, e num teste que deforma os dois em seis animações.
+
+O arranque também ficou mais liso: o shader do corpo compila em paralelo antes
+de o primeiro corpo aparecer (onde o navegador permite), a praia se veste uma
+quadra por quadro, e as fotos dos retratos são codificadas fora do quadro do
+jogo.
 
 **A sombra é PCF com borda macia, e não VSM.** Ela já foi VSM, pela borda, e
 custava perto de 90% do tempo de desenho: o VSM borra o mapa de sombra inteiro,

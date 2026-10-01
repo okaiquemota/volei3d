@@ -3,6 +3,7 @@ import { AI_SKILL, CAMERA, COLORS, COURT, ESTADIO, PASSEIO, type AiSkill } from 
 import { Input } from './Input';
 import { Tempo } from './Tempo';
 import { CameraRig } from './CameraRig';
+import { ResolucaoAutomatica } from './ResolucaoAutomatica';
 import { PerfMeter } from '../ui/PerfMeter';
 import { HUD } from '../ui/HUD';
 import { Screens, type Cenario, type PlacarDaPausa } from '../ui/Screens';
@@ -10,7 +11,7 @@ import { Human } from '../players/Human';
 import { Banhista } from '../players/Banhista';
 import { carregarCorpos } from '../players/carregarCorpos';
 import { carregarMeuVisual, guardarMeuVisual, type Visual } from '../players/corpos';
-import type { Corpos } from '../players/montarCorpo';
+import { Corpos } from '../players/montarCorpo';
 import { usarCorposNosRetratos } from '../ui/retratos';
 import { AIPlayer } from '../players/AI';
 import { descartarGeometriasDeAtleta } from '../players/buildAthlete';
@@ -76,6 +77,7 @@ const CRIADOR = {
   voo: 0.9,
 };
 const suave = (t: number): number => t * t * (3 - 2 * t);
+const proximoQuadro = (): Promise<void> => new Promise((pronto) => requestAnimationFrame(() => pronto()));
 
 /** Segundos do voo da camera, do menu ate' atras do jogador. */
 const VOO_DO_MENU = 1.3;
@@ -285,7 +287,9 @@ export class Game {
   private readonly paraOSol = new THREE.Vector3(0, 1, 0);
   private lastTime = 0;
   private lastFrameDt = 0;
-  private resolution = 1;
+  /** A escala de resolucao escolhida nos ajustes. `null` e' o AUTO. */
+  private resolucaoFixa: number | null = 1;
+  private readonly resolucaoAutomatica = new ResolucaoAutomatica();
 
   constructor(canvas: HTMLCanvasElement, renderer: THREE.WebGLRenderer) {
     this.renderer = renderer;
@@ -546,15 +550,45 @@ export class Game {
    */
   private async buscarModeloDoAtleta(): Promise<void> {
     try {
-      this.corpos = await carregarCorpos();
-      for (const arena of this.arenas) arena.usarModeloDeAtleta(this.corpos);
-      this.banhista.usarModelo(this.corpos);
-      usarCorposNosRetratos(this.corpos);
+      const corpos = await carregarCorpos();
+      await this.compilarCorpo(corpos);
+      this.corpos = corpos;
+      // Uma arena por quadro: vestir a praia inteira de uma vez era um tranco
+      // so' no menu, de montar seis corpos e as animacoes deles.
+      for (const arena of this.arenas) {
+        arena.usarModeloDeAtleta(corpos);
+        await proximoQuadro();
+      }
+      this.banhista.usarModelo(corpos);
+      usarCorposNosRetratos(corpos);
     } catch (erro) {
       console.warn('nao deu pra carregar o corpo dos atletas; seguindo de capsula', erro);
       // So' agora a capsula aparece: ate' aqui ninguem tinha corpo nenhum.
       for (const arena of this.arenas) arena.usarModeloDeAtleta(null);
       this.banhista.usarModelo(null);
+    }
+  }
+
+  /**
+   * Compila o shader do corpo ANTES de o corpo entrar em cena.
+   *
+   * Todo corpo usa o mesmo material, entao e' um programa so' — mas e' o
+   * mais pesado do jogo (pele, sombra, nevoa), e compilar trava o quadro em
+   * que ele aparece pela primeira vez: era um tranco no menu, bem quando os
+   * atletas ganhavam corpo. `compileAsync` compila em paralelo, sem travar,
+   * onde o navegador deixa (KHR_parallel_shader_compile); onde nao deixa, o
+   * custo fica no primeiro quadro, como antes.
+   */
+  private async compilarCorpo(corpos: Corpos): Promise<void> {
+    // Sem a extensao nao ha' ganho nenhum: seria a mesma compilacao, so' antes.
+    if (!this.renderer.extensions.has('KHR_parallel_shader_compile')) return;
+    const amostra = corpos.montar(this.meuVisual);
+    try {
+      await this.renderer.compileAsync(amostra, this.camera, this.scene);
+    } catch (erro) {
+      console.warn('nao deu pra compilar o corpo antes; compila no primeiro quadro', erro);
+    } finally {
+      Corpos.descartar(amostra);
     }
   }
 
@@ -690,7 +724,11 @@ export class Game {
       }
     }
     this.aplicarCenario();
-    this.resolution = this.screens.ajustes.resolucao;
+    const resolucao = this.screens.ajustes.resolucao;
+    const fixa = resolucao === 'auto' ? null : resolucao;
+    // Ligar o AUTO parte da escala que estava valendo, e nao do zero.
+    if (fixa === null && this.resolucaoFixa !== null) this.resolucaoAutomatica.reiniciar(this.resolucaoFixa);
+    this.resolucaoFixa = fixa;
     this.onResize();
   }
 
@@ -1079,6 +1117,7 @@ export class Game {
 
   private loop = (now: number): void => {
     requestAnimationFrame(this.loop);
+    const inicio = performance.now();
 
     // Clamp de dt: voltar de uma aba em segundo plano nao pode teleportar todo
     // mundo. O medidor guarda o valor CRU — com o clamp, um quadro de 200 ms
@@ -1155,6 +1194,15 @@ export class Game {
     this.hud.update(dt);
     this.render();
     this.input.endFrame();
+
+    /**
+     * A resolucao automatica olha o quadro inteiro: quanto tempo passou desde
+     * o anterior, e quanto disso foi trabalho nosso. Intervalo longo com pouco
+     * trabalho e' a placa de video atrasando — o caso em que menos pixel ajuda.
+     */
+    if (this.resolucaoFixa === null && this.resolucaoAutomatica.amostrar(cru, (performance.now() - inicio) / 1000)) {
+      this.aplicarEscala();
+    }
   };
 
   /** Um passo de jogo. Publico: e' a porta de entrada dos testes. */
@@ -1586,14 +1634,24 @@ export class Game {
   private render(): void {
     // O info do three zera sozinho a cada render(): ler ANTES do proximo passe.
     const alvo = this.renderer.getDrawingBufferSize(_bufSize);
-    this.perf.sample(this.lastFrameDt, this.renderer.info, alvo.x, alvo.y);
+    const escala = `${Math.round(this.escalaDeResolucao * 100)}%${this.resolucaoFixa === null ? ' auto' : ''}`;
+    this.perf.sample(this.lastFrameDt, this.renderer.info, alvo.x, alvo.y, escala);
 
     this.renderer.render(this.scene, this.camera);
   }
 
+  private get escalaDeResolucao(): number {
+    return this.resolucaoFixa ?? this.resolucaoAutomatica.escala;
+  }
+
+  /** So' a densidade de pixels: e' o que a resolucao automatica muda. */
+  private aplicarEscala(): void {
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * this.escalaDeResolucao);
+  }
+
   private onResize = (): void => {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * this.resolution);
+    this.aplicarEscala();
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
   };

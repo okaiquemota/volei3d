@@ -1,5 +1,5 @@
 import { Game } from './core/Game';
-import { createRenderer } from './core/gpu';
+import { createRenderer, detectRenderer } from './core/gpu';
 
 const canvas = document.getElementById('viewport') as HTMLCanvasElement | null;
 
@@ -9,16 +9,7 @@ if (!canvas) {
 
 // WebGL pode simplesmente nao existir (driver, GPU bloqueada, navegador antigo).
 // Melhor uma mensagem clara do que uma tela preta silenciosa.
-const suportaWebGL = (): boolean => {
-  try {
-    const teste = document.createElement('canvas');
-    return !!(teste.getContext('webgl2') ?? teste.getContext('webgl'));
-  } catch {
-    return false;
-  }
-};
-
-if (!suportaWebGL()) {
+if (!detectRenderer().webgl) {
   document.body.innerHTML =
     '<div style="display:grid;place-items:center;height:100%;font-family:monospace;color:#e8e6e3;text-align:center;padding:24px">' +
     '<div><h1>WebGL indisponivel</h1><p style="opacity:.6;margin-top:12px">' +
