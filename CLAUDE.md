@@ -1862,8 +1862,8 @@ boneco 3 m além da lateral e a câmera 4 m além dele: na praia, bonito; no
 ESTÁDIO, a câmera ficava a 11 m da linha — depois das placas (8,5 m) e no meio
 da arquibancada. Uma placa cortava o boneco pela cintura e um torcedor tapava
 o canto da tela. Conferido só na praia, passou. Agora tudo fica dentro da
-quadra (boneco a 4,4 m da rede, câmera antes da linha de fundo, dentro da zona
-livre), e os dois atletas e a bola daquela quadra somem enquanto o criador
+quadra (boneco a 4,4 m da rede, câmera na linha de fundo, dentro da zona
+livre, na altura dos olhos — na do peito ela via o rosto de baixo), e os dois atletas e a bola daquela quadra somem enquanto o criador
 está aberto — o boneco é você, e o seu atleta parado ali seria você duas
 vezes. **Cenário novo é mais um lugar onde a câmera do criador tem que caber:
 confira os três.**

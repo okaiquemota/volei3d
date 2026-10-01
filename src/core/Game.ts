@@ -45,17 +45,21 @@ const _cameraAlvo = new THREE.Vector3();
  *
  * DENTRO da quadra, e nao do lado dela: fora, a camera caia atras das placas
  * do estadio (8,5 m da linha) e no meio da torcida — uma placa cortava o
- * boneco pela cintura. Aqui o boneco fica no fundo da quadra, a camera entre
- * ele e a linha de fundo (dentro da zona livre, antes das placas), e o fundo
+ * boneco pela cintura. Aqui o boneco fica no fundo da quadra, a camera na
+ * linha de fundo (dentro da zona livre, longe das placas), e o fundo
  * da foto e' a rede. Os atletas da quadra somem enquanto o criador esta'
  * aberto: o boneco e' voce, e o seu atleta parado ali seria voce duas vezes.
  */
 const CRIADOR = {
   /** O boneco: um pouco fora do centro, a meio caminho entre a rede e o fundo. */
   boneco: { x: 1.2, z: 4.4 },
-  /** A camera: atras dele, pro lado do fundo, na altura do peito. */
-  camera: { frente: 4.1, lado: 0.9, altura: 1.2 },
-  alturaDoOlhar: 0.95,
+  /**
+   * A camera: atras dele, pro lado do fundo, na altura dos OLHOS e olhando um
+   * pouco pra baixo. Na altura do peito ela via o rosto de baixo pra cima, e o
+   * rosto e' justamente a peca que mais se escolhe.
+   */
+  camera: { frente: 3.7, lado: 0.8, altura: 1.6 },
+  alturaDoOlhar: 1.05,
   /** Vira o olhar pra esquerda: joga o boneco pra direita, longe do painel. */
   desvio: 0.3,
   /** Quanto a camera leva pra chegar, e pra voltar ao menu. Relogio, nao jogo. */
