@@ -1,5 +1,5 @@
-import { App } from '@capacitor/app';
-import { Capacitor } from '@capacitor/core';
+import type { AppPlugin } from '@capacitor/app';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 
 /**
  * O que so' existe dentro do app Android. No navegador, nada aqui roda.
@@ -16,6 +16,17 @@ import { Capacitor } from '@capacitor/core';
  */
 export function ligarAndroid(): void {
   if (!Capacitor.isNativePlatform()) return;
+
+  /**
+   * O plugin e' registrado aqui, pelo nome, e NAO importado do `@capacitor/app`.
+   *
+   * O pacote traz junto uma versao web dele por `import()` dinamico, e isso
+   * divide o bundle em dois `.js` — o `build:single` recusa (com razao: so' um
+   * dos pedacos entraria no arquivo unico) e o deploy do Pages caiu por isso.
+   * Aqui so' o lado nativo serve, entao sem implementacao web nao ha' `import()`.
+   * O pacote continua nas dependencias: e' ele que o `cap sync` instala no Android.
+   */
+  const App = registerPlugin<AppPlugin>('App');
 
   void App.addListener('backButton', () => {
     const outraTela = document.querySelector('.tela:not(.hidden):not(#menu)');
