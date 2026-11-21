@@ -1,5 +1,6 @@
 import { Game } from './core/Game';
 import { createRenderer, detectRenderer } from './core/gpu';
+import { ligarAndroid } from './android';
 
 const canvas = document.getElementById('viewport') as HTMLCanvasElement | null;
 
@@ -24,6 +25,8 @@ if (!detectRenderer().webgl) {
   // avancar o tempo de jogo sem depender do relogio:
   //   for (let t = 0; t < 10; t += 1/60) __VOLEI.update(1/60);
   (window as unknown as { __VOLEI: Game }).__VOLEI = game;
+
+  ligarAndroid();
 
   if (import.meta.hot) {
     import.meta.hot.dispose(() => game.dispose());

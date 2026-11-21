@@ -64,6 +64,12 @@ está ligado, junto com `noUnusedLocals` e `noUnusedParameters`.
 - Quem olha pra qual quadra: `core/Game.ts` (`assistir`, `arenaEmFoco`).
 - A resolução AUTO (quando desce, quando sobe): `core/ResolucaoAutomatica.ts`,
   lógica pura. O `Game` só entrega o intervalo e o trabalho de cada quadro.
+- Controle de toque: o dedo na quadra mora no `Input` (é o mouse); joystick e
+  botões em `ui/ControleDeToque.ts`, a conta do joystick em `core/joystick.ts`
+  (pura, com teste). Os números em `CONTROLE_DE_TOQUE` e `CELULAR` no config.
+- App Android: `capacitor.config.ts`, a pasta `android/` e `src/android.ts`
+  (o botão voltar). Ícone, splash e imagens da loja: `scripts/gerar-icones.mjs`.
+  O que falta pra Play Store: `loja/ficha-da-loja.md`.
 
 ## A regra que sustenta o projeto inteiro
 
@@ -2044,7 +2050,58 @@ Quatro custos que caíam no meio do menu, de uma vez, quando os corpos chegavam:
 E um contexto de WebGL a menos no arranque: o `main` criava um só pra perguntar
 se havia WebGL; agora a mesma detecção do `gpu.ts` responde.
 
+## Toque e Android: o celular passa pelo mesmo caminho do teclado
+
+O jogo nasceu de teclado e mouse, e o controle de toque **não ganhou um segundo
+caminho** pra nenhuma ação. Cada botão da tela aperta uma tecla (`Input.apertar`,
+`data-tecla` no HTML), o joystick escreve um eixo que `direcaoDoTeclado` soma ao
+WASD, e o dedo na quadra É o botão esquerdo do mouse: posição absoluta pra mira,
+encostado pra carregar, arrastado pra girar a câmera na areia. O `Human` não
+sabe que existe celular. Um caminho só não diverge.
+
+Coisas que custaram um sintoma cada, ou que custariam:
+
+- **`preventDefault` no `pointerdown` de toque.** Sem ele o navegador fabrica um
+  `mousedown` de compatibilidade logo depois, e cada toque conta duas vezes.
+- **`opacity: 0` não impede toque.** O HUD some atrás das telas por opacidade;
+  os botões de toque, não — `body.tela-aberta #toque-controles` é `display: none`.
+  Sem isso, tocar no menu apertaria PULAR invisível embaixo dele.
+- **O FORCAR pede três mãos no teclado** (F segurado no instante em que o toque
+  solta). No toque ele é o gesto inteiro: aperta E e F, solta o E, e solta o F
+  só depois de **dois** `requestAnimationFrame` — o laço do jogo também vive no
+  rAF, e um só poderia cair antes dele no mesmo quadro. Medido no navegador: o
+  `Human` vê o quadro com E solto e F seguro, e nenhuma tecla fica presa.
+- **O modo toque liga por `(pointer: coarse)` no arranque**, e não no primeiro
+  toque no canvas: o primeiro toque é no menu, e o jogador entraria na quadra sem
+  botão nenhum. Notebook com tela de toque tem ponteiro FINO e só liga ao encostar
+  o dedo no jogo.
+- **O texto troca por classe** (`.so-teclado` / `.so-toque`), e a regra
+  esconde o que não vale em vez de forçar `display` no que vale — um `.so-toque`
+  pode ser span, div ou grid.
+- **Pointer lock nunca é pedido no toque** (`usandoToque`). No celular não há
+  cursor, e o pedido no WebView pode deixar a tela num estado que só o voltar
+  desfaz.
+
+O botão VOLTAR do Android **fabrica um Esc** (`src/android.ts`): pausa em quadra,
+volta uma tela no menu. No menu principal ele minimiza em vez de fechar, que
+perderia a partida pausada.
+
+O app é Capacitor e não TWA porque o jogo é inteiro local: vai no pacote, roda
+sem internet e dispensa o `assetlinks.json` na raiz de um domínio. O build do
+app (`--mode android`) sai em `dist-android/` **sem sourcemap** — eram 4 MB
+dentro do APK.
+
 ## O que NÃO foi verificado
+
+**O controle de toque num celular de verdade, e o APK.** Conferido em Chromium
+emulando um Pixel 7 deitado, com toques de verdade pelo CDP: joystick anda pro
+lado certo (o sinal na tela, como manda a seção da câmera), dedo na quadra mira e
+carrega, PULAR, PAUSA e FORCAR funcionam, nenhuma tecla fica presa. O APK não foi
+compilado aqui — baixar o Android SDK exigia aceitar as licenças dele, e isso é
+de quem publica. Por isso **não foram vistos**: o botão voltar, a tela cheia
+(`MainActivity`), a trava em paisagem, o recorte da câmera frontal, se o voltar
+da página de privacidade volta pro jogo, e o desempenho numa GPU de celular (os
+tetos de `CELULAR` são conta, não medida).
 
 **A otimização numa GPU de verdade.** O que se mediu aqui é contagem (167 → 37
 desenhos na praia, 82 → 7 malhas de pele, 28 → 7 esqueletos) e imagem (igual).

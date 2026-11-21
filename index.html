@@ -94,8 +94,9 @@
 
     <!-- baixo: o que fazer agora. Saque, ou o que ha' em volta na areia. -->
     <div id="action-hint" class="prompt-grande hidden">
-      <kbd class="larga">CLIQUE</kbd>
-      <span>SEGURE E SOLTE PRA SACAR</span>
+      <kbd class="larga so-teclado">CLIQUE</kbd>
+      <span class="so-teclado">SEGURE E SOLTE PRA SACAR</span>
+      <span class="so-toque">SEGURE ONDE QUER SACAR E SOLTE</span>
       <b id="saque-contagem" class="contagem">8</b>
     </div>
     <div id="dica-praia" class="prompt-grande hidden">
@@ -108,6 +109,61 @@
       nunca acontece nada — a areia logo a' frente do jogador, atras do corpo
       dele. So' TECLAS: o porque de cada coisa esta' em COMO JOGAR.
     -->
+    <!--
+      O controle de TOQUE. So' aparece com `body.toque` (celular, tablet, ou
+      quando um dedo encosta no jogo). Cada botao aperta uma tecla do teclado
+      (`data-tecla`): o jogo nao sabe se veio da tela ou do teclado.
+      A mira e a carga NAO tem botao: o dedo na quadra e' o mouse.
+    -->
+    <div id="toque-controles" data-contexto="quadra">
+      <div id="joystick-zona"></div>
+      <div id="joystick-base"><div id="joystick-pino"></div></div>
+
+      <div class="toque-topo">
+        <button type="button" class="toque-btn pequeno" data-tecla="Escape" aria-label="pausa">II</button>
+        <button type="button" id="btn-toque-lugar" class="toque-btn pequeno hidden" data-tecla="KeyQ">SAIR</button>
+      </div>
+      <div class="toque-topo direita">
+        <button type="button" id="btn-toque-camera" class="toque-btn pequeno" aria-label="camera">CAM</button>
+      </div>
+
+      <div class="toque-acoes">
+        <button type="button" class="toque-btn so-quadra" data-tecla="ShiftLeft">LENTO</button>
+        <!-- FORCAR e' o gesto inteiro: tocar (E) com o F segurado. Ver `ligarBotao`. -->
+        <button type="button" class="toque-btn so-quadra" data-tecla="KeyE KeyF" data-soltar-depois="KeyF">FORCAR</button>
+        <button type="button" class="toque-btn so-quadra" data-tecla="KeyC">MERGULHO</button>
+        <button type="button" class="toque-btn so-quadra" data-tecla="KeyR">LEVANTAR</button>
+        <button type="button" class="toque-btn grande" data-tecla="Space">PULAR</button>
+      </div>
+    </div>
+
+    <!-- A mesma legenda, pro dedo. Nunca aparece no HUD (la' quem ensina sao os
+         proprios botoes); existe pra o COMO JOGAR copiar. -->
+    <aside id="manual-toque" class="hidden">
+      <div class="grupo-teclas">
+        <h2>EM QUADRA</h2>
+        <ul class="teclas">
+          <li><span class="k"><kbd class="larga">POLEGAR ESQ.</kbd></span><span class="o">correr</span></li>
+          <li><span class="k"><kbd class="larga">TOCAR NA QUADRA</kbd></span><span class="o">mirar e passar</span></li>
+          <li><span class="k"><kbd class="larga">SEGURAR</kbd></span><span class="o">carregar e atacar</span></li>
+          <li><span class="k"><kbd class="larga">PULAR</kbd></span><span class="o">pular</span></li>
+          <li><span class="k"><kbd class="larga">LEVANTAR</kbd></span><span class="o">levantar</span></li>
+          <li><span class="k"><kbd class="larga">MERGULHO</kbd></span><span class="o">mergulhar</span></li>
+          <li><span class="k"><kbd class="larga">FORCAR</kbd></span><span class="o">ataque rapido</span></li>
+          <li><span class="k"><kbd class="larga">LENTO</kbd></span><span class="o">camera lenta</span></li>
+          <li><span class="k"><kbd class="larga">CAM</kbd></span><span class="o">ombro ou tatica</span></li>
+        </ul>
+      </div>
+      <div class="grupo-teclas">
+        <h2>FORA DA QUADRA</h2>
+        <ul class="teclas">
+          <li><span class="k"><kbd class="larga">SAIR</kbd><i>/</i><kbd class="larga">ENTRAR</kbd></span><span class="o">sair ou entrar</span></li>
+          <li><span class="k"><kbd class="larga">ARRASTAR</kbd></span><span class="o">girar a camera</span></li>
+          <li><span class="k"><kbd class="larga">II</kbd></span><span class="o">pausa</span></li>
+        </ul>
+      </div>
+    </aside>
+
     <aside id="manual">
       <div class="grupo-teclas">
         <h2>EM QUADRA</h2>
@@ -207,10 +263,15 @@
           <span class="prompt"><kbd class="larga">ENTER</kbd>SELECIONAR</span>
           <span class="prompt"><kbd>F3</kbd>DESEMPENHO</span>
         </div>
-        <!-- CC-BY exige credito VISIVEL: mora aqui, pequeno, e nao so' no README. -->
+        <!-- CC-BY exige credito VISIVEL: mora aqui, pequeno, e nao so' no README.
+             A privacidade abre na MESMA aba: dentro do app Android um `_blank`
+             tentaria abrir o endereco interno do app num navegador de fora, e
+             ali ele nao existe. Na mesma aba, o voltar do Android volta pro jogo. -->
         <p class="credito">Cenario QUADRA: &ldquo;Volleyball court&rdquo; de Konstantin
           &middot; ESTADIO: &ldquo;Low Poly Football Stadium&rdquo; de ismeteren07
-          &middot; <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC&nbsp;BY</a></p>
+          &middot; <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC&nbsp;BY</a>
+          &middot; Fontes Barlow: <a href="https://openfontlicense.org" target="_blank" rel="noopener">SIL&nbsp;OFL</a>
+          &middot; <a href="privacidade.html">Privacidade</a></p>
       </footer>
     </section>
 
@@ -269,7 +330,7 @@
           <h3>OS TRES TOQUES</h3>
           <p>Dois toques armam em casa, o terceiro cruza. Bola baixa e' manchete,
             na cabeca levantamento, no ar cortada. Com a bola em cima e sem tempo
-            de segurar, <kbd>F</kbd> manda por cima da rede assim mesmo: sai
+            de segurar, <kbd class="so-teclado">F</kbd><b class="so-toque">FORCAR</b> manda por cima da rede assim mesmo: sai
             fraco, mas sai.</p>
         </article>
         <article class="guia-cartao" style="--i:1">
@@ -289,15 +350,15 @@
         <article class="guia-cartao" style="--i:3">
           <span class="guia-num">04</span>
           <h3>O <em>MERGULHO</em></h3>
-          <p>Com <kbd>C</kbd> voce joga o corpo na direcao que estiver andando e
+          <p>Com <kbd class="so-teclado">C</kbd><b class="so-toque">MERGULHO</b> voce joga o corpo na direcao que estiver andando e
             alcanca mais de um metro alem do normal — inclusive rasteiro. No voo o
-            teclado nao manda, e depois voce fica caido quase um segundo: e' o
+            controle nao manda, e depois voce fica caido quase um segundo: e' o
             preco. O toque sai sozinho, e sai sempre manchete.</p>
         </article>
         <article class="guia-cartao" style="--i:4">
           <span class="guia-num">05</span>
           <h3>A <em>CAMERA LENTA</em></h3>
-          <p>Segure <kbd class="larga">SHIFT</kbd> e o mundo anda a 35% — a barra
+          <p>Segure <kbd class="larga so-teclado">SHIFT</kbd><b class="so-toque">LENTO</b> e o mundo anda a 35% — a barra
             de FORCA junto. A carga dura 2,5 s e demora 9 pra voltar: e' pra
             <b>um</b> toque. Rende mais no mergulho, que passa de um segundo
             vivido e da' pra escolher o lado.</p>
@@ -307,7 +368,7 @@
           <h3>A REDE E A MIRA</h3>
           <p>De pe' a rede trava a batida em 16 m/s; <b>pulando</b>, 20. A mira
             alcanca alem das linhas: mirar na linha e' aposta, e toda batida
-            espalha um pouco. A roda troca a camera de <b>ombro</b> pela
+            espalha um pouco. A roda (no toque, o <b>CAM</b>) troca a camera de <b>ombro</b> pela
             <b>tatica</b>, que mostra o campo de la'.</p>
         </article>
       </div>

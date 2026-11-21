@@ -1,3 +1,5 @@
+import { CONTROLE_DE_TOQUE } from '../config';
+
 /**
  * Teclado e mouse. O jogo so' le' estado daqui; nada de listener espalhado.
  *
@@ -72,6 +74,34 @@ export class Input {
    */
   roda = 0;
 
+  /**
+   * O eixo analogico do joystick de toque, de -1 a 1 (x direita, z frente).
+   *
+   * Escrito pelo `ControleDeToque`; `direcaoDoTeclado` soma isto ao teclado.
+   * Mora aqui, e nao no controle de toque, pelo mesmo motivo do resto do
+   * arquivo: o jogo so' le' estado do Input.
+   */
+  eixoX = 0;
+  eixoZ = 0;
+
+  /**
+   * O ultimo ponteiro usado foi um DEDO?
+   *
+   * Decide duas coisas: o controle de toque aparece, e o pointer lock nao e'
+   * pedido — no celular nao ha' cursor pra capturar, e no Android o pedido
+   * pode deixar a tela num estado de captura que so' o voltar desfaz.
+   */
+  usandoToque = false;
+  /** Chamado quando o dedo e' usado pela primeira vez (ou volta a ser). */
+  onToque: (() => void) | null = null;
+
+  /**
+   * O dedo que faz de mouse na quadra (mira e carga). So' um: o segundo dedo
+   * no canvas e' o polegar esquerdo escorregando pra fora do joystick, e
+   * deixar ele mexer na mira faria a mira pular entre os dois.
+   */
+  private dedoDoCanvas: number | null = null;
+
   /** Chamado quando a janela perde o foco — o jogo aproveita pra pausar. */
   onBlur: (() => void) | null = null;
 
@@ -116,6 +146,78 @@ export class Input {
      */
     window.addEventListener('dragstart', this.onDragStart, { capture: true });
     this.canvas.addEventListener('wheel', this.onWheel, { passive: false });
+
+    /**
+     * O DEDO no canvas e' o mouse: posicao absoluta pra mira, "botao esquerdo"
+     * enquanto encostado (carrega o ataque na quadra, gira a camera na areia).
+     *
+     * Por pointer events, e so' os de `pointerType === 'touch'`: o mouse
+     * continua no caminho dele, la' em cima, sem mudar uma linha. O
+     * `preventDefault` no pointerdown impede o navegador de fabricar um
+     * `mousedown` de compatibilidade logo depois — sem isso cada toque contaria
+     * duas vezes.
+     */
+    this.canvas.addEventListener('pointerdown', this.onDedoDown);
+    window.addEventListener('pointermove', this.onDedoMove);
+    window.addEventListener('pointerup', this.onDedoUp);
+    window.addEventListener('pointercancel', this.onDedoUp);
+  }
+
+  /** Marca que quem esta' jogando usa o dedo. Publico: o controle de toque tambem chama. */
+  marcarToque(): void {
+    if (this.usandoToque) return;
+    this.usandoToque = true;
+    this.onToque?.();
+  }
+
+  private onDedoDown = (e: PointerEvent): void => {
+    if (e.pointerType !== 'touch') {
+      // Mouse ou caneta de novo: o jogador voltou pra mesa.
+      if (e.pointerType === 'mouse') this.usandoToque = false;
+      return;
+    }
+    e.preventDefault();
+    this.marcarToque();
+    if (this.dedoDoCanvas !== null) return;
+    this.dedoDoCanvas = e.pointerId;
+
+    // O dedo aparece onde encosta: pular do toque anterior ate' aqui nao e'
+    // arrasto, e contaria como um giro de camera de meia tela.
+    this.pointerX = e.clientX;
+    this.pointerY = e.clientY;
+    this.pointerMoved = true;
+    this.buttons.add(0);
+    this.buttonsPressed.add(0);
+  };
+
+  private onDedoMove = (e: PointerEvent): void => {
+    if (e.pointerId !== this.dedoDoCanvas) return;
+    this.arrasteX += (e.clientX - this.pointerX) * CONTROLE_DE_TOQUE.ganhoDoArraste;
+    this.arrasteY += (e.clientY - this.pointerY) * CONTROLE_DE_TOQUE.ganhoDoArraste;
+    this.pointerX = e.clientX;
+    this.pointerY = e.clientY;
+  };
+
+  private onDedoUp = (e: PointerEvent): void => {
+    if (e.pointerId !== this.dedoDoCanvas) return;
+    this.dedoDoCanvas = null;
+    this.buttons.delete(0);
+  };
+
+  /**
+   * Tecla virtual: o botao de toque "aperta" uma tecla do teclado.
+   *
+   * Assim o jogo nao ganha um segundo caminho pra cada acao — o PULAR da tela
+   * e' o Espaco, o LEVANTAR e' o R, e quem le' a tecla nao sabe de onde ela
+   * veio. Um caminho so' e' um caminho que nao diverge.
+   */
+  apertar(code: string): void {
+    if (!this.keys.has(code)) this.pressedThisFrame.add(code);
+    this.keys.add(code);
+  }
+
+  soltar(code: string): void {
+    this.keys.delete(code);
   }
 
   /**
@@ -291,7 +393,14 @@ export class Input {
     this.arrasteX = 0;
     this.arrasteY = 0;
     this.roda = 0;
+    this.eixoX = 0;
+    this.eixoZ = 0;
+    this.dedoDoCanvas = null;
+    this.onLimpar?.();
   }
+
+  /** Avisado quando o Input zera tudo, pro controle de toque soltar o desenho junto. */
+  onLimpar: (() => void) | null = null;
 
   /** O navegador esta' com o cursor capturado pelo canvas? */
   get ponteiroTravado(): boolean { return document.pointerLockElement === this.canvas; }
@@ -305,7 +414,7 @@ export class Input {
    * isso a promessa e' engolida, e nao propagada.
    */
   travarPonteiro(): void {
-    if (this.ponteiroTravado) return;
+    if (this.ponteiroTravado || this.usandoToque) return;
 
     try {
       // `unadjustedMovement` tira a aceleracao do mouse do sistema, que e' o
@@ -349,5 +458,9 @@ export class Input {
     window.removeEventListener('blur', this.onWindowBlur);
     document.removeEventListener('visibilitychange', this.onVisibility);
     this.canvas.removeEventListener('wheel', this.onWheel);
+    this.canvas.removeEventListener('pointerdown', this.onDedoDown);
+    window.removeEventListener('pointermove', this.onDedoMove);
+    window.removeEventListener('pointerup', this.onDedoUp);
+    window.removeEventListener('pointercancel', this.onDedoUp);
   }
 }

@@ -50,6 +50,17 @@ export class CameraRig {
   get modoAtual(): ModoDaCamera { return this.modo; }
 
   /**
+   * A camera esta' mais pro LONGE do que pro perto? So' o botao de camera do
+   * controle de toque pergunta: ele leva sempre pro outro extremo.
+   */
+  get estaLonge(): boolean {
+    if (this.modo === 'passeio') {
+      return this.raio > (CAMERA.passeioRaioMin + CAMERA.passeioRaioMax) / 2;
+    }
+    return this.enquadramento > 0.5;
+  }
+
+  /**
    * A orbita de quem passeia: para onde, de que altura, e de que longe.
    *
    * Comeca exatamente no enquadramento que a camera de passeio sempre teve —

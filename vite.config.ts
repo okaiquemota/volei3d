@@ -28,8 +28,13 @@ export default defineConfig(({ mode }) => ({
   assetsInclude: ['**/*.glb'],
   build: {
     target: 'es2022',
-    outDir: 'dist',
-    sourcemap: true,
+    /**
+     * O app Android sai em pasta propria e SEM sourcemap: o mapa tem ~4 MB e
+     * iria dentro do APK, pra ninguem — no celular nao ha' depurador aberto.
+     * Pasta propria pra um `build` comum nao apagar o que o `cap sync` le'.
+     */
+    outDir: mode === 'android' ? 'dist-android' : 'dist',
+    sourcemap: mode !== 'android',
 
     /**
      * Asset sai como ARQUIVO, nao como data URI dentro do JS.

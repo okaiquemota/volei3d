@@ -11,14 +11,20 @@
     "typecheck": "tsc --noEmit",
     "test": "tsc --noEmit && node --import tsx --test tests/*.test.ts",
     "build:single": "tsc --noEmit && node scripts/build-single.mjs",
-    "assets": "node scripts/asset-report.mjs"
+    "assets": "node scripts/asset-report.mjs",
+    "build:android": "tsc --noEmit && vite build --mode android && cap sync android",
+    "android": "npm run build:android && cap open android"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.6.2",
     "@fontsource/barlow": "^5.3.0",
     "@fontsource/barlow-condensed": "^5.3.0",
     "three": "^0.185.1"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/cli": "^8.6.2",
     "@types/node": "^26.4.1",
     "@types/three": "^0.185.4",
     "tsx": "^4.20.7",

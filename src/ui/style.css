@@ -1593,3 +1593,138 @@ body.tela-aberta.veu-livre #veu { opacity: 0; }
   .fim-num { font-size: 3.2rem; }
   .fim-nome { font-size: 1.2rem; }
 }
+
+/* ================================================================== */
+/* ------- controle de TOQUE ------- */
+/*
+ * Tudo aqui so' existe com `body.toque`. Sem a classe o bloco inteiro e'
+ * `display: none`, e no computador nada disto ocupa nem um pixel.
+ *
+ * Os botoes moram na metade DIREITA e embaixo: e' onde o polegar direito
+ * descansa, e e' a parte do quadro mais longe do campo adversario, onde o
+ * mesmo polegar precisa tocar pra mirar. A metade esquerda de baixo e' do
+ * joystick, que flutua.
+ *
+ * As bordas respeitam o recorte da tela (`env(safe-area-inset-*)`): em
+ * paisagem o notch fica de um lado, e um botao embaixo dele nao se toca.
+ */
+
+/* Escondendo o que NAO vale, e nunca forcando o `display` do que vale: um
+   `.so-toque` pode ser span, div ou grid, e cada um tem o seu. */
+body:not(.toque) .so-toque { display: none; }
+body.toque .so-teclado { display: none; }
+
+/* A faixa de teclas nao serve pra quem nao tem teclado. */
+body.toque #manual { display: none; }
+/* As dicas que mostram tecla (o E da areia, o TAB) ficam so' com o texto. */
+body.toque #dica-tecla,
+body.toque #quadra-atual kbd,
+body.toque #quadra-atual kbd + span,
+body.toque #tempo kbd { display: none; }
+
+#toque-controles { display: none; }
+body.toque #toque-controles {
+  display: block;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* Sem isto o navegador trata o arraste como rolagem ou zoom da pagina. */
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+/* `opacity: 0` (o HUD atras das telas) nao impede toque: fora daqui. */
+body.tela-aberta #toque-controles { display: none; }
+
+#joystick-zona {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 38%;
+  height: 62%;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+#joystick-base {
+  position: absolute;
+  left: 0;
+  top: 0;
+  /* O centro da base e' o ponto do toque: o translate do JS leva o canto
+     ate' la', e a margem negativa traz o centro pro canto. */
+  width: 112px;
+  height: 112px;
+  margin: -56px 0 0 -56px;
+  border-radius: 50%;
+  border: 2px solid var(--tinta-3);
+  background: rgba(8, 10, 18, 0.35);
+  opacity: 0;
+  transition: opacity 0.12s;
+  pointer-events: none;
+}
+#toque-controles.joystick-ativo #joystick-base { opacity: 1; }
+
+#joystick-pino {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 52px;
+  height: 52px;
+  margin: -26px 0 0 -26px;
+  border-radius: 50%;
+  background: var(--tinta-2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.toque-btn {
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  min-width: 64px;
+  min-height: 48px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 2px solid var(--tinta-4);
+  background: var(--painel);
+  color: var(--tinta);
+  font-family: var(--titulo);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+}
+.toque-btn.apertado { background: var(--home); border-color: var(--tinta-2); }
+.toque-btn.grande { min-width: 84px; min-height: 84px; font-size: 17px; }
+.toque-btn.pequeno { min-width: 48px; min-height: 40px; font-size: 14px; }
+
+.toque-acoes {
+  position: absolute;
+  right: calc(16px + env(safe-area-inset-right));
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 10px;
+  justify-items: end;
+  align-items: end;
+}
+/* O PULAR ocupa o canto: e' o que o polegar acha sem olhar. */
+.toque-acoes .grande { grid-column: 2; }
+
+.toque-topo {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  left: calc(12px + env(safe-area-inset-left));
+  display: flex;
+  gap: 10px;
+}
+.toque-topo.direita { left: auto; right: calc(12px + env(safe-area-inset-right)); }
+
+/* Na areia so' ha' andar, pular e entrar numa quadra. */
+#toque-controles[data-contexto="areia"] .so-quadra { display: none; }
+
+/*
+ * Os rodapes das telas listam atalhos (SETAS, ENTER, F3). Os que sao so'
+ * texto (`span.prompt`) somem no toque; os que sao BOTAO (VOLTAR, SORTEAR)
+ * ficam, perdendo so' a tecla desenhada.
+ */
+body.toque span.prompt { display: none; }
+body.toque .prompt kbd { display: none; }
