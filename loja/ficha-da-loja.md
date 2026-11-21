@@ -79,8 +79,9 @@ Se um dia entrar placar online, anúncio ou analytics, a política
    de identidade.
 2. **`appId`** (`io.github.okaiquemota.volei3d`, em `capacitor.config.ts`) não
    muda depois do primeiro envio. Se quiser outro, troque antes.
-3. **GitHub Pages.** O workflow `pages.yml` só publica a partir do `main`. A
-   política só existe na URL acima depois que esta branch chegar lá.
+3. **GitHub Pages.** O workflow `pages.yml` publica a partir da branch padrão
+   (`claude/friendly-einstein-m5n1tm`). A política só existe na URL acima depois
+   que este trabalho for mesclado nela.
 4. **Conta pessoal nova**: teste fechado com 12 testadores por 14 dias seguidos
    antes de liberar a produção.
 
