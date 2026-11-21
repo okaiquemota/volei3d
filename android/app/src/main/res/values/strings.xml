@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Volei 3D</string>
+    <string name="title_activity_main">Volei 3D</string>
+    <string name="package_name">io.github.okaiquemota.volei3d</string>
+    <string name="custom_url_scheme">io.github.okaiquemota.volei3d</string>
+</resources>

@@ -1132,3 +1132,61 @@ export const COLORS = {
 } as const;
 
 export const STORAGE_KEY = 'volei3d.save.v1';
+
+/**
+ * Controle de TOQUE (celular e tablet).
+ *
+ * O joystick e' o polegar esquerdo; o direito toca na quadra pra mirar e
+ * segura pra carregar, exatamente como o mouse faz. Os numeros sao em PIXELS
+ * CSS, nao em metros: o que importa aqui e' o tamanho do polegar.
+ */
+export const CONTROLE_DE_TOQUE = {
+  /**
+   * Quanto o polegar anda do centro ate' a corrida cheia.
+   *
+   * 56 px e' pouco mais que a largura de um polegar adulto (~45 px CSS num
+   * celular comum). Menor que isso o atleta vai de parado a toda num tremor; maior,
+   * o polegar sai de cima do circulo antes de chegar no maximo.
+   */
+  raioDoJoystick: 56,
+  /**
+   * Fracao do raio que nao conta. Sem ela, o polegar so' APOIADO no circulo
+   * ja' faz o atleta escorregar — ninguem consegue tocar num vidro sem mexer
+   * meio milimetro.
+   */
+  zonaMorta: 0.18,
+  /**
+   * O que o arraste do dedo vale em pixels de mouse, pra girar a camera fora
+   * da quadra. O dedo cobre menos tela que o mouse por gesto, e girar meia
+   * volta pedindo tres arrastes cansa.
+   */
+  ganhoDoArraste: 1.6,
+  /**
+   * Quanto o botao de camera empurra a "roda", em pixels. Passa da faixa
+   * inteira (`CAMERA.jogoZoomPorPixel` leva ~455 px de um enquadramento ao
+   * outro), entao um toque leva direto de ombro pra tatica e vice-versa.
+   */
+  rodaDoBotaoDeCamera: 600,
+} as const;
+
+/**
+ * O que muda num CELULAR (ponteiro grosso), e so' no grafico.
+ *
+ * Nao foi medido numa placa de verdade — aqui tudo e' SwiftShader (ver
+ * CLAUDE.md, "O que NAO foi verificado"). Sao tetos conservadores, escolhidos
+ * pela conta de pixels, e a resolucao AUTO continua descendo dali se pesar.
+ */
+export const CELULAR = {
+  /**
+   * Teto da densidade de pixels. Um celular comum tem 2,6 a 3 pixels por
+   * pixel CSS; no teto de 2 do computador um 2400x1080 vira 2,6 milhoes de
+   * pixels por quadro — mais que um monitor 1080p, numa GPU de celular. Em
+   * 1,5 sao 1,5 milhao, e numa tela de 6 polegadas a diferenca nao se ve'.
+   */
+  densidadeMaxima: 1.5,
+  /**
+   * Mapa de sombra. 2048 sao 4 milhoes de texels desenhados de novo a cada
+   * quadro; 1024 e' um quarto disso, e o PCF com raio 4 borra a diferenca.
+   */
+  mapaDeSombra: 1024,
+} as const;

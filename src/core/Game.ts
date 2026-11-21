@@ -1,11 +1,12 @@
 import * as THREE from 'three';
-import { AI_SKILL, CAMERA, COLORS, COURT, ESTADIO, PASSEIO, type AiSkill } from '../config';
+import { AI_SKILL, CAMERA, CELULAR, COLORS, COURT, ESTADIO, PASSEIO, type AiSkill } from '../config';
 import { Input } from './Input';
 import { Tempo } from './Tempo';
 import { CameraRig } from './CameraRig';
 import { ResolucaoAutomatica } from './ResolucaoAutomatica';
 import { PerfMeter } from '../ui/PerfMeter';
 import { HUD } from '../ui/HUD';
+import { ControleDeToque } from '../ui/ControleDeToque';
 import { Screens, type Cenario, type PlacarDaPausa } from '../ui/Screens';
 import { Human } from '../players/Human';
 import { Banhista } from '../players/Banhista';
@@ -104,6 +105,16 @@ const MEU_NOME = 'VOCE';
  * JOGO sem pagar rasterizacao, o que aqui importa ainda mais que la': um rally
  * inteiro roda em milissegundos.
  */
+
+/** Ponteiro principal grosso: celular ou tablet. Lido uma vez, no arranque. */
+function ehCelular(): boolean {
+  return typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+}
+
+function densidadeMaxima(): number {
+  return ehCelular() ? CELULAR.densidadeMaxima : 2;
+}
+
 export class Game {
   readonly renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
@@ -258,6 +269,10 @@ export class Game {
   readonly rig: CameraRig;
 
   private hud = new HUD();
+  /** Joystick e botoes na tela. So' aparecem com o dedo; ver `ControleDeToque`. */
+  private toque: ControleDeToque;
+  /** Ha' uma quadra perto o bastante pra entrar? Escrito pelo passeio, lido pelo toque. */
+  private quadraAoAlcance = false;
   /** Publico so' pra depuracao pelo __VOLEI, como o rpk.fps faz. */
   readonly screens = new Screens();
 
@@ -293,7 +308,7 @@ export class Game {
 
   constructor(canvas: HTMLCanvasElement, renderer: THREE.WebGLRenderer) {
     this.renderer = renderer;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, densidadeMaxima()));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = true;
     /**
@@ -343,6 +358,7 @@ export class Game {
     );
 
     this.input = new Input(canvas);
+    this.toque = new ControleDeToque(this.input);
 
     /**
      * Monta a praia inteira.
@@ -450,7 +466,8 @@ export class Game {
     sol.shadow.camera.bottom = -alcance;
     sol.shadow.camera.near = 1;
     sol.shadow.camera.far = 80;
-    sol.shadow.mapSize.set(2048, 2048);
+    const mapa = ehCelular() ? CELULAR.mapaDeSombra : 2048;
+    sol.shadow.mapSize.set(mapa, mapa);
 
     /**
      * O quanto a borda borra, e o quanto a sombra escurece.
@@ -1191,6 +1208,12 @@ export class Game {
     // botao no amistoso: no circuito, repetir a partida perdida apagaria a
     // derrota.
 
+    this.toque.atualizar({
+      contexto: this.player ? 'quadra' : 'areia',
+      podeTrocarDeLugar: this.player ? this.modo === 'amistoso' : this.quadraAoAlcance,
+      cameraLonge: this.rig.estaLonge,
+    });
+
     this.hud.update(dt);
     this.render();
     this.input.endFrame();
@@ -1424,6 +1447,7 @@ export class Game {
    * quadra na tela.
    */
   private atualizarPasseio(): void {
+    this.quadraAoAlcance = false;
     if (this.rig.modoAtual !== 'passeio') {
       this.hud.dicaDaPraia(null);
       return;
@@ -1437,9 +1461,11 @@ export class Game {
     if (perto.distancia > PASSEIO.alcanceDeEntrada) {
       // Longe de tudo, a dica vira o aviso de que o mouse esta' solto — que e'
       // a unica coisa que o jogador precisa saber pra girar a camera de novo.
-      this.hud.dicaDaPraia(this.input.ponteiroTravado ? null : 'GIRAR A CAMERA COM O MOUSE', 'CLIQUE');
+      if (this.input.usandoToque) this.hud.dicaDaPraia('ARRASTE O DEDO PRA GIRAR A CAMERA');
+      else this.hud.dicaDaPraia(this.input.ponteiroTravado ? null : 'GIRAR A CAMERA COM O MOUSE', 'CLIQUE');
       return;
     }
+    this.quadraAoAlcance = true;
 
     const nome = PRAIA[this.arenas.indexOf(perto.arena)]?.nome ?? perto.arena.id;
     const cor = perto.lado === 'home' ? 'AZUL' : 'VERMELHO';
@@ -1646,7 +1672,7 @@ export class Game {
 
   /** So' a densidade de pixels: e' o que a resolucao automatica muda. */
   private aplicarEscala(): void {
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * this.escalaDeResolucao);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, densidadeMaxima()) * this.escalaDeResolucao);
   }
 
   private onResize = (): void => {

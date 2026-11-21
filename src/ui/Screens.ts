@@ -362,8 +362,13 @@ export class Screens {
    */
   private montarControles(): void {
     const alvo = elemento('controles');
-    for (const grupo of elemento('manual').querySelectorAll('.grupo-teclas')) {
-      alvo.append(grupo.cloneNode(true));
+    // As duas legendas entram; o CSS mostra a do dispositivo (`body.toque`).
+    for (const [origem, classe] of [['manual', 'so-teclado'], ['manual-toque', 'so-toque']] as const) {
+      for (const grupo of elemento(origem).querySelectorAll('.grupo-teclas')) {
+        const copia = grupo.cloneNode(true) as HTMLElement;
+        copia.classList.add(classe);
+        alvo.append(copia);
+      }
     }
   }
 

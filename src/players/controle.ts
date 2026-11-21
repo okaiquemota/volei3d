@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Input } from '../core/Input';
+import { clamp } from '../core/math';
 
 const _frente = new THREE.Vector3();
 const _direita = new THREE.Vector3();
@@ -23,6 +24,10 @@ export function direcaoDoTeclado(
           - (input.isDown('KeyA') || input.isDown('ArrowLeft') ? 1 : 0);
   const z = (input.isDown('KeyW') || input.isDown('ArrowUp') ? 1 : 0)
           - (input.isDown('KeyS') || input.isDown('ArrowDown') ? 1 : 0);
+  // O joystick de toque soma por cima do teclado. Os dois juntos passam de 1
+  // na diagonal, e quem corta e' o `Motor.moverPara`, que normaliza.
+  const ax = clamp(x + input.eixoX, -1, 1);
+  const az = clamp(z + input.eixoZ, -1, 1);
 
   if (camera) {
     camera.getWorldDirection(_frente);
@@ -45,6 +50,6 @@ export function direcaoDoTeclado(
   }
 
   return out.set(0, 0, 0)
-    .addScaledVector(_frente, z)
-    .addScaledVector(_direita, x);
+    .addScaledVector(_frente, az)
+    .addScaledVector(_direita, ax);
 }

@@ -48,6 +48,13 @@ npm run build:single # dist/volei3d.html — joga com duplo clique, offline
 | Câmera lenta | Segurar `Shift` |
 | Forçar o ataque com carga baixa | Segurar `F` no contato |
 | Trocar o enquadramento (ombro ↔ tática) | Roda do mouse |
+
+**No celular** (deitado): o polegar esquerdo em qualquer ponto da metade
+esquerda vira um joystick — perto do centro anda, longe corre. **Tocar na quadra
+é o mouse**: o ponto tocado é a mira, segurar carrega o ataque, soltar bate.
+Botões à direita: PULAR, LEVANTAR, MERGULHO, LENTO e FORCAR (um toque rápido
+por cima da rede); no alto, pausa, sair/entrar e CAM. Na areia, arrastar o dedo
+gira a câmera.
 | Girar a câmera (só fora da quadra) | Mover o mouse |
 | Assistir outra quadra | `[` e `]` |
 | Voltar a câmera pra você | `Tab` |
@@ -863,6 +870,21 @@ publica `dist/`. Em **Settings → Pages → Source**, escolha **"GitHub Actions
 
 O build leva menos de um minuto. Sem licença, sem cache de 7 GB, sem limpeza de
 disco no runner.
+
+### Android (Play Store)
+
+O app é a mesma página empacotada pelo [Capacitor](https://capacitorjs.com),
+inteira dentro do APK — roda sem internet. Com o Android Studio instalado:
+
+```bash
+npm run build:android   # build sem sourcemap em dist-android/ + cap sync
+npx cap open android    # abre no Android Studio: Build > Generate Signed App Bundle
+```
+
+Paisagem travada, tela cheia, e o voltar do Android é o `Esc` do jogo. Ícone,
+splash e imagens da loja saem de `scripts/gerar-icones.mjs`; o texto da ficha,
+a política de privacidade e o que falta fazer no Play Console estão em
+[`loja/ficha-da-loja.md`](loja/ficha-da-loja.md).
 
 ---
 

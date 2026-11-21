@@ -12,3 +12,9 @@ medir.mjs
 testesingle.mjs
 testemanual.mjs
 verifica.mjs
+dist-android/
+
+# Os PNG do app Android e da loja SAO do projeto (gerados por
+# `scripts/gerar-icones.mjs`); o `*.png` acima e' pras capturas de conferencia.
+!android/app/src/main/res/**/*.png
+!loja/*.png
