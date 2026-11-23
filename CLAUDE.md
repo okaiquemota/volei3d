@@ -2086,6 +2086,13 @@ O botão VOLTAR do Android **fabrica um Esc** (`src/android.ts`): pausa em quadr
 volta uma tela no menu. No menu principal ele minimiza em vez de fechar, que
 perderia a partida pausada.
 
+**Plugin do Capacitor se registra pelo nome, não se importa do pacote.** O
+`@capacitor/app` traz a versão web dele por `import()` dinâmico, o bundle sai em
+dois `.js`, e o `build:single` recusa — foi o que derrubou o deploy do Pages no
+merge do PR #1. `npm test` e `npm run build` passavam; só o arquivo único pegava.
+`registerPlugin<AppPlugin>('App')` sem implementação web não tem `import()`. Ao
+mexer em dependência, rode também `node scripts/build-single.mjs`: o workflow roda.
+
 O app é Capacitor e não TWA porque o jogo é inteiro local: vai no pacote, roda
 sem internet e dispensa o `assetlinks.json` na raiz de um domínio. O build do
 app (`--mode android`) sai em `dist-android/` **sem sourcemap** — eram 4 MB
